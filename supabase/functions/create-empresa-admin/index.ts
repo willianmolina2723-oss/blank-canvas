@@ -72,19 +72,30 @@ Deno.serve(async (req) => {
 
     const userId = authData.user.id
 
-    // 3. Create profile
-    await supabaseAdmin.from('profiles').insert({
-      user_id: userId,
+    // 3. Update profile (trigger handle_new_user already created it without empresa_id)
+    const { error: profileUpdateError } = await supabaseAdmin.from('profiles').update({
       full_name: admin_name,
       email: admin_email,
       empresa_id: newEmpresa.id,
       must_change_password: true,
-    })
+    }).eq('user_id', userId)
+
+    // If update didn't match (trigger didn't fire yet), insert
+    if (profileUpdateError) {
+      await supabaseAdmin.from('profiles').insert({
+        user_id: userId,
+        full_name: admin_name,
+        email: admin_email,
+        empresa_id: newEmpresa.id,
+        must_change_password: true,
+      })
+    }
 
     // 4. Assign admin role
     await supabaseAdmin.from('user_roles').insert({
       user_id: userId,
       role: 'admin',
+      empresa_id: newEmpresa.id,
     })
 
     return new Response(JSON.stringify({ success: true, empresa_id: newEmpresa.id }), {
