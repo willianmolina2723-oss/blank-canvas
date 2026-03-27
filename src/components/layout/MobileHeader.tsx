@@ -6,8 +6,7 @@ import {
   LayoutGrid, FileText, Users, LogOut, Truck, Calendar, Archive,
   Menu, X, DollarSign, Briefcase, Crown, Settings,
 } from 'lucide-react';
-import logoWhite from '@/assets/logo-white.png';
-import logoFullWhite from '@/assets/logo-full-white.png';
+import { Shield } from 'lucide-react';
 
 export function MobileHeader() {
   const { profile, signOut, isAdmin, isSuperAdmin, empresa } = useAuth();

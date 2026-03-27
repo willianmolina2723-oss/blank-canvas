@@ -1,6 +1,4 @@
 import { useState, lazy, Suspense } from 'react';
-import heroImage from '@/assets/hero-ambulance.jpg';
-import logoBlackShield from '@/assets/logo-black-shield.png';
 import { Link } from 'react-router-dom';
 const ReviewsSection = lazy(() => import('@/components/reviews/ReviewsSection'));
 import { Button } from '@/components/ui/button';

@@ -5,8 +5,7 @@ import {
   LayoutGrid, FileText, Users, LogOut, Truck, Calendar, Archive,
   DollarSign, Briefcase, Crown, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import logoWhite from '@/assets/logo-white.png';
-import logoFullWhite from '@/assets/logo-full-white.png';
+import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSidebarState } from './SidebarState';
 import {
