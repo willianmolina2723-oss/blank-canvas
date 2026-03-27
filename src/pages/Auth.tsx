@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail, Lock } from 'lucide-react';
-import logoBlackShield from '@/assets/logo-black-shield.png';
+import { Loader2, Mail, Lock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { passwordSchema } from '@/utils/passwordValidation';
@@ -72,7 +71,7 @@ export default function Auth() {
         {/* Logo */}
         <div className="flex flex-col items-center space-y-2">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <img src={logoBlackShield} alt="SAPH" className="h-10 w-10 object-contain brightness-0 invert" />
+            <Shield className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">SAPH</h1>
           <p className="text-sm text-muted-foreground text-center">
