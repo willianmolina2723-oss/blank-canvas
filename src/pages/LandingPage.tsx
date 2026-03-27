@@ -175,7 +175,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroImage} alt="Equipe de atendimento pré-hospitalar" className="h-full w-full object-cover" fetchPriority="high" />
+          <div className="h-full w-full bg-gradient-to-br from-primary/20 via-background to-background" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/30" />
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
         </div>

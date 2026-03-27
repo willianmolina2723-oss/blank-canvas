@@ -86,7 +86,10 @@ export function MobileHeader() {
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <img src={logoFullWhite} alt="SAPH" className="h-10" />
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-white font-bold text-lg">SAPH</span>
+            </div>
             <button
               onClick={() => setSidebarOpen(false)}
               className="flex items-center justify-center h-10 w-10 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all"

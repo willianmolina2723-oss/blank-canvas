@@ -105,7 +105,10 @@ export function AppSidebar() {
           </Tooltip>
         ) : (
           <>
-            <img src={logoFullWhite} alt="SAPH" className="h-9" />
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-white font-bold">SAPH</span>
+            </div>
             <button
               onClick={() => setCollapsed(true)}
               className="flex items-center justify-center h-8 w-8 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all"

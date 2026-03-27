@@ -145,8 +145,11 @@ export function Header() {
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <div className="flex items-center">
-              <img src={logoFullWhite} alt="SAPH" className="h-10" />
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+                <Shield className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <span className="text-white font-bold text-lg">SAPH</span>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
