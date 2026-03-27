@@ -71,7 +71,7 @@ export default function Auth() {
         {/* Logo */}
         <div className="flex flex-col items-center space-y-2">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <img src={logoBlackShield} alt="SAPH" className="h-10 w-10 object-contain brightness-0 invert" />
+            <Shield className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">SAPH</h1>
           <p className="text-sm text-muted-foreground text-center">
