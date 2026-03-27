@@ -148,7 +148,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md">
-              <img src={logoBlackShield} alt="SAPH" className="h-7 w-7 object-contain brightness-0 invert" />
+              <Shield className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
               <span className="text-xl font-bold tracking-tight">SAPH</span>
