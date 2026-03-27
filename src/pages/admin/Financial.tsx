@@ -172,13 +172,13 @@ export default function Financial() {
       (eventsData || []).forEach((ev: any) => {
         if (!ev.ambulance_id) return;
         const kmPerLiter = ambulanceMap.get(ev.ambulance_id);
-        if (!kmPerLiter || kmPerLiter <= 0) return;
+        if (!kmPerLiter || Number(kmPerLiter) <= 0) return;
         // Find transport record for this event
         const tr = (transports || []).find((t: any) => t.event_id === ev.id);
         if (!tr || !tr.initial_km || !tr.final_km) return;
         const kmDriven = Number(tr.final_km) - Number(tr.initial_km);
         if (kmDriven > 0) {
-          totalFuelCosts += (kmDriven / kmPerLiter) * DIESEL_PRICE;
+          totalFuelCosts += (kmDriven / Number(kmPerLiter)) * DIESEL_PRICE;
         }
       });
 
