@@ -99,7 +99,6 @@ export function AppSidebar() {
               >
                 <Shield className="h-6 w-6 text-primary" />
               </button>
-              </button>
             </TooltipTrigger>
             <TooltipContent side="right">Expandir menu</TooltipContent>
           </Tooltip>
