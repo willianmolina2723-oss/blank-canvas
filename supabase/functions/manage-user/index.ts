@@ -24,19 +24,40 @@ Deno.serve(async (req) => {
     const { data: roleCheck } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', caller.id).eq('role', 'admin').maybeSingle()
     if (!saCheck && !roleCheck) throw new Error('Apenas administradores podem gerenciar usuários')
 
-    const { action, user_id } = await req.json()
-    if (!action || !user_id) throw new Error('action e user_id são obrigatórios')
+    const body = await req.json()
+    const { action, user_id, user_ids } = body
+    
+    if (!action) throw new Error('action é obrigatório')
 
+    // Handle list action separately
+    if (action === 'list') {
+      if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+        return new Response(JSON.stringify({ users: {} }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const users: Record<string, { isSuspended: boolean }> = {}
+      for (const uid of user_ids) {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(uid)
+        const { data: profile } = await supabaseAdmin.from('profiles').select('deleted_at').eq('user_id', uid).maybeSingle()
+        users[uid] = { 
+          isSuspended: !!profile?.deleted_at || !!authUser?.user?.banned_until 
+        }
+      }
+      return new Response(JSON.stringify({ users }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!user_id) throw new Error('user_id é obrigatório')
     if (user_id === caller.id) throw new Error('Não é possível modificar sua própria conta')
 
     switch (action) {
       case 'suspend': {
-        // Soft delete - set deleted_at
         await supabaseAdmin.from('profiles').update({
           deleted_at: new Date().toISOString(),
           deleted_by: caller.id,
         }).eq('user_id', user_id)
-        // Ban the auth user
         await supabaseAdmin.auth.admin.updateUserById(user_id, { ban_duration: '876000h' })
         break
       }
