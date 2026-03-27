@@ -97,7 +97,8 @@ export function AppSidebar() {
                 onClick={() => setCollapsed(false)}
                 className="flex items-center justify-center h-10 w-10 rounded-xl hover:bg-white/10 transition-all"
               >
-                <img src={logoWhite} alt="SAPH" className="h-8 w-8 rounded-lg" />
+                <Shield className="h-6 w-6 text-primary" />
+              </button>
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">Expandir menu</TooltipContent>
