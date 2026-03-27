@@ -106,11 +106,7 @@ function PlanProtectedRoute({ module, children }: { module: SaaSModule; children
   const { canAccess } = usePlanAccess();
 
   if (!canAccess(module)) {
-    return (
-      <MainLayout>
-        <PlanBlockedPage module={module} />
-      </MainLayout>
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
