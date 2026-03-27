@@ -56,8 +56,10 @@ export function MobileHeader() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Link to="/" className="flex items-center hover:opacity-90 transition-opacity flex-shrink-0">
-              <img src={logoWhite} alt="SAPH" className="h-10 w-10 rounded-xl" />
+            <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+                <Shield className="h-6 w-6 text-primary-foreground" />
+              </div>
             </Link>
             <div className="flex-1" />
             <button
