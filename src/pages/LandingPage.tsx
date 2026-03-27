@@ -1,6 +1,4 @@
 import { useState, lazy, Suspense } from 'react';
-import heroImage from '@/assets/hero-ambulance.jpg';
-import logoBlackShield from '@/assets/logo-black-shield.png';
 import { Link } from 'react-router-dom';
 const ReviewsSection = lazy(() => import('@/components/reviews/ReviewsSection'));
 import { Button } from '@/components/ui/button';
@@ -150,7 +148,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md">
-              <img src={logoBlackShield} alt="SAPH" className="h-7 w-7 object-contain brightness-0 invert" />
+              <Shield className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
               <span className="text-xl font-bold tracking-tight">SAPH</span>
@@ -177,7 +175,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroImage} alt="Equipe de atendimento pré-hospitalar" className="h-full w-full object-cover" fetchPriority="high" />
+          <div className="h-full w-full bg-gradient-to-br from-primary/20 via-background to-background" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/30" />
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
         </div>

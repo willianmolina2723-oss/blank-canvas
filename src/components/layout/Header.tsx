@@ -17,8 +17,7 @@ import {
   Crown,
   Settings,
 } from 'lucide-react';
-import logoWhite from '@/assets/logo-white.png';
-import logoFullWhite from '@/assets/logo-full-white.png';
+import { Shield } from 'lucide-react';
 
 export function Header() {
   const { profile, signOut, isAdmin, isSuperAdmin, empresa } = useAuth();
@@ -72,9 +71,11 @@ export function Header() {
             </button>
 
             {/* Logo */}
-            <Link to="/" className="flex items-center hover:opacity-90 transition-opacity flex-shrink-0">
-              <img src={logoWhite} alt="SAPH" className="h-10 w-10 rounded-xl lg:hidden" />
-              <img src={logoFullWhite} alt="SAPH - Sistema de Gestão Pré-Hospitalar" className="hidden lg:block h-10" />
+            <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+                <Shield className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <span className="hidden lg:block text-white font-bold text-lg">SAPH</span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -144,8 +145,11 @@ export function Header() {
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <div className="flex items-center">
-              <img src={logoFullWhite} alt="SAPH" className="h-10" />
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+                <Shield className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <span className="text-white font-bold text-lg">SAPH</span>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}

@@ -6,8 +6,7 @@ import {
   LayoutGrid, FileText, Users, LogOut, Truck, Calendar, Archive,
   Menu, X, DollarSign, Briefcase, Crown, Settings,
 } from 'lucide-react';
-import logoWhite from '@/assets/logo-white.png';
-import logoFullWhite from '@/assets/logo-full-white.png';
+import { Shield } from 'lucide-react';
 
 export function MobileHeader() {
   const { profile, signOut, isAdmin, isSuperAdmin, empresa } = useAuth();
@@ -57,8 +56,10 @@ export function MobileHeader() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Link to="/" className="flex items-center hover:opacity-90 transition-opacity flex-shrink-0">
-              <img src={logoWhite} alt="SAPH" className="h-10 w-10 rounded-xl" />
+            <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+                <Shield className="h-6 w-6 text-primary-foreground" />
+              </div>
             </Link>
             <div className="flex-1" />
             <button
@@ -85,7 +86,10 @@ export function MobileHeader() {
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <img src={logoFullWhite} alt="SAPH" className="h-10" />
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-white font-bold text-lg">SAPH</span>
+            </div>
             <button
               onClick={() => setSidebarOpen(false)}
               className="flex items-center justify-center h-10 w-10 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all"

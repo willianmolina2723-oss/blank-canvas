@@ -5,8 +5,7 @@ import {
   LayoutGrid, FileText, Users, LogOut, Truck, Calendar, Archive,
   DollarSign, Briefcase, Crown, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import logoWhite from '@/assets/logo-white.png';
-import logoFullWhite from '@/assets/logo-full-white.png';
+import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSidebarState } from './SidebarState';
 import {
@@ -98,14 +97,17 @@ export function AppSidebar() {
                 onClick={() => setCollapsed(false)}
                 className="flex items-center justify-center h-10 w-10 rounded-xl hover:bg-white/10 transition-all"
               >
-                <img src={logoWhite} alt="SAPH" className="h-8 w-8 rounded-lg" />
+                <Shield className="h-6 w-6 text-primary" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">Expandir menu</TooltipContent>
           </Tooltip>
         ) : (
           <>
-            <img src={logoFullWhite} alt="SAPH" className="h-9" />
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-white font-bold">SAPH</span>
+            </div>
             <button
               onClick={() => setCollapsed(true)}
               className="flex items-center justify-center h-8 w-8 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all"
