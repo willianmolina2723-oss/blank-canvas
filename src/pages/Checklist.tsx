@@ -35,7 +35,7 @@ const ITEMS_WITH_NOTES = [
 export default function Checklist() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { profile, roles } = useAuth();
+  const { profile, roles, user } = useAuth();
   const { toast } = useToast();
   
   const [items, setItems] = useState<ChecklistItem[]>([]);
