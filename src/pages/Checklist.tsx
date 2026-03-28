@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2, Video } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UTIConditionsTab } from '@/components/checklist/UTIConditionsTab';
+import { ChecklistVideoTab } from '@/components/checklist/ChecklistVideoTab';
 import type { ChecklistItem } from '@/types/database';
 
 const DEFAULT_ITEMS = [
@@ -34,7 +35,7 @@ const ITEMS_WITH_NOTES = [
 export default function Checklist() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { profile, roles } = useAuth();
+  const { profile, roles, user } = useAuth();
   const { toast } = useToast();
   
   const [items, setItems] = useState<ChecklistItem[]>([]);
@@ -72,7 +73,7 @@ export default function Checklist() {
       // Filter out the flag and other types from displayed items
       const displayItems = loaded.filter(i => {
         const t = i.item_type as string;
-        return t !== 'checklist_confirmed' && t !== 'uti' && t !== 'uti_confirmed' && t !== 'psicotropicos' && t !== 'psicotropicos_confirmed';
+        return t !== 'checklist_confirmed' && t !== 'uti' && t !== 'uti_confirmed' && t !== 'psicotropicos' && t !== 'psicotropicos_confirmed' && !t.startsWith('video_') && t !== 'videos_confirmed';
       });
       
       if (displayItems.length === 0 && (canCheck || canManageItems)) {
@@ -346,13 +347,17 @@ export default function Checklist() {
 
         <Tabs defaultValue="equipamentos" className="w-full">
           <TabsList className="w-full">
-            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5">
+            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5 text-xs">
               <ClipboardCheck className="h-4 w-4" />
-              Equipamentos
+              Equip.
             </TabsTrigger>
-            <TabsTrigger value="uti" className="flex-1 gap-1.5">
+            <TabsTrigger value="uti" className="flex-1 gap-1.5 text-xs">
               <Car className="h-4 w-4" />
-              Condições da UTI
+              UTI
+            </TabsTrigger>
+            <TabsTrigger value="videos" className="flex-1 gap-1.5 text-xs">
+              <Video className="h-4 w-4" />
+              Vídeos
             </TabsTrigger>
           </TabsList>
 
@@ -424,6 +429,16 @@ export default function Checklist() {
 
           <TabsContent value="uti" className="mt-4">
             <UTIConditionsTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
+          </TabsContent>
+
+          <TabsContent value="videos" className="mt-4">
+            <ChecklistVideoTab
+              eventId={eventId!}
+              canCheck={canCheck}
+              profileId={profile?.id}
+              empresaId={profile?.empresa_id}
+              userId={user?.id}
+            />
           </TabsContent>
         </Tabs>
       </div>
