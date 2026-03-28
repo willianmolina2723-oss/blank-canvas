@@ -347,13 +347,17 @@ export default function Checklist() {
 
         <Tabs defaultValue="equipamentos" className="w-full">
           <TabsList className="w-full">
-            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5">
+            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5 text-xs">
               <ClipboardCheck className="h-4 w-4" />
-              Equipamentos
+              Equip.
             </TabsTrigger>
-            <TabsTrigger value="uti" className="flex-1 gap-1.5">
+            <TabsTrigger value="uti" className="flex-1 gap-1.5 text-xs">
               <Car className="h-4 w-4" />
-              Condições da UTI
+              UTI
+            </TabsTrigger>
+            <TabsTrigger value="videos" className="flex-1 gap-1.5 text-xs">
+              <Video className="h-4 w-4" />
+              Vídeos
             </TabsTrigger>
           </TabsList>
 
