@@ -430,6 +430,16 @@ export default function Checklist() {
           <TabsContent value="uti" className="mt-4">
             <UTIConditionsTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
           </TabsContent>
+
+          <TabsContent value="videos" className="mt-4">
+            <ChecklistVideoTab
+              eventId={eventId!}
+              canCheck={canCheck}
+              profileId={profile?.id}
+              empresaId={profile?.empresa_id}
+              userId={user?.id}
+            />
+          </TabsContent>
         </Tabs>
       </div>
     </MainLayout>
