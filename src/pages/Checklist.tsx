@@ -73,7 +73,7 @@ export default function Checklist() {
       // Filter out the flag and other types from displayed items
       const displayItems = loaded.filter(i => {
         const t = i.item_type as string;
-        return t !== 'checklist_confirmed' && t !== 'uti' && t !== 'uti_confirmed' && t !== 'psicotropicos' && t !== 'psicotropicos_confirmed';
+        return t !== 'checklist_confirmed' && t !== 'uti' && t !== 'uti_confirmed' && t !== 'psicotropicos' && t !== 'psicotropicos_confirmed' && !t.startsWith('video_') && t !== 'videos_confirmed';
       });
       
       if (displayItems.length === 0 && (canCheck || canManageItems)) {
