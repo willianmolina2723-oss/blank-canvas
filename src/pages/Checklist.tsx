@@ -36,7 +36,7 @@ const ITEMS_WITH_NOTES = [
 export default function Checklist() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { profile, roles, user } = useAuth();
+  const { profile, roles } = useAuth();
   const { toast } = useToast();
   
   const [items, setItems] = useState<ChecklistItem[]>([]);
@@ -442,7 +442,6 @@ export default function Checklist() {
               canCheck={canCheck}
               profileId={profile?.id}
               empresaId={profile?.empresa_id}
-              userId={user?.id}
             />
           </TabsContent>
 
