@@ -445,6 +445,10 @@ export default function Checklist() {
               userId={user?.id}
             />
           </TabsContent>
+
+          <TabsContent value="combustivel" className="mt-4">
+            <ChecklistFuelTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
+          </TabsContent>
         </Tabs>
       </div>
     </MainLayout>
