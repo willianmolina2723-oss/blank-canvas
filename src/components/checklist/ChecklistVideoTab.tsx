@@ -60,12 +60,17 @@ interface Props {
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const getSupportedMimeType = (): string => {
-  if (isIOS()) return 'video/mp4';
-  const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
-  for (const type of types) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+  if (typeof MediaRecorder === 'undefined') return 'video/mp4';
+  // iOS Safari only supports mp4
+  if (isIOS()) {
+    if (MediaRecorder.isTypeSupported('video/mp4')) return 'video/mp4';
+    return ''; // let browser choose default
   }
-  return 'video/webm';
+  const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
 };
 
 const getExtension = (mime: string) => mime.includes('mp4') ? 'mp4' : 'webm';
