@@ -185,7 +185,6 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <EventProvider>
-            <NotificationPermission />
             <AppRoutes />
           </EventProvider>
         </AuthProvider>

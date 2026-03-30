@@ -5,70 +5,75 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const SETUP_REQUIRED_MESSAGE = 'Tabela public.event_recordings ou bucket checklist-videos não configurados. Execute o SQL de setup antes de gravar vídeos.'
-
-function isMissingRelationError(message?: string | null) {
-  return !!message && (
-    message.includes("Could not find the table 'public.event_recordings' in the schema cache") ||
-    message.includes('relation "public.event_recordings" does not exist') ||
-    message.includes('relation "event_recordings" does not exist')
+function createAdmin() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
 
-async function ensureRecordingTableExists(supabaseAdmin: ReturnType<typeof createClient>) {
-  const { error } = await supabaseAdmin
-    .from('event_recordings')
-    .select('id', { count: 'exact', head: true })
+async function getUser(supabase: ReturnType<typeof createClient>, authHeader: string) {
+  const { data: { user }, error } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+  if (error || !user) throw new Error('Não autorizado')
+  return user
+}
 
-  if (isMissingRelationError(error?.message)) {
-    throw new Error(SETUP_REQUIRED_MESSAGE)
-  }
-
-  if (error) throw new Error(error.message)
+async function getProfile(supabase: ReturnType<typeof createClient>, userId: string) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, empresa_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!data) throw new Error('Perfil não encontrado')
+  return data
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-
+    const supabase = createAdmin()
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Não autorizado')
-    const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (!user) throw new Error('Não autorizado')
+    if (!authHeader) return json({ error: 'Não autorizado' }, 401)
 
+    const user = await getUser(supabase, authHeader)
     const body = await req.json()
     const { action } = body
 
-    await ensureRecordingTableExists(supabaseAdmin)
+    // ── LIST ──
+    if (action === 'list') {
+      const { event_id } = body
+      if (!event_id) return json({ error: 'event_id é obrigatório' }, 400)
 
-    // Get caller profile
-    const { data: callerProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id, empresa_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
+      const { data, error } = await supabase
+        .from('event_recordings')
+        .select('*')
+        .eq('event_id', event_id)
+        .order('created_at', { ascending: true })
 
-    if (!callerProfile) throw new Error('Perfil não encontrado')
+      if (error) throw new Error(error.message)
+      return json({ recordings: data || [] })
+    }
 
+    // ── START ──
     if (action === 'start') {
       const { event_id, video_type, device_info, latitude, longitude } = body
-      if (!event_id || !video_type) throw new Error('event_id e video_type são obrigatórios')
+      if (!event_id || !video_type) return json({ error: 'event_id e video_type são obrigatórios' }, 400)
 
+      const profile = await getProfile(supabase, user.id)
       const now = new Date().toISOString()
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('event_recordings')
         .insert({
           event_id,
           user_id: user.id,
-          profile_id: callerProfile.id,
-          empresa_id: callerProfile.empresa_id,
+          profile_id: profile.id,
+          empresa_id: profile.empresa_id,
           video_type,
           started_at: now,
           device_info: device_info || null,
@@ -79,33 +84,28 @@ Deno.serve(async (req) => {
         .select('id, started_at')
         .single()
 
-      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
-
-      return new Response(JSON.stringify({ recording: data, server_time: now }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return json({ recording: data, server_time: now })
     }
 
+    // ── FINISH ──
     if (action === 'finish') {
       const { recording_id, video_url, file_hash, file_size_bytes } = body
-      if (!recording_id) throw new Error('recording_id é obrigatório')
+      if (!recording_id) return json({ error: 'recording_id é obrigatório' }, 400)
 
-      // Get the recording to calculate duration
-      const { data: rec } = await supabaseAdmin
+      const { data: rec } = await supabase
         .from('event_recordings')
         .select('started_at, user_id')
         .eq('id', recording_id)
         .single()
 
-      if (!rec) throw new Error('Gravação não encontrada')
-      if (rec.user_id !== user.id) throw new Error('Sem permissão')
+      if (!rec) return json({ error: 'Gravação não encontrada' }, 404)
+      if (rec.user_id !== user.id) return json({ error: 'Sem permissão' }, 403)
 
       const now = new Date()
-      const startedAt = new Date(rec.started_at)
-      const durationSeconds = Math.round((now.getTime() - startedAt.getTime()) / 1000)
+      const durationSeconds = Math.round((now.getTime() - new Date(rec.started_at).getTime()) / 1000)
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('event_recordings')
         .update({
           ended_at: now.toISOString(),
@@ -119,90 +119,49 @@ Deno.serve(async (req) => {
         .select()
         .single()
 
-      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
-
-      return new Response(JSON.stringify({ recording: data }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return json({ recording: data })
     }
 
-    if (action === 'list') {
-      const { event_id } = body
-      if (!event_id) throw new Error('event_id é obrigatório')
-
-      const { data, error } = await supabaseAdmin
-        .from('event_recordings')
-        .select('*')
-        .eq('event_id', event_id)
-        .order('created_at', { ascending: true })
-
-      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
-      if (error) throw new Error(error.message)
-
-      return new Response(JSON.stringify({ recordings: data || [] }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
+    // ── DELETE ──
     if (action === 'delete') {
       const { recording_id } = body
-      if (!recording_id) throw new Error('recording_id é obrigatório')
+      if (!recording_id) return json({ error: 'recording_id é obrigatório' }, 400)
 
-      // Only admins can delete
-      const { data: isAdmin } = await supabaseAdmin.rpc('is_admin')
-      const { data: isSuperAdmin } = await supabaseAdmin.rpc('is_super_admin')
-      
-      // Check admin via user_roles table directly
-      const { data: adminRole } = await supabaseAdmin
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle()
+      // Check admin via user_roles or super_admins
+      const [{ data: adminRole }, { data: superAdmin }] = await Promise.all([
+        supabase.from('user_roles').select('id').eq('user_id', user.id).eq('role', 'admin').maybeSingle(),
+        supabase.from('super_admins').select('id').eq('user_id', user.id).maybeSingle(),
+      ])
 
-      const { data: superAdmin } = await supabaseAdmin
-        .from('super_admins')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      if (!adminRole && !superAdmin) return json({ error: 'Apenas administradores podem deletar gravações' }, 403)
 
-      if (!adminRole && !superAdmin) {
-        throw new Error('Apenas administradores podem deletar gravações')
-      }
-
-      // Get recording to delete file from storage
-      const { data: rec } = await supabaseAdmin
+      // Get recording to remove file from storage
+      const { data: rec } = await supabase
         .from('event_recordings')
         .select('video_url')
         .eq('id', recording_id)
         .single()
 
       if (rec?.video_url) {
-        // Extract path from URL
-        const urlParts = rec.video_url.split('/checklist-videos/')
-        if (urlParts[1]) {
-          await supabaseAdmin.storage.from('checklist-videos').remove([urlParts[1]])
+        const parts = rec.video_url.split('/checklist-videos/')
+        if (parts[1]) {
+          await supabase.storage.from('checklist-videos').remove([parts[1]])
         }
       }
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('event_recordings')
         .delete()
         .eq('id', recording_id)
 
-      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return json({ success: true })
     }
 
-    throw new Error(`Ação inválida: ${action}`)
+    return json({ error: `Ação inválida: ${action}` }, 400)
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    console.error('manage-recording error:', err.message)
+    return json({ error: err.message }, 400)
   }
 })

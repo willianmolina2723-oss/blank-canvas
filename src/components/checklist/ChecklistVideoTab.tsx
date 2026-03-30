@@ -322,18 +322,26 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       if (data?.error) throw new Error(data.error);
       setCurrentRecordingId(data.recording.id);
 
-      // Get canvas stream (video with timestamp baked in) + audio from original stream
-      const canvasStream = canvasRef.current.captureStream(30);
-      const audioTracks = streamRef.current.getAudioTracks();
-      audioTracks.forEach(track => canvasStream.addTrack(track));
-      canvasStreamRef.current = canvasStream;
+      // On iOS, captureStream on canvas is unreliable. Use the raw camera stream instead
+      // and rely on the canvas for visual preview only.
+      const useCanvasStream = !isIOS() && typeof canvasRef.current.captureStream === 'function';
 
-      // Start MediaRecorder on the canvas stream
+      let recordStream: MediaStream;
+      if (useCanvasStream) {
+        const canvasStream = canvasRef.current.captureStream(30);
+        const audioTracks = streamRef.current.getAudioTracks();
+        audioTracks.forEach(track => canvasStream.addTrack(track));
+        canvasStreamRef.current = canvasStream;
+        recordStream = canvasStream;
+      } else {
+        // Fallback: record raw camera stream (timestamp only in metadata)
+        recordStream = streamRef.current;
+      }
+
       chunksRef.current = [];
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {};
-
-      if (typeof MediaRecorder !== 'undefined') {
+      if (mimeType) {
         try {
           if (MediaRecorder.isTypeSupported(mimeType)) {
             options.mimeType = mimeType;
@@ -341,7 +349,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         } catch { /* ignore */ }
       }
 
-      const mr = new MediaRecorder(canvasStream, options);
+      const mr = new MediaRecorder(recordStream, options);
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => handleRecordingDone(data.recording.id);
       mr.onerror = (e) => {
