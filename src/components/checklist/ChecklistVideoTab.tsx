@@ -54,10 +54,8 @@ interface Props {
   userId?: string;
 }
 
-// Detect iOS
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-// Get supported mime type
 const getSupportedMimeType = (): string => {
   if (isIOS()) return 'video/mp4';
   const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
@@ -67,30 +65,36 @@ const getSupportedMimeType = (): string => {
   return 'video/webm';
 };
 
-// Get file extension from mime type
 const getExtension = (mime: string) => mime.includes('mp4') ? 'mp4' : 'webm';
 
-// Generate SHA-256 hash of a blob
 async function hashBlob(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Get device info string
 function getDeviceInfo(): string {
   const ua = navigator.userAgent;
   const platform = navigator.platform || 'unknown';
   return `${platform} | ${ua.substring(0, 150)}`;
 }
 
+// Format timestamp for overlay
+function formatTimestamp(): string {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+
 export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, userId }: Props) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasStreamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number | null>(null);
 
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -103,16 +107,87 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
   const [cameraReady, setCameraReady] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadRecordings();
-    return () => stopStream();
+    return () => { stopStream(); stopTimestampLoop(); };
   }, [eventId]);
 
+  const stopTimestampLoop = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
   const stopStream = useCallback(() => {
+    stopTimestampLoop();
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
+    canvasStreamRef.current?.getTracks().forEach(t => t.stop());
+    canvasStreamRef.current = null;
     setCameraReady(false);
+  }, [stopTimestampLoop]);
+
+  // Draw video frame + timestamp overlay onto canvas
+  const drawFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) {
+      animFrameRef.current = requestAnimationFrame(drawFrame);
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+
+    // Draw video frame
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Draw timestamp overlay
+    const ts = formatTimestamp();
+    const fontSize = Math.max(16, Math.floor(canvas.height / 25));
+    ctx.font = `bold ${fontSize}px monospace`;
+
+    // Background bar
+    const textMetrics = ctx.measureText(ts);
+    const padding = 10;
+    const barHeight = fontSize + padding * 2;
+    const barWidth = textMetrics.width + padding * 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(canvas.width - barWidth - 10, canvas.height - barHeight - 10, barWidth, barHeight);
+
+    // Text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ts, canvas.width - barWidth - 10 + padding, canvas.height - barHeight / 2 - 10);
+
+    // REC indicator if recording
+    if (mediaRecorderRef.current?.state === 'recording') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(10, 10, 80, 30);
+      ctx.fillStyle = '#FF0000';
+      ctx.beginPath();
+      ctx.arc(30, 25, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold ${Math.floor(fontSize * 0.7)}px sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText('REC', 44, 25);
+    }
+
+    animFrameRef.current = requestAnimationFrame(drawFrame);
   }, []);
 
   const loadRecordings = async () => {
@@ -123,9 +198,16 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         body: { action: 'list', event_id: eventId },
       });
       if (error) throw error;
+      if (data?.error) {
+        if (isRecordingSetupError(data.error)) {
+          setSetupError(RECORDING_SETUP_MESSAGE);
+          setRecordings([]);
+          return;
+        }
+        throw new Error(data.error);
+      }
       setRecordings(data.recordings || []);
 
-      // Check confirmation flag
       const { data: confirmRow } = await supabase
         .from('checklist_items')
         .select('id')
@@ -139,7 +221,6 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       if (isRecordingSetupError(message)) {
         setRecordings([]);
         setSetupError(RECORDING_SETUP_MESSAGE);
-        return;
       }
     } finally {
       setIsLoading(false);
@@ -162,7 +243,6 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     setCameraReady(false);
 
     try {
-      // On iOS, getUserMedia must happen from user gesture — we're already in one
       const constraints: MediaStreamConstraints = {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
@@ -172,7 +252,6 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch {
-        // Fallback: try without facingMode
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       }
 
@@ -180,19 +259,20 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // iOS requires these attributes
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.setAttribute('webkit-playsinline', 'true');
         videoRef.current.muted = true;
         try {
           await videoRef.current.play();
         } catch {
-          // iOS sometimes needs a retry
           setTimeout(async () => {
             try { await videoRef.current?.play(); } catch {}
           }, 300);
         }
       }
+
+      // Start drawing frames with timestamp on canvas
+      animFrameRef.current = requestAnimationFrame(drawFrame);
       setCameraReady(true);
     } catch (err: any) {
       console.error('Camera error:', err);
@@ -203,23 +283,24 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       setPermissionError(msg);
       toast({ title: 'Erro de Câmera', description: msg, variant: 'destructive' });
     }
-  }, [setupError, toast]);
+  }, [setupError, toast, drawFrame]);
 
   const startRecording = useCallback(async () => {
-    if (!streamRef.current || !recordingType) return;
+    if (!streamRef.current || !recordingType || !canvasRef.current) return;
 
     try {
       if (setupError) throw new Error(setupError);
 
-      // 1. Register start on server (server timestamp)
+      // Get geolocation
       let location: { latitude?: number; longitude?: number } = {};
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
           navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
         );
         location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-      } catch { /* location optional */ }
+      } catch { /* optional */ }
 
+      // Register start on server
       const { data, error } = await supabase.functions.invoke('manage-recording', {
         body: {
           action: 'start',
@@ -230,14 +311,20 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setCurrentRecordingId(data.recording.id);
 
-      // 2. Start MediaRecorder
+      // Get canvas stream (video with timestamp baked in) + audio from original stream
+      const canvasStream = canvasRef.current.captureStream(30);
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach(track => canvasStream.addTrack(track));
+      canvasStreamRef.current = canvasStream;
+
+      // Start MediaRecorder on the canvas stream
       chunksRef.current = [];
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {};
-      
-      // Only set mimeType if supported (iOS Safari doesn't support setting it)
+
       if (typeof MediaRecorder !== 'undefined') {
         try {
           if (MediaRecorder.isTypeSupported(mimeType)) {
@@ -246,32 +333,42 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         } catch { /* ignore */ }
       }
 
-      const mr = new MediaRecorder(streamRef.current, options);
+      const mr = new MediaRecorder(canvasStream, options);
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => handleRecordingDone(data.recording.id);
       mr.onerror = (e) => {
         console.error('MediaRecorder error:', e);
         toast({ title: 'Erro na gravação', description: 'A gravação falhou. Tente novamente.', variant: 'destructive' });
         setIsRecording(false);
+        stopTimestampLoop();
       };
 
-      // timeslice: collect data every second
       mr.start(1000);
       mediaRecorderRef.current = mr;
       setIsRecording(true);
+      setRecordingSeconds(0);
+
+      // Timer for UI display
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds(s => s + 1);
+      }, 1000);
     } catch (err: any) {
       console.error('Start recording error:', err);
       const message = err?.message || 'Falha ao iniciar gravação.';
       if (isRecordingSetupError(message)) setSetupError(RECORDING_SETUP_MESSAGE);
       toast({ title: 'Erro', description: isRecordingSetupError(message) ? RECORDING_SETUP_MESSAGE : message, variant: 'destructive' });
     }
-  }, [recordingType, eventId, setupError]);
+  }, [recordingType, eventId, setupError, drawFrame, stopTimestampLoop]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
   }, []);
 
   const handleRecordingDone = async (recordingId: string) => {
@@ -283,10 +380,8 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       const ext = getExtension(mimeType);
       const blob = new Blob(chunksRef.current, { type: mimeType });
 
-      // Generate SHA-256 hash
       const fileHash = await hashBlob(blob);
 
-      // Upload to storage
       const fileName = `${userId || 'unknown'}/${eventId}/${recordingType}_${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
@@ -299,8 +394,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         .from('checklist-videos')
         .getPublicUrl(fileName);
 
-      // Finish recording on server
-      const { error: finishError } = await supabase.functions.invoke('manage-recording', {
+      const { data: finishData, error: finishError } = await supabase.functions.invoke('manage-recording', {
         body: {
           action: 'finish',
           recording_id: recordingId,
@@ -310,8 +404,9 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         },
       });
       if (finishError) throw finishError;
+      if (finishData?.error) throw new Error(finishData.error);
 
-      // Also update checklist_items for backward compatibility
+      // Update checklist_items
       const itemType = `video_${recordingType}`;
       const meta = JSON.stringify({ url: urlData.publicUrl, timestamp: new Date().toISOString(), fileName, hash: fileHash });
 
@@ -355,6 +450,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     setIsRecording(false);
     setCurrentRecordingId(null);
     setPermissionError(null);
+    setRecordingSeconds(0);
   }, [stopStream]);
 
   const deleteRecording = async (type: VideoType) => {
@@ -362,12 +458,12 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     if (!rec) return;
 
     try {
-      const { error } = await supabase.functions.invoke('manage-recording', {
+      const { data, error } = await supabase.functions.invoke('manage-recording', {
         body: { action: 'delete', recording_id: rec.id },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      // Also clear checklist item
       await supabase.from('checklist_items')
         .update({ notes: null, is_checked: false, checked_by: null, checked_at: null })
         .eq('event_id', eventId)
@@ -415,6 +511,12 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     }
   };
 
+  const formatDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   const recordedCount = VIDEO_TYPES.filter(v => getRecordingForType(v.key)).length;
   const allRecorded = recordedCount === 3;
 
@@ -435,6 +537,9 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         </div>
       )}
 
+      {/* Hidden video element for camera feed */}
+      <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+
       {/* Camera / Recording UI */}
       {showCamera && (
         <Card className="border-primary/30 overflow-hidden">
@@ -442,6 +547,11 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
             <CardTitle className="text-base flex items-center gap-2">
               <Camera className="h-4 w-4 text-primary" />
               {isRecording ? 'Gravando' : 'Câmera'}: {VIDEO_TYPES.find(v => v.key === recordingType)?.label}
+              {isRecording && (
+                <Badge variant="destructive" className="ml-auto animate-pulse">
+                  {formatDuration(recordingSeconds)}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -457,23 +567,14 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
             ) : (
               <>
                 <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
+                  {/* Canvas shows camera feed + timestamp overlay */}
+                  <canvas
+                    ref={canvasRef}
                     className="w-full h-full object-cover"
-                    style={{ WebkitTransform: 'scaleX(1)' }}
                   />
                   {!cameraReady && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black">
                       <Loader2 className="h-8 w-8 animate-spin text-white" />
-                    </div>
-                  )}
-                  {isRecording && (
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                      <div className="h-3 w-3 rounded-full bg-red-600 animate-pulse" />
-                      <span className="text-xs text-white font-bold bg-black/50 px-2 py-0.5 rounded">REC</span>
                     </div>
                   )}
                   {isUploading && (
@@ -525,7 +626,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Grave um vídeo 360° de cada área. Timestamp e hash SHA-256 são registrados automaticamente no servidor.
+            Grave um vídeo 360° de cada área. Timestamp, hash SHA-256 e geolocalização são registrados automaticamente.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
