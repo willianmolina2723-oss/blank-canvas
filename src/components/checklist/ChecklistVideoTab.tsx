@@ -10,15 +10,18 @@ import {
 } from 'lucide-react';
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
 
-const RECORDING_SETUP_MESSAGE = 'Tabela de gravações ou bucket de vídeos ainda não existem no Supabase. Rode o SQL de setup para liberar a gravação.';
+const RECORDING_SETUP_MESSAGE = 'Infraestrutura de vídeos ainda não configurada no servidor. Contate o administrador.';
 
 function isRecordingSetupError(message?: string | null) {
-  return !!message && (
-    message.includes("Could not find the table 'public.event_recordings' in the schema cache") ||
-    message.includes('Tabela public.event_recordings ou bucket checklist-videos não configurados') ||
-    message.includes('Bucket not found') ||
-    message.includes('The resource was not found')
-  );
+  if (!message) return false;
+  const patterns = [
+    'event_recordings',
+    'schema cache',
+    'Bucket not found',
+    'The resource was not found',
+    'relation',
+  ];
+  return patterns.some(p => message.includes(p));
 }
 
 interface Recording {
