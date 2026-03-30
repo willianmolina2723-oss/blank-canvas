@@ -5,41 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
+  invokeManageRecording,
+  isRecordingSetupError,
+  RECORDING_SETUP_MESSAGE,
+  type Recording,
+} from './manageRecordingClient';
+import {
   Video, CheckCircle2, Loader2, AlertTriangle, Play, Square,
   RotateCcw, Camera, Trash2, Shield
 } from 'lucide-react';
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
-
-const RECORDING_SETUP_MESSAGE = 'Infraestrutura de vídeos ainda não configurada no servidor. Contate o administrador.';
-
-function isRecordingSetupError(message?: string | null) {
-  if (!message) return false;
-  const patterns = [
-    'event_recordings',
-    'schema cache',
-    'Bucket not found',
-    'The resource was not found',
-    'relation',
-  ];
-  return patterns.some(p => message.includes(p));
-}
-
-interface Recording {
-  id: string;
-  event_id: string;
-  user_id: string;
-  video_type: string;
-  started_at: string;
-  ended_at: string | null;
-  duration_seconds: number | null;
-  video_url: string | null;
-  file_hash: string | null;
-  file_size_bytes: number | null;
-  status: string;
-  device_info: string | null;
-  latitude: number | null;
-  longitude: number | null;
-}
 
 type VideoType = 'salao' | 'cabine' | 'externa';
 
@@ -54,7 +29,6 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
-  userId?: string;
 }
 
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -94,7 +68,7 @@ function formatTimestamp(): string {
   return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
-export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, userId }: Props) {
+export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: Props) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,7 +81,6 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingType, setRecordingType] = useState<VideoType | null>(null);
-  const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -202,18 +175,10 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     setIsLoading(true);
     try {
       setSetupError(null);
-      const { data, error } = await supabase.functions.invoke('manage-recording', {
-        body: { action: 'list', event_id: eventId },
+      const data = await invokeManageRecording<{ recordings: Recording[] }>({
+        action: 'list',
+        event_id: eventId,
       });
-      if (error) throw error;
-      if (data?.error) {
-        if (isRecordingSetupError(data.error)) {
-          setSetupError(RECORDING_SETUP_MESSAGE);
-          setRecordings([]);
-          return;
-        }
-        throw new Error(data.error);
-      }
       setRecordings(data.recordings || []);
 
       const { data: confirmRow } = await supabase
@@ -309,18 +274,13 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       } catch { /* optional */ }
 
       // Register start on server
-      const { data, error } = await supabase.functions.invoke('manage-recording', {
-        body: {
-          action: 'start',
-          event_id: eventId,
-          video_type: recordingType,
-          device_info: getDeviceInfo(),
-          ...location,
-        },
+      const data = await invokeManageRecording<{ recording: Recording; server_time: string }>({
+        action: 'start',
+        event_id: eventId,
+        video_type: recordingType,
+        device_info: getDeviceInfo(),
+        ...location,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setCurrentRecordingId(data.recording.id);
 
       // On iOS, captureStream on canvas is unreliable. Use the raw camera stream instead
       // and rely on the canvas for visual preview only.
@@ -398,33 +358,24 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
 
       const fileHash = await hashBlob(blob);
 
-      const fileName = `${userId || 'unknown'}/${eventId}/${recordingType}_${Date.now()}.${ext}`;
+       const formData = new FormData();
+       formData.append('action', 'finish');
+       formData.append('recording_id', recordingId);
+       formData.append('file_hash', fileHash);
+       formData.append('file_size_bytes', String(blob.size));
+       formData.append('duration_seconds', String(recordingSeconds));
+       formData.append('video_file', blob, `${recordingType || 'video'}_${Date.now()}.${ext}`);
 
-      const { error: uploadError } = await supabase.storage
-        .from('checklist-videos')
-        .upload(fileName, blob, { contentType: mimeType, upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('checklist-videos')
-        .getPublicUrl(fileName);
-
-      const { data: finishData, error: finishError } = await supabase.functions.invoke('manage-recording', {
-        body: {
-          action: 'finish',
-          recording_id: recordingId,
-          video_url: urlData.publicUrl,
-          file_hash: fileHash,
-          file_size_bytes: blob.size,
-        },
-      });
-      if (finishError) throw finishError;
-      if (finishData?.error) throw new Error(finishData.error);
+       const finishData = await invokeManageRecording<{ recording: Recording }>(formData);
 
       // Update checklist_items
       const itemType = `video_${recordingType}`;
-      const meta = JSON.stringify({ url: urlData.publicUrl, timestamp: new Date().toISOString(), fileName, hash: fileHash });
+       const meta = JSON.stringify({
+         url: finishData.recording.video_url,
+         timestamp: new Date().toISOString(),
+         hash: fileHash,
+         fileSizeBytes: blob.size,
+       });
 
       const { data: existingItem } = await supabase
         .from('checklist_items')
@@ -464,7 +415,6 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     setShowCamera(false);
     setRecordingType(null);
     setIsRecording(false);
-    setCurrentRecordingId(null);
     setPermissionError(null);
     setRecordingSeconds(0);
   }, [stopStream]);
@@ -474,11 +424,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
     if (!rec) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('manage-recording', {
-        body: { action: 'delete', recording_id: rec.id },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      await invokeManageRecording<{ success: true }>({ action: 'delete', recording_id: rec.id });
 
       await supabase.from('checklist_items')
         .update({ notes: null, is_checked: false, checked_by: null, checked_at: null })
