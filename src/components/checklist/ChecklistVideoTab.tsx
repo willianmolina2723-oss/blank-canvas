@@ -10,6 +10,17 @@ import {
 } from 'lucide-react';
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
 
+const RECORDING_SETUP_MESSAGE = 'Tabela de gravações ou bucket de vídeos ainda não existem no Supabase. Rode o SQL de setup para liberar a gravação.';
+
+function isRecordingSetupError(message?: string | null) {
+  return !!message && (
+    message.includes("Could not find the table 'public.event_recordings' in the schema cache") ||
+    message.includes('Tabela public.event_recordings ou bucket checklist-videos não configurados') ||
+    message.includes('Bucket not found') ||
+    message.includes('The resource was not found')
+  );
+}
+
 interface Recording {
   id: string;
   event_id: string;
@@ -91,6 +102,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
   const [isLoading, setIsLoading] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecordings();
@@ -106,6 +118,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
   const loadRecordings = async () => {
     setIsLoading(true);
     try {
+      setSetupError(null);
       const { data, error } = await supabase.functions.invoke('manage-recording', {
         body: { action: 'list', event_id: eventId },
       });
@@ -122,6 +135,12 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       setIsConfirmed(!!confirmRow);
     } catch (err) {
       console.error('Error loading recordings:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      if (isRecordingSetupError(message)) {
+        setRecordings([]);
+        setSetupError(RECORDING_SETUP_MESSAGE);
+        return;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -132,6 +151,11 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
   };
 
   const openCamera = useCallback(async (type: VideoType) => {
+    if (setupError) {
+      toast({ title: 'Configuração pendente', description: setupError, variant: 'destructive' });
+      return;
+    }
+
     setPermissionError(null);
     setRecordingType(type);
     setShowCamera(true);
@@ -179,12 +203,14 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       setPermissionError(msg);
       toast({ title: 'Erro de Câmera', description: msg, variant: 'destructive' });
     }
-  }, [toast]);
+  }, [setupError, toast]);
 
   const startRecording = useCallback(async () => {
     if (!streamRef.current || !recordingType) return;
 
     try {
+      if (setupError) throw new Error(setupError);
+
       // 1. Register start on server (server timestamp)
       let location: { latitude?: number; longitude?: number } = {};
       try {
@@ -235,9 +261,11 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       setIsRecording(true);
     } catch (err: any) {
       console.error('Start recording error:', err);
-      toast({ title: 'Erro', description: err.message || 'Falha ao iniciar gravação.', variant: 'destructive' });
+      const message = err?.message || 'Falha ao iniciar gravação.';
+      if (isRecordingSetupError(message)) setSetupError(RECORDING_SETUP_MESSAGE);
+      toast({ title: 'Erro', description: isRecordingSetupError(message) ? RECORDING_SETUP_MESSAGE : message, variant: 'destructive' });
     }
-  }, [recordingType, eventId]);
+  }, [recordingType, eventId, setupError]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -312,7 +340,9 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       await loadRecordings();
     } catch (err: any) {
       console.error('Upload error:', err);
-      toast({ title: 'Erro no Upload', description: err.message || 'Não foi possível salvar o vídeo.', variant: 'destructive' });
+      const message = err?.message || 'Não foi possível salvar o vídeo.';
+      if (isRecordingSetupError(message)) setSetupError(RECORDING_SETUP_MESSAGE);
+      toast({ title: 'Erro no Upload', description: isRecordingSetupError(message) ? RECORDING_SETUP_MESSAGE : message, variant: 'destructive' });
     } finally {
       setIsUploading(false);
     }
@@ -572,6 +602,20 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
               <AlertTriangle className="h-4 w-4" />
               Apenas condutores podem gravar os vídeos da viatura.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {setupError && (
+        <Card className="border-destructive/30 bg-destructive/10">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Configuração pendente no Supabase</p>
+                <p className="text-sm text-muted-foreground">{setupError}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -5,6 +5,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const SETUP_REQUIRED_MESSAGE = 'Tabela public.event_recordings ou bucket checklist-videos não configurados. Execute o SQL de setup antes de gravar vídeos.'
+
+function isMissingRelationError(message?: string | null) {
+  return !!message && (
+    message.includes("Could not find the table 'public.event_recordings' in the schema cache") ||
+    message.includes('relation "public.event_recordings" does not exist') ||
+    message.includes('relation "event_recordings" does not exist')
+  )
+}
+
+async function ensureRecordingTableExists(supabaseAdmin: ReturnType<typeof createClient>) {
+  const { error } = await supabaseAdmin
+    .from('event_recordings')
+    .select('id', { count: 'exact', head: true })
+
+  if (isMissingRelationError(error?.message)) {
+    throw new Error(SETUP_REQUIRED_MESSAGE)
+  }
+
+  if (error) throw new Error(error.message)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
@@ -22,6 +44,8 @@ Deno.serve(async (req) => {
 
     const body = await req.json()
     const { action } = body
+
+    await ensureRecordingTableExists(supabaseAdmin)
 
     // Get caller profile
     const { data: callerProfile } = await supabaseAdmin
@@ -55,6 +79,7 @@ Deno.serve(async (req) => {
         .select('id, started_at')
         .single()
 
+      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
 
       return new Response(JSON.stringify({ recording: data, server_time: now }), {
@@ -94,6 +119,7 @@ Deno.serve(async (req) => {
         .select()
         .single()
 
+      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
 
       return new Response(JSON.stringify({ recording: data }), {
@@ -111,6 +137,7 @@ Deno.serve(async (req) => {
         .eq('event_id', event_id)
         .order('created_at', { ascending: true })
 
+      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
 
       return new Response(JSON.stringify({ recordings: data || [] }), {
@@ -164,6 +191,7 @@ Deno.serve(async (req) => {
         .delete()
         .eq('id', recording_id)
 
+      if (isMissingRelationError(error?.message)) throw new Error(SETUP_REQUIRED_MESSAGE)
       if (error) throw new Error(error.message)
 
       return new Response(JSON.stringify({ success: true }), {
