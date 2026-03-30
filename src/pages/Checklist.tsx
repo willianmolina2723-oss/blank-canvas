@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2, Video } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2, Video, Fuel } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UTIConditionsTab } from '@/components/checklist/UTIConditionsTab';
 import { ChecklistVideoTab } from '@/components/checklist/ChecklistVideoTab';
+import { ChecklistFuelTab } from '@/components/checklist/ChecklistFuelTab';
 import type { ChecklistItem } from '@/types/database';
 
 const DEFAULT_ITEMS = [
