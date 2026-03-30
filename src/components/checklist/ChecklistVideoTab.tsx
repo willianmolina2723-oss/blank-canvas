@@ -10,15 +10,18 @@ import {
 } from 'lucide-react';
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
 
-const RECORDING_SETUP_MESSAGE = 'Tabela de gravações ou bucket de vídeos ainda não existem no Supabase. Rode o SQL de setup para liberar a gravação.';
+const RECORDING_SETUP_MESSAGE = 'Infraestrutura de vídeos ainda não configurada no servidor. Contate o administrador.';
 
 function isRecordingSetupError(message?: string | null) {
-  return !!message && (
-    message.includes("Could not find the table 'public.event_recordings' in the schema cache") ||
-    message.includes('Tabela public.event_recordings ou bucket checklist-videos não configurados') ||
-    message.includes('Bucket not found') ||
-    message.includes('The resource was not found')
-  );
+  if (!message) return false;
+  const patterns = [
+    'event_recordings',
+    'schema cache',
+    'Bucket not found',
+    'The resource was not found',
+    'relation',
+  ];
+  return patterns.some(p => message.includes(p));
 }
 
 interface Recording {
@@ -57,12 +60,17 @@ interface Props {
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const getSupportedMimeType = (): string => {
-  if (isIOS()) return 'video/mp4';
-  const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
-  for (const type of types) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+  if (typeof MediaRecorder === 'undefined') return 'video/mp4';
+  // iOS Safari only supports mp4
+  if (isIOS()) {
+    if (MediaRecorder.isTypeSupported('video/mp4')) return 'video/mp4';
+    return ''; // let browser choose default
   }
-  return 'video/webm';
+  const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
 };
 
 const getExtension = (mime: string) => mime.includes('mp4') ? 'mp4' : 'webm';
@@ -314,18 +322,26 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
       if (data?.error) throw new Error(data.error);
       setCurrentRecordingId(data.recording.id);
 
-      // Get canvas stream (video with timestamp baked in) + audio from original stream
-      const canvasStream = canvasRef.current.captureStream(30);
-      const audioTracks = streamRef.current.getAudioTracks();
-      audioTracks.forEach(track => canvasStream.addTrack(track));
-      canvasStreamRef.current = canvasStream;
+      // On iOS, captureStream on canvas is unreliable. Use the raw camera stream instead
+      // and rely on the canvas for visual preview only.
+      const useCanvasStream = !isIOS() && typeof canvasRef.current.captureStream === 'function';
 
-      // Start MediaRecorder on the canvas stream
+      let recordStream: MediaStream;
+      if (useCanvasStream) {
+        const canvasStream = canvasRef.current.captureStream(30);
+        const audioTracks = streamRef.current.getAudioTracks();
+        audioTracks.forEach(track => canvasStream.addTrack(track));
+        canvasStreamRef.current = canvasStream;
+        recordStream = canvasStream;
+      } else {
+        // Fallback: record raw camera stream (timestamp only in metadata)
+        recordStream = streamRef.current;
+      }
+
       chunksRef.current = [];
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {};
-
-      if (typeof MediaRecorder !== 'undefined') {
+      if (mimeType) {
         try {
           if (MediaRecorder.isTypeSupported(mimeType)) {
             options.mimeType = mimeType;
@@ -333,7 +349,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId, use
         } catch { /* ignore */ }
       }
 
-      const mr = new MediaRecorder(canvasStream, options);
+      const mr = new MediaRecorder(recordStream, options);
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => handleRecordingDone(data.recording.id);
       mr.onerror = (e) => {
