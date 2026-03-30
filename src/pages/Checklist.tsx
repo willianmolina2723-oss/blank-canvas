@@ -360,6 +360,10 @@ export default function Checklist() {
               <Video className="h-4 w-4" />
               Vídeos
             </TabsTrigger>
+            <TabsTrigger value="combustivel" className="flex-1 gap-1.5 text-xs">
+              <Fuel className="h-4 w-4" />
+              KM
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="equipamentos" className="space-y-4 mt-4">
