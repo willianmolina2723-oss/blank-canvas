@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { EventProvider } from "@/contexts/EventContext";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
-import { NotificationPermission } from "@/components/notifications/NotificationPermission";
+
 import { PlanBlockedPage } from "@/components/plan/PlanGate";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { MainLayout } from "@/components/layout/MainLayout";
