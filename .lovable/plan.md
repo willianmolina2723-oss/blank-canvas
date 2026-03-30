@@ -1,87 +1,142 @@
 
+Objetivo: fazer uma auditoria completa do app + Supabase e corrigir os problemas que hoje estão quebrando checklist de vídeos, push e alguns fluxos de navegação/plano.
 
-## Diagnóstico
+Diagnóstico já confirmado
+1. O problema principal do checklist não é mais “mistério”: no Supabase atual não existe a tabela `public.event_recordings` e não existe nenhum bucket de storage. Eu confirmei:
+   - `event_recordings`: ausente
+   - `storage.buckets`: vazio
+   - por isso o `manage-recording` responde com `Tabela public.event_recordings ou bucket checklist-videos não configurados`
+2. O frontend do checklist de vídeos já está tentando:
+   - listar gravações via edge function
+   - iniciar/parar gravação
+   - subir arquivo para `checklist-videos`
+   - salvar confirmação em `checklist_items`
+   Mas toda a cadeia quebra porque a infraestrutura do Supabase não existe.
+3. O timestamp no vídeo está parcialmente implementado no frontend:
+   - o componente usa `canvas.captureStream()` e desenha timestamp em overlay
+   - isso é a abordagem certa para “timestamp embutido”
+   - porém no iPhone essa estratégia precisa tratamento extra, porque `MediaRecorder` + canvas + mp4/webm é justamente a parte mais frágil no iOS/Safari
+4. Push notifications também não estão funcionando de verdade:
+   - existe cadastro de subscription
+   - existe `get-vapid-key`
+   - mas a função `send-push-notification` não envia push real; ela só faz log e incrementa contador
+   - além disso, não encontrei nenhum ponto do app disparando essa função
+5. Há um problema de UX já alinhado com seu relato anterior sobre plano:
+   - `PlanProtectedRoute` já redireciona para `/dashboard`
+   - porém ainda existem componentes de bloqueio (`PlanBlockedPage`) e a navegação de menu ainda pode confundir em alguns cenários
+6. Há duplicidade desnecessária:
+   - `NotificationPermission` é renderizado no `App.tsx` e também no `MainLayout.tsx`
+   - isso pode gerar prompts duplicados/comportamento inconsistente
 
-O erro `42710: policy "Anyone can view checklist videos" already exists` indica que algumas políticas de storage já foram criadas em execuções anteriores do SQL. O novo SQL precisa ser idempotente — remover políticas existentes antes de recriá-las.
+O que eu vou corrigir
+1. Infraestrutura Supabase do checklist de vídeos
+   - criar migration idempotente para:
+     - `public.event_recordings`
+     - índices
+     - RLS segura usando `is_event_participant(event_id)` para leitura/inserção
+     - update do próprio autor da gravação
+     - delete apenas admin/super admin
+   - criar bucket `checklist-videos`
+   - criar policies do storage para upload, leitura e remoção
+   - evitar dependências frágeis que possam reintroduzir erro de schema cache
 
-## SQL Corrigido
+2. Edge function `manage-recording`
+   - reforçar a validação de setup
+   - validar também existência do bucket, não só da tabela
+   - melhorar mensagens de erro por etapa:
+     - tabela ausente
+     - bucket ausente
+     - upload/URL inválida
+     - usuário sem perfil
+   - revisar o bloco de delete, que hoje consulta RPCs redundantes e depois faz checagem manual
 
-O plano é fornecer um único bloco SQL que:
+3. Checklist de vídeo no frontend
+   - revisar fluxo de câmera para iPhone/Safari/PWA:
+     - abertura da câmera apenas após gesto explícito do usuário
+     - fallback de constraints para câmera traseira
+     - tratamento de permissão negada/inexistente/em uso
+   - endurecer fluxo de gravação:
+     - checar suporte real de `MediaRecorder`
+     - fallback de mime type por navegador
+     - tratar caso iOS não aceite o formato atual
+   - manter timestamp visual e garantir que o metadado salvo em `checklist_items` e `event_recordings` inclua:
+     - hora de início
+     - hora de fim
+     - duração
+     - hash
+     - URL do arquivo
+   - evitar estados quebrados ao cancelar gravação/upload
 
-1. Cria a tabela `event_recordings` apenas se não existir (`IF NOT EXISTS`)
-2. Habilita RLS na tabela
-3. Remove (`DROP POLICY IF EXISTS`) todas as políticas antes de recriá-las — tanto na tabela `event_recordings` quanto em `storage.objects`
-4. Cria o bucket `checklist-videos` com `ON CONFLICT DO NOTHING`
-5. Cria índices para performance
+4. Push notifications
+   - corrigir implementação para envio real, não apenas log
+   - revisar schema/políticas de `push_subscriptions`
+   - localizar pontos do sistema que deveriam disparar push e integrar a edge function
+   - manter compatibilidade com o service worker atual
+   - remover prompt duplicado de notificação
 
-### SQL final:
+5. Navegação e bloqueio por plano
+   - revisar menus desktop/mobile/sidebar para garantir coerência do plano atual
+   - manter redirecionamento para página anterior/segura quando rota não permitida
+   - reduzir superfícies onde “recurso bloqueado” ainda pode aparecer desnecessariamente
 
-```sql
--- 1. Tabela event_recordings (sem foreign keys para evitar erros de dependência)
-CREATE TABLE IF NOT EXISTS public.event_recordings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  video_type text NOT NULL,
-  started_at timestamptz NOT NULL,
-  ended_at timestamptz,
-  duration_seconds integer,
-  video_url text,
-  file_hash text,
-  file_size_bytes bigint,
-  status text NOT NULL DEFAULT 'recording',
-  device_info text,
-  latitude numeric,
-  longitude numeric,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+6. Auditoria adicional do app
+   - revisar fluxos conectados ao Supabase mais críticos:
+     - auth/profile/roles
+     - checklist
+     - oportunidades
+     - notificações
+   - apontar inconsistências de schema x código para evitar novos erros em runtime
 
-ALTER TABLE public.event_recordings ENABLE ROW LEVEL SECURITY;
+Arquitetura proposta
+```text
+ChecklistVideoTab
+  -> supabase.functions.invoke('manage-recording', action=start/list/finish/delete)
+  -> supabase.storage.from('checklist-videos')
+  -> checklist_items (status/confirmacao)
+  -> event_recordings (metadados oficiais da gravação)
 
--- 2. Dropar políticas existentes da tabela event_recordings (caso existam)
-DROP POLICY IF EXISTS "Participants can view recordings" ON public.event_recordings;
-DROP POLICY IF EXISTS "Participants can insert recordings" ON public.event_recordings;
-DROP POLICY IF EXISTS "Users can update own recordings" ON public.event_recordings;
-DROP POLICY IF EXISTS "Admins can delete recordings" ON public.event_recordings;
-
--- 3. Recriar políticas da tabela event_recordings
-CREATE POLICY "Participants can view recordings" ON public.event_recordings
-  FOR SELECT TO authenticated USING (is_event_participant(event_id));
-
-CREATE POLICY "Participants can insert recordings" ON public.event_recordings
-  FOR INSERT TO authenticated WITH CHECK (is_event_participant(event_id));
-
-CREATE POLICY "Users can update own recordings" ON public.event_recordings
-  FOR UPDATE TO authenticated USING (user_id = auth.uid());
-
-CREATE POLICY "Admins can delete recordings" ON public.event_recordings
-  FOR DELETE TO authenticated USING (is_admin());
-
--- 4. Índices
-CREATE INDEX IF NOT EXISTS idx_event_recordings_event_id ON public.event_recordings(event_id);
-CREATE INDEX IF NOT EXISTS idx_event_recordings_user_id ON public.event_recordings(user_id);
-
--- 5. Bucket de storage
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('checklist-videos', 'checklist-videos', true)
-ON CONFLICT (id) DO NOTHING;
-
--- 6. Dropar políticas de storage existentes (causa do erro atual)
-DROP POLICY IF EXISTS "Authenticated users can upload checklist videos" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can view checklist videos" ON storage.objects;
-DROP POLICY IF EXISTS "Admins can delete checklist videos" ON storage.objects;
-DROP POLICY IF EXISTS "Users can delete own checklist videos" ON storage.objects;
-
--- 7. Recriar políticas de storage
-CREATE POLICY "Authenticated users can upload checklist videos" ON storage.objects
-  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'checklist-videos');
-
-CREATE POLICY "Anyone can view checklist videos" ON storage.objects
-  FOR SELECT TO public USING (bucket_id = 'checklist-videos');
-
-CREATE POLICY "Admins can delete checklist videos" ON storage.objects
-  FOR DELETE TO authenticated USING (bucket_id = 'checklist-videos' AND is_admin());
+Push
+  NotificationPermission
+    -> get-vapid-key
+    -> push_subscriptions
+  eventos do sistema
+    -> send-push-notification
+    -> Service Worker
 ```
 
-Este SQL é totalmente idempotente — pode ser executado múltiplas vezes sem erros.
+Principais riscos que vou tratar
+- Safari/iPhone não suportar bem o encoder escolhido
+- bucket/policies criados mas storage ainda negar upload
+- inconsistência entre `checklist_items` e `event_recordings`
+- prompts duplicados de push
+- rotas bloqueadas ainda ficarem acessíveis por URL ou menu
 
+Entregáveis da implementação
+- migration completa do Supabase para `event_recordings` + bucket/policies
+- edge function `manage-recording` revisada
+- fluxo de câmera/gravação iOS-first ajustado
+- timestamp persistido corretamente no vídeo/metadados
+- push notifications reais ou, se houver limitação externa, ao menos fluxo funcional e verificável
+- limpeza de UX em plano/bloqueio/notificações
+
+Detalhes técnicos
+- Não vou armazenar papéis em `profiles`; o projeto já usa `user_roles`, o que está correto do ponto de vista de segurança.
+- Vou seguir o padrão atual de acesso com funções como `is_event_participant`, `is_admin` e `is_super_admin`.
+- Como o problema central é estrutural no Supabase, a correção exige tanto código quanto migration.
+- O ponto mais crítico de produção hoje é: o frontend existe, mas a infraestrutura de backend/storage necessária não existe no projeto conectado.
+
+Resumo da auditoria
+- Quebrado agora:
+  - checklist de vídeos
+  - storage de vídeos
+  - envio real de push
+- Parcial/inconsistente:
+  - gravação com timestamp no iPhone
+  - UX de prompts de notificação
+  - bloqueios por plano em alguns fluxos
+- Saudável:
+  - auth básica
+  - leitura de perfil/empresa/roles
+  - estrutura geral do checklist de equipamentos e KM
+
+Se você aprovar, a próxima etapa é implementar tudo isso de ponta a ponta e depois validar o fluxo no checklist com gravação, upload e confirmação.
