@@ -191,7 +191,7 @@ export default function Medications() {
                 checked={med.checked}
                 onCheckedChange={() => handleCheck(index)}
                 className="h-5 w-5"
-                disabled={isConfirmed}
+                disabled={isConfirmed || !canEdit}
               />
               <span className="flex-1 text-sm font-semibold">{med.name}</span>
               <div className="flex flex-col items-center">
