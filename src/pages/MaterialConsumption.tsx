@@ -30,7 +30,17 @@ export default function MaterialConsumption() {
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  const canEdit = roles.includes('enfermeiro') || roles.includes('medico') || roles.includes('tecnico') || roles.includes('admin');
+  const [eventRole, setEventRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
+        .then(({ data }) => setEventRole(data?.role || null));
+    }
+  }, [eventId, profile]);
+
+  const { canEditMaterialUsage } = usePermissions({ eventRole: eventRole as any });
+  const canEdit = canEditMaterialUsage;
 
   useEffect(() => {
     if (eventId) loadData();
