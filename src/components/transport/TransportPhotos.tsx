@@ -201,13 +201,13 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
     loop();
   }, [geoLines]);
 
-  // Re-start overlay when geoAddress updates
+  // Re-start overlay when geoLines updates
   useEffect(() => {
     if (showCamera && cameraReady) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       drawOverlay();
     }
-  }, [geoAddress, showCamera, cameraReady, drawOverlay]);
+  }, [geoLines, showCamera, cameraReady, drawOverlay]);
 
   const capturePhoto = async () => {
     const canvas = canvasRef.current;
