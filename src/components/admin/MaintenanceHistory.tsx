@@ -90,7 +90,7 @@ export function MaintenanceHistory({ ambulanceId, ambulanceCode, open, onOpenCha
 
       toast({ title: 'Sucesso', description: 'Manutenção registrada.' });
       setShowAddForm(false);
-      setForm({ maintenance_date: new Date().toISOString().slice(0, 10), description: '', cost: '', performed_by: '', notes: '' });
+      setForm({ maintenance_date: todayBrasilia(), description: '', cost: '', performed_by: '', notes: '' });
       loadLogs();
     } catch (err) {
       console.error('Error adding maintenance:', err);
