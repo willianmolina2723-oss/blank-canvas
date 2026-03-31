@@ -20,21 +20,34 @@ interface TransportPhotosProps {
 
 function formatTimestampBrasilia(): string {
   const now = toBrasiliaDate(new Date());
+  const months = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} (Brasília)`;
+  return `${pad(now.getDate())} de ${months[now.getMonth()]} de ${now.getFullYear()}, ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
+async function reverseGeocode(lat: number, lng: number): Promise<string[]> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=pt-BR`,
       { headers: { 'User-Agent': 'SAPH-App/1.0' } }
     );
-    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (!res.ok) return [`${lat.toFixed(5)}, ${lng.toFixed(5)}`];
     const data = await res.json();
-    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const addr = data.address || {};
+    const lines: string[] = [];
+    const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || '';
+    if (neighborhood) lines.push(neighborhood);
+    const city = addr.city || addr.town || addr.village || addr.municipality || '';
+    const state = addr.state || '';
+    const stateAbbr = state.length > 2 ? state.split(' ').map((w: string) => w[0]?.toUpperCase()).join('') : state;
+    if (city) lines.push(stateAbbr ? `${city} ${stateAbbr}` : city);
+    if (addr.postcode) lines.push(addr.postcode);
+    if (addr.country) lines.push(addr.country);
+    const poi = data.name || addr.amenity || addr.building || '';
+    if (poi && !lines.includes(poi)) lines.push(poi);
+    return lines.length > 0 ? lines : [`${lat.toFixed(5)}, ${lng.toFixed(5)}`];
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return [`${lat.toFixed(5)}, ${lng.toFixed(5)}`];
   }
 }
 
@@ -52,7 +65,7 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [geoAddress, setGeoAddress] = useState<string | null>(null);
+  const [geoLines, setGeoLines] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (transportId) loadPhotos();
@@ -93,16 +106,16 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
 
   const openCamera = async () => {
     setShowCamera(true);
-    setGeoAddress(null);
+    setGeoLines(null);
 
     // Fetch geolocation
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const addr = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-          setGeoAddress(addr);
+          const lines = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+          setGeoLines(lines);
         },
-        () => setGeoAddress('Localização indisponível'),
+        () => setGeoLines(['Localização indisponível']),
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
@@ -143,51 +156,58 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Draw overlay
+      // Build overlay lines: timestamp + address lines
       const timestamp = formatTimestampBrasilia();
-      const address = geoAddress || 'Obtendo localização...';
-      const truncAddr = address.length > 80 ? address.substring(0, 77) + '...' : address;
+      const addressLines = geoLines || ['Obtendo localização...'];
+      const allLines = [timestamp, ...addressLines];
 
-      const fontSize = Math.max(14, Math.floor(canvas.width / 50));
-      ctx.font = `bold ${fontSize}px monospace`;
+      const fontSize = Math.max(14, Math.floor(canvas.width / 45));
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.textBaseline = 'top';
 
-      const lines = [timestamp, truncAddr];
-      const lineHeight = fontSize * 1.4;
-      const padding = 10;
-      const boxHeight = lines.length * lineHeight + padding * 2;
-      const boxY = canvas.height - boxHeight - 10;
+      const lineHeight = fontSize * 1.5;
+      const padding = 12;
+      const rightMargin = 20;
+      const bottomMargin = 20;
 
       // Measure max width
       let maxW = 0;
-      for (const line of lines) {
+      for (const line of allLines) {
         const m = ctx.measureText(line);
         if (m.width > maxW) maxW = m.width;
       }
 
-      // Background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(8, boxY, maxW + padding * 2, boxHeight);
+      const boxWidth = maxW + padding * 2;
+      const boxHeight = allLines.length * lineHeight + padding * 2;
+      const boxX = canvas.width - boxWidth - rightMargin;
+      const boxY = canvas.height - boxHeight - bottomMargin;
 
-      // Text
+      // Semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.roundRect?.(boxX, boxY, boxWidth, boxHeight, 8);
+      ctx.fill();
+
+      // Right-aligned white text
       ctx.fillStyle = '#FFFFFF';
-      ctx.textBaseline = 'top';
-      lines.forEach((line, i) => {
-        ctx.fillText(line, 8 + padding, boxY + padding + i * lineHeight);
+      ctx.textAlign = 'right';
+      allLines.forEach((line, i) => {
+        ctx.fillText(line, canvas.width - rightMargin - padding, boxY + padding + i * lineHeight);
       });
+      ctx.textAlign = 'left'; // reset
 
       animFrameRef.current = requestAnimationFrame(loop);
     };
 
     loop();
-  }, [geoAddress]);
+  }, [geoLines]);
 
-  // Re-start overlay when geoAddress updates
+  // Re-start overlay when geoLines updates
   useEffect(() => {
     if (showCamera && cameraReady) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       drawOverlay();
     }
-  }, [geoAddress, showCamera, cameraReady, drawOverlay]);
+  }, [geoLines, showCamera, cameraReady, drawOverlay]);
 
   const capturePhoto = async () => {
     const canvas = canvasRef.current;
@@ -308,10 +328,10 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
             <canvas ref={canvasRef} className="w-full rounded-lg" />
           </div>
 
-          {geoAddress && (
+          {geoLines && (
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-              <span className="line-clamp-2">{geoAddress}</span>
+              <span className="line-clamp-2">{geoLines.join(', ')}</span>
             </div>
           )}
 

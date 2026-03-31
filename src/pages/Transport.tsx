@@ -41,9 +41,9 @@ export default function TransportForm() {
   const { canEditTransportSection, guardAction } = usePermissions({ eventRole });
   const canEdit = canEditTransportSection;
 
-  useEffect(() => { if (eventId) loadTransport(); }, [eventId]);
+  useEffect(() => { if (eventId) loadOrCreateTransport(); }, [eventId]);
 
-  const loadTransport = async () => {
+  const loadOrCreateTransport = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('transport_records').select('*').eq('event_id', eventId).maybeSingle();
@@ -71,6 +71,13 @@ export default function TransportForm() {
         setReserveInitialKm(resInitKm);
         setReserveFinalKm(resFinalKm);
         setExistingTransportId(data.id);
+      } else {
+        // Auto-create transport record so photos can be taken immediately
+        const { data: newRecord, error: insertError } = await supabase.from('transport_records')
+          .insert({ event_id: eventId, created_by: profile?.id, empresa_id: profile?.empresa_id || null, updated_at: new Date().toISOString() })
+          .select().single();
+        if (insertError) throw insertError;
+        setExistingTransportId(newRecord.id);
       }
     } catch (err) { console.error('Error loading transport:', err); }
     finally { setIsLoading(false); }
