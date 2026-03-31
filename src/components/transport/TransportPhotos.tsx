@@ -65,7 +65,7 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [geoAddress, setGeoAddress] = useState<string | null>(null);
+  const [geoLines, setGeoLines] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (transportId) loadPhotos();
