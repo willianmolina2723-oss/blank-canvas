@@ -213,15 +213,13 @@ export default function Medications() {
         </div>
 
         {/* Confirm button */}
-        {!isConfirmed ? (
+        {canEdit && !isConfirmed ? (
           <Button
             onClick={handleConfirm}
             disabled={!allHaveQuantity || isSaving}
             className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
           >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : null}
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Confirmar Inventário Clínico
           </Button>
         ) : (
