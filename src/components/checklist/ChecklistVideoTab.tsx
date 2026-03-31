@@ -15,6 +15,7 @@ import {
   RotateCcw, Camera, Trash2, Shield
 } from 'lucide-react';
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
+import { toBrasiliaDate } from '@/utils/dateFormat';
 
 type VideoType = 'salao' | 'cabine' | 'externa';
 
