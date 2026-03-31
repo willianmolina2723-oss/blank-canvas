@@ -30,10 +30,16 @@ export default defineConfig(({ mode }) => ({
       srcDir: "src",
       filename: "sw.ts",
       registerType: "autoUpdate",
+      devOptions: {
+        enabled: false,
+      },
       manifest: false,
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
+      workbox: {
+        navigateFallbackDenylist: [/^\/~oauth/],
       },
     }),
   ].filter(Boolean),
