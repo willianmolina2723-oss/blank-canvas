@@ -23,7 +23,7 @@ export default function MaterialConsumption() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
 
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
