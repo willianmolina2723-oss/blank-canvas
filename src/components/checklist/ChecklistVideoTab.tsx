@@ -62,11 +62,26 @@ function getDeviceInfo(): string {
   return `${platform} | ${ua.substring(0, 150)}`;
 }
 
-// Format timestamp for overlay
-function formatTimestamp(): string {
-  const now = new Date();
+// Format timestamp for overlay in Brasília timezone
+function formatTimestampBrasilia(): string {
+  const now = toBrasiliaDate(new Date());
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} (Brasília)`;
+}
+
+// Reverse geocode coordinates to a readable address
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=pt-BR`,
+      { headers: { 'User-Agent': 'SAPH-App/1.0' } }
+    );
+    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const data = await res.json();
+    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
 }
 
 export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: Props) {
