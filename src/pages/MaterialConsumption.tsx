@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Package, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MaterialItem {
@@ -22,7 +23,7 @@ export default function MaterialConsumption() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
 
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
@@ -30,7 +31,17 @@ export default function MaterialConsumption() {
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  const canEdit = roles.includes('enfermeiro') || roles.includes('medico') || roles.includes('tecnico') || roles.includes('admin');
+  const [eventRole, setEventRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
+        .then(({ data }) => setEventRole(data?.role || null));
+    }
+  }, [eventId, profile]);
+
+  const { canEditMaterialUsage } = usePermissions({ eventRole: eventRole as any });
+  const canEdit = canEditMaterialUsage;
 
   useEffect(() => {
     if (eventId) loadData();

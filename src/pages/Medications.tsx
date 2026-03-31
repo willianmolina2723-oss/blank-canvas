@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { ReadOnlyBanner } from '@/components/ui/ReadOnlyBanner';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MedicationItem {
@@ -32,6 +34,17 @@ export default function Medications() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const [eventRole, setEventRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
+        .then(({ data }) => setEventRole(data?.role || null));
+    }
+  }, [eventId, profile]);
+
+  const { canEditMedicationChecklist } = usePermissions({ eventRole: eventRole as any });
+  const canEdit = canEditMedicationChecklist;
   const [medications, setMedications] = useState<MedicationItem[]>(
     PSYCHOTROPIC_MEDICATIONS.map(name => ({ name, quantity: 0, checked: false }))
   );
@@ -73,14 +86,14 @@ export default function Medications() {
   };
 
   const handleCheck = (index: number) => {
-    if (isConfirmed) return;
+    if (isConfirmed || !canEdit) return;
     setMedications(prev =>
       prev.map((med, i) => (i === index ? { ...med, checked: !med.checked } : med))
     );
   };
 
   const handleQuantityChange = (index: number, value: string) => {
-    if (isConfirmed) return;
+    if (isConfirmed || !canEdit) return;
     const qty = Math.max(0, parseInt(value) || 0);
     setMedications(prev =>
       prev.map((med, i) => (i === index ? { ...med, quantity: qty } : med))
@@ -158,7 +171,7 @@ export default function Medications() {
           )}
         </div>
 
-        {/* Warning banner */}
+        <ReadOnlyBanner show={!canEdit} message="Apenas enfermeiros, técnicos e médicos podem editar o checklist de medicamentos." />
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <div className="h-10 w-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
             <AlertCircle className="h-5 w-5 text-white" />
@@ -179,7 +192,7 @@ export default function Medications() {
                 checked={med.checked}
                 onCheckedChange={() => handleCheck(index)}
                 className="h-5 w-5"
-                disabled={isConfirmed}
+                disabled={isConfirmed || !canEdit}
               />
               <span className="flex-1 text-sm font-semibold">{med.name}</span>
               <div className="flex flex-col items-center">
@@ -192,7 +205,7 @@ export default function Medications() {
                   value={med.quantity}
                   onChange={(e) => handleQuantityChange(index, e.target.value)}
                   className="h-8 w-14 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                  disabled={isConfirmed}
+                  disabled={isConfirmed || !canEdit}
                 />
               </div>
             </div>
@@ -200,15 +213,13 @@ export default function Medications() {
         </div>
 
         {/* Confirm button */}
-        {!isConfirmed ? (
+        {canEdit && !isConfirmed ? (
           <Button
             onClick={handleConfirm}
             disabled={!allHaveQuantity || isSaving}
             className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
           >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : null}
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Confirmar Inventário Clínico
           </Button>
         ) : (

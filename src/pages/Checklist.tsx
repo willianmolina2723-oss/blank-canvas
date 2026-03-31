@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { ReadOnlyBanner } from '@/components/ui/ReadOnlyBanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UTIConditionsTab } from '@/components/checklist/UTIConditionsTab';
 import { ChecklistVideoTab } from '@/components/checklist/ChecklistVideoTab';
 import { ChecklistFuelTab } from '@/components/checklist/ChecklistFuelTab';
-import type { ChecklistItem } from '@/types/database';
+import type { ChecklistItem, AppRole } from '@/types/database';
 
 const DEFAULT_ITEMS = [
   'Desfibrilador automático externo',
@@ -44,14 +46,27 @@ export default function Checklist() {
   const [isSaving, setIsSaving] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [eventRole, setEventRole] = useState<AppRole | null>(null);
 
-  const canCheck = roles.includes('condutor') || roles.includes('admin');
-  const canManageItems = roles.includes('admin');
+  // Load event role
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase
+        .from('event_participants')
+        .select('role')
+        .eq('event_id', eventId)
+        .eq('profile_id', profile.id)
+        .maybeSingle()
+        .then(({ data }) => setEventRole((data?.role as AppRole) || null));
+    }
+  }, [eventId, profile]);
+
+  const { canEditVehicleChecklist, isFullAdmin } = usePermissions({ eventRole });
+  const canCheck = canEditVehicleChecklist;
+  const canManageItems = isFullAdmin;
 
   useEffect(() => {
-    if (eventId) {
-      loadChecklist();
-    }
+    if (eventId) loadChecklist();
   }, [eventId]);
 
   const loadChecklist = async () => {
@@ -66,12 +81,9 @@ export default function Checklist() {
       if (error) throw error;
 
       const loaded = data as ChecklistItem[];
-      
-      // Check if confirmed flag exists
       const confirmFlag = loaded.find(i => (i.item_type as string) === 'checklist_confirmed');
       setIsConfirmed(!!confirmFlag);
 
-      // Filter out the flag and other types from displayed items
       const displayItems = loaded.filter(i => {
         const t = i.item_type as string;
         return t !== 'checklist_confirmed' && t !== 'uti' && t !== 'uti_confirmed' && t !== 'psicotropicos' && t !== 'psicotropicos_confirmed' && !t.startsWith('video_') && t !== 'videos_confirmed' && !t.startsWith('fuel_');
@@ -85,29 +97,9 @@ export default function Checklist() {
       setItems(displayItems);
     } catch (err) {
       console.error('Error loading checklist:', err);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar o checklist.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Não foi possível carregar o checklist.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const resetChecklist = async () => {
-    setIsSaving(true);
-    try {
-      await supabase
-        .from('checklist_items')
-        .delete()
-        .eq('event_id', eventId);
-
-      await createDefaultItems();
-    } catch (err) {
-      console.error('Error resetting checklist:', err);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -121,12 +113,8 @@ export default function Checklist() {
         empresa_id: profile?.empresa_id || null,
       }));
 
-      const { error } = await supabase
-        .from('checklist_items')
-        .insert(allItems);
-
+      const { error } = await supabase.from('checklist_items').insert(allItems);
       if (error) throw error;
-      
       await loadChecklist();
     } catch (err) {
       console.error('Error creating default items:', err);
@@ -134,35 +122,30 @@ export default function Checklist() {
   };
 
   const setItemValue = async (item: ChecklistItem, value: boolean) => {
-    if (!canCheck || isConfirmed) return;
+    if (!canCheck || isConfirmed) {
+      if (!canCheck) {
+        toast({ title: 'Sem permissão', description: 'Sua função não permite editar o checklist da viatura.', variant: 'destructive' });
+      }
+      return;
+    }
 
     setIsSaving(true);
     try {
       const { error } = await supabase
         .from('checklist_items')
-        .update({
-          is_checked: value,
-          checked_by: profile?.id,
-          checked_at: new Date().toISOString(),
-        })
+        .update({ is_checked: value, checked_by: profile?.id, checked_at: new Date().toISOString() })
         .eq('id', item.id);
 
       if (error) throw error;
 
       setItems(prev =>
         prev.map(i =>
-          i.id === item.id
-            ? { ...i, is_checked: value, checked_by: profile?.id || null, checked_at: new Date().toISOString() }
-            : i
+          i.id === item.id ? { ...i, is_checked: value, checked_by: profile?.id || null, checked_at: new Date().toISOString() } : i
         )
       );
     } catch (err) {
       console.error('Error updating item:', err);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o item.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Não foi possível atualizar o item.', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -170,52 +153,31 @@ export default function Checklist() {
 
   const addItem = async () => {
     if (!newItemName.trim() || !canManageItems) return;
-
     setIsSaving(true);
     try {
       const { data, error } = await supabase
         .from('checklist_items')
-        .insert({
-          event_id: eventId,
-          item_type: 'pre',
-          item_name: newItemName.trim(),
-          is_checked: false,
-          empresa_id: profile?.empresa_id || null,
-        })
+        .insert({ event_id: eventId, item_type: 'pre', item_name: newItemName.trim(), is_checked: false, empresa_id: profile?.empresa_id || null })
         .select()
         .single();
 
       if (error) throw error;
-
       setItems(prev => [...prev, data as ChecklistItem]);
       setNewItemName('');
-
-      toast({
-        title: 'Item adicionado',
-        description: 'O item foi adicionado ao checklist.',
-      });
+      toast({ title: 'Item adicionado', description: 'O item foi adicionado ao checklist.' });
     } catch (err) {
       console.error('Error adding item:', err);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível adicionar o item.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: 'Não foi possível adicionar o item.', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
   const updateItemNotes = async (item: ChecklistItem, notes: string) => {
+    if (!canCheck) return;
     try {
-      await supabase
-        .from('checklist_items')
-        .update({ notes })
-        .eq('id', item.id);
-
-      setItems(prev =>
-        prev.map(i => i.id === item.id ? { ...i, notes } : i)
-      );
+      await supabase.from('checklist_items').update({ notes }).eq('id', item.id);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, notes } : i));
     } catch (err) {
       console.error('Error updating notes:', err);
     }
@@ -234,48 +196,19 @@ export default function Checklist() {
     const isF = item.is_checked === false && isAnswered;
     const hasNotesField = ITEMS_WITH_NOTES.some(name => name.toLowerCase() === item.item_name.toLowerCase());
     return (
-      <div
-        key={item.id}
-        className={`flex flex-col gap-1 p-2 rounded-lg border transition-colors ${
-          isV ? 'bg-green-500/10 border-green-500/30' : isF ? 'bg-red-500/10 border-red-500/30' : 'bg-card border-border'
-        }`}
-      >
+      <div key={item.id} className={`flex flex-col gap-1 p-2 rounded-lg border transition-colors ${isV ? 'bg-green-500/10 border-green-500/30' : isF ? 'bg-red-500/10 border-red-500/30' : 'bg-card border-border'}`}>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={isV ? 'default' : 'outline'}
-              className={`h-7 w-7 p-0 text-xs font-bold ${isV ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-              onClick={() => setItemValue(item, true)}
-              disabled={!canCheck || isSaving || isConfirmed}
-            >
-              V
-            </Button>
-            <Button
-              size="sm"
-              variant={isF ? 'default' : 'outline'}
-              className={`h-7 w-7 p-0 text-xs font-bold ${isF ? 'bg-red-600 hover:bg-red-700 text-white' : ''}`}
-              onClick={() => setItemValue(item, false)}
-              disabled={!canCheck || isSaving || isConfirmed}
-            >
-              X
-            </Button>
+            <Button size="sm" variant={isV ? 'default' : 'outline'} className={`h-7 w-7 p-0 text-xs font-bold ${isV ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`} onClick={() => setItemValue(item, true)} disabled={!canCheck || isSaving || isConfirmed}>V</Button>
+            <Button size="sm" variant={isF ? 'default' : 'outline'} className={`h-7 w-7 p-0 text-xs font-bold ${isF ? 'bg-red-600 hover:bg-red-700 text-white' : ''}`} onClick={() => setItemValue(item, false)} disabled={!canCheck || isSaving || isConfirmed}>X</Button>
           </div>
-          <span className={`flex-1 text-sm ${isF ? 'text-red-600 font-medium' : ''}`}>
-            {item.item_name}
-          </span>
+          <span className={`flex-1 text-sm ${isF ? 'text-red-600 font-medium' : ''}`}>{item.item_name}</span>
           {isV && <Check className="h-4 w-4 text-green-600" />}
           {isF && <AlertTriangle className="h-4 w-4 text-red-500" />}
         </div>
         {hasNotesField && (
           <div className="pl-[3.5rem] pr-1">
-            <Input
-              placeholder="Quantidade disponível..."
-              value={item.notes || ''}
-              onChange={(e) => updateItemNotes(item, e.target.value)}
-              disabled={!canCheck || isConfirmed}
-              className="text-xs h-7 py-1 w-full"
-            />
+            <Input placeholder="Quantidade disponível..." value={item.notes || ''} onChange={(e) => updateItemNotes(item, e.target.value)} disabled={!canCheck || isConfirmed} className="text-xs h-7 py-1 w-full" />
           </div>
         )}
       </div>
@@ -286,6 +219,10 @@ export default function Checklist() {
   const allAnswered = status.percentage === 100;
 
   const handleConfirmChecklist = async () => {
+    if (!canCheck) {
+      toast({ title: 'Sem permissão', description: 'Sua função não permite confirmar o checklist da viatura.', variant: 'destructive' });
+      return;
+    }
     if (!allAnswered) {
       toast({ title: 'Atenção', description: 'Todos os itens devem ser respondidos antes de confirmar.', variant: 'destructive' });
       return;
@@ -294,13 +231,8 @@ export default function Checklist() {
     try {
       await supabase.from('checklist_items').delete().eq('event_id', eventId).eq('item_type', 'checklist_confirmed' as any);
       const { error } = await supabase.from('checklist_items').insert({
-        event_id: eventId,
-        item_type: 'checklist_confirmed' as any,
-        item_name: 'CHECKLIST_CONFIRMADO',
-        is_checked: true,
-        checked_by: profile?.id,
-        checked_at: new Date().toISOString(),
-        empresa_id: profile?.empresa_id || null,
+        event_id: eventId, item_type: 'checklist_confirmed' as any, item_name: 'CHECKLIST_CONFIRMADO',
+        is_checked: true, checked_by: profile?.id, checked_at: new Date().toISOString(), empresa_id: profile?.empresa_id || null,
       });
       if (error) throw error;
       setIsConfirmed(true);
@@ -314,22 +246,14 @@ export default function Checklist() {
   };
 
   if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </MainLayout>
-    );
+    return <MainLayout><div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></MainLayout>;
   }
 
   return (
     <MainLayout>
       <div className="space-y-4 animate-fade-in">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex-1">
             <h1 className="text-base font-bold text-foreground flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-primary" />
@@ -346,81 +270,41 @@ export default function Checklist() {
           </div>
         </div>
 
+        <ReadOnlyBanner show={!canCheck} message="Apenas condutores e administradores podem editar o checklist da viatura." />
+
         <Tabs defaultValue="equipamentos" className="w-full">
           <TabsList className="w-full">
-            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5 text-xs">
-              <ClipboardCheck className="h-4 w-4" />
-              Equip.
-            </TabsTrigger>
-            <TabsTrigger value="uti" className="flex-1 gap-1.5 text-xs">
-              <Car className="h-4 w-4" />
-              UTI
-            </TabsTrigger>
-            <TabsTrigger value="videos" className="flex-1 gap-1.5 text-xs">
-              <Video className="h-4 w-4" />
-              Vídeos
-            </TabsTrigger>
-            <TabsTrigger value="combustivel" className="flex-1 gap-1.5 text-xs">
-              <Fuel className="h-4 w-4" />
-              KM
-            </TabsTrigger>
+            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5 text-xs"><ClipboardCheck className="h-4 w-4" />Equip.</TabsTrigger>
+            <TabsTrigger value="uti" className="flex-1 gap-1.5 text-xs"><Car className="h-4 w-4" />UTI</TabsTrigger>
+            <TabsTrigger value="videos" className="flex-1 gap-1.5 text-xs"><Video className="h-4 w-4" />Vídeos</TabsTrigger>
+            <TabsTrigger value="combustivel" className="flex-1 gap-1.5 text-xs"><Fuel className="h-4 w-4" />KM</TabsTrigger>
           </TabsList>
 
           <TabsContent value="equipamentos" className="space-y-4 mt-4">
-            {!canCheck && (
-              <Card className="border-warning bg-warning/10">
-                <CardContent className="py-3">
-                  <p className="text-sm text-center flex items-center justify-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Apenas condutores podem marcar itens do checklist.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Equipamentos</CardTitle>
-                  <Badge variant={status.percentage === 100 ? 'default' : 'secondary'}>
-                    {status.answered}/{status.total} ({status.percentage}%)
-                  </Badge>
+                  <Badge variant={status.percentage === 100 ? 'default' : 'secondary'}>{status.answered}/{status.total} ({status.percentage}%)</Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {items.map(renderItem)}
-              </CardContent>
+              <CardContent className="space-y-2">{items.map(renderItem)}</CardContent>
             </Card>
 
             {canManageItems && (
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Adicionar Item</CardTitle>
-                </CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-lg">Adicionar Item</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
-                    <Input
-                      placeholder="Nome do item..."
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button onClick={addItem} disabled={!newItemName.trim() || isSaving}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar
-                    </Button>
+                    <Input placeholder="Nome do item..." value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="flex-1" />
+                    <Button onClick={addItem} disabled={!newItemName.trim() || isSaving}><Plus className="h-4 w-4 mr-2" />Adicionar</Button>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Confirm button */}
             {canCheck && !isConfirmed ? (
-              <Button
-                onClick={handleConfirmChecklist}
-                disabled={!allAnswered || isSaving}
-                className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
-              >
+              <Button onClick={handleConfirmChecklist} disabled={!allAnswered || isSaving} className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                 Confirmar Checklist
               </Button>
@@ -435,16 +319,9 @@ export default function Checklist() {
           <TabsContent value="uti" className="mt-4">
             <UTIConditionsTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
           </TabsContent>
-
           <TabsContent value="videos" className="mt-4">
-            <ChecklistVideoTab
-              eventId={eventId!}
-              canCheck={canCheck}
-              profileId={profile?.id}
-              empresaId={profile?.empresa_id}
-            />
+            <ChecklistVideoTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
           </TabsContent>
-
           <TabsContent value="combustivel" className="mt-4">
             <ChecklistFuelTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
           </TabsContent>
