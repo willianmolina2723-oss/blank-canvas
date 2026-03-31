@@ -954,6 +954,63 @@ export type Database = {
           },
         ]
       }
+      event_recordings: {
+        Row: {
+          device_info: string | null
+          duration_seconds: number | null
+          empresa_id: string | null
+          ended_at: string | null
+          event_id: string
+          file_hash: string | null
+          file_size_bytes: number | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          profile_id: string | null
+          started_at: string
+          status: string
+          user_id: string
+          video_type: string
+          video_url: string | null
+        }
+        Insert: {
+          device_info?: string | null
+          duration_seconds?: number | null
+          empresa_id?: string | null
+          ended_at?: string | null
+          event_id: string
+          file_hash?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          profile_id?: string | null
+          started_at?: string
+          status?: string
+          user_id: string
+          video_type: string
+          video_url?: string | null
+        }
+        Update: {
+          device_info?: string | null
+          duration_seconds?: number | null
+          empresa_id?: string | null
+          ended_at?: string | null
+          event_id?: string
+          file_hash?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          profile_id?: string | null
+          started_at?: string
+          status?: string
+          user_id?: string
+          video_type?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       event_staff_costs: {
         Row: {
           base_value: number
