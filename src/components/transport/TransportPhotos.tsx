@@ -25,17 +25,29 @@ function formatTimestampBrasilia(): string {
   return `${pad(now.getDate())} de ${months[now.getMonth()]} de ${now.getFullYear()}, ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
+async function reverseGeocode(lat: number, lng: number): Promise<string[]> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=pt-BR`,
       { headers: { 'User-Agent': 'SAPH-App/1.0' } }
     );
-    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (!res.ok) return [`${lat.toFixed(5)}, ${lng.toFixed(5)}`];
     const data = await res.json();
-    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const addr = data.address || {};
+    const lines: string[] = [];
+    const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || '';
+    if (neighborhood) lines.push(neighborhood);
+    const city = addr.city || addr.town || addr.village || addr.municipality || '';
+    const state = addr.state || '';
+    const stateAbbr = state.length > 2 ? state.split(' ').map((w: string) => w[0]?.toUpperCase()).join('') : state;
+    if (city) lines.push(stateAbbr ? `${city} ${stateAbbr}` : city);
+    if (addr.postcode) lines.push(addr.postcode);
+    if (addr.country) lines.push(addr.country);
+    const poi = data.name || addr.amenity || addr.building || '';
+    if (poi && !lines.includes(poi)) lines.push(poi);
+    return lines.length > 0 ? lines : [`${lat.toFixed(5)}, ${lng.toFixed(5)}`];
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return [`${lat.toFixed(5)}, ${lng.toFixed(5)}`];
   }
 }
 
