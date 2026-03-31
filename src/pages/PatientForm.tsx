@@ -99,7 +99,17 @@ export default function PatientForm() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
 
-  const canEdit = roles.includes('enfermeiro') || roles.includes('admin');
+  const [eventRole, setEventRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
+        .then(({ data }) => setEventRole(data?.role || null));
+    }
+  }, [eventId, profile]);
+
+  const { canCreatePatientRecord } = usePermissions({ eventRole: eventRole as any });
+  const canEdit = canCreatePatientRecord;
 
   // Redraw signature on canvas when editing
   useEffect(() => {
