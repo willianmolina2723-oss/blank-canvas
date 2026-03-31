@@ -39,7 +39,7 @@ export function MaintenanceHistory({ ambulanceId, ambulanceCode, open, onOpenCha
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
-    maintenance_date: new Date().toISOString().slice(0, 10),
+    maintenance_date: todayBrasilia(),
     description: '',
     cost: '',
     performed_by: '',
