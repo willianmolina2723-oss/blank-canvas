@@ -152,24 +152,58 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     // Draw video frame
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Draw timestamp overlay
-    const ts = formatTimestamp();
-    const fontSize = Math.max(16, Math.floor(canvas.height / 25));
+    // Draw timestamp overlay (Brasília)
+    const ts = formatTimestampBrasilia();
+    const fontSize = Math.max(14, Math.floor(canvas.height / 30));
     ctx.font = `bold ${fontSize}px monospace`;
 
-    // Background bar
-    const textMetrics = ctx.measureText(ts);
-    const padding = 10;
-    const barHeight = fontSize + padding * 2;
-    const barWidth = textMetrics.width + padding * 2;
+    // Prepare lines: timestamp + address (if available)
+    const lines: string[] = [ts];
+    if (geoAddress) {
+      // Truncate address to fit on screen (max ~60 chars per line)
+      const maxLen = 65;
+      if (geoAddress.length > maxLen) {
+        lines.push(geoAddress.substring(0, maxLen));
+        lines.push(geoAddress.substring(maxLen, maxLen * 2));
+      } else {
+        lines.push(geoAddress);
+      }
+    }
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(canvas.width - barWidth - 10, canvas.height - barHeight - 10, barWidth, barHeight);
+    const smallFontSize = Math.max(11, Math.floor(fontSize * 0.75));
+    const padding = 8;
+    const lineHeight = fontSize + 4;
+    const smallLineHeight = smallFontSize + 3;
 
-    // Text
+    // Measure widths
+    ctx.font = `bold ${fontSize}px monospace`;
+    let maxWidth = ctx.measureText(ts).width;
+    ctx.font = `${smallFontSize}px monospace`;
+    for (let i = 1; i < lines.length; i++) {
+      maxWidth = Math.max(maxWidth, ctx.measureText(lines[i]).width);
+    }
+
+    const totalHeight = lineHeight + (lines.length - 1) * smallLineHeight + padding * 2;
+    const barWidth = maxWidth + padding * 2;
+    const barX = canvas.width - barWidth - 10;
+    const barY = canvas.height - totalHeight - 10;
+
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillRect(barX, barY, barWidth, totalHeight);
+
+    // Timestamp line
     ctx.fillStyle = '#FFFFFF';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ts, canvas.width - barWidth - 10 + padding, canvas.height - barHeight / 2 - 10);
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(ts, barX + padding, barY + padding);
+
+    // Address lines
+    ctx.fillStyle = '#E0E0E0';
+    ctx.font = `${smallFontSize}px monospace`;
+    for (let i = 1; i < lines.length; i++) {
+      ctx.fillText(lines[i], barX + padding, barY + padding + lineHeight + (i - 1) * smallLineHeight);
+    }
 
     // REC indicator if recording
     if (mediaRecorderRef.current?.state === 'recording') {
