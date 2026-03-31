@@ -33,6 +33,17 @@ export default function Medications() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const [eventRole, setEventRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
+        .then(({ data }) => setEventRole(data?.role || null));
+    }
+  }, [eventId, profile]);
+
+  const { canEditMedicationChecklist } = usePermissions({ eventRole: eventRole as any });
+  const canEdit = canEditMedicationChecklist;
   const [medications, setMedications] = useState<MedicationItem[]>(
     PSYCHOTROPIC_MEDICATIONS.map(name => ({ name, quantity: 0, checked: false }))
   );
