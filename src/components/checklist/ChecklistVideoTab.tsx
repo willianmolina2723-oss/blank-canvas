@@ -265,6 +265,18 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     setRecordingType(type);
     setShowCamera(true);
     setCameraReady(false);
+    setGeoAddress(null);
+
+    // Fetch geolocation + address in background
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000, enableHighAccuracy: true })
+      );
+      const addr = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      setGeoAddress(addr);
+    } catch {
+      setGeoAddress(null);
+    }
 
     try {
       const constraints: MediaStreamConstraints = {
