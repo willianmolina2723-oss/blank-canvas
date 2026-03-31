@@ -79,18 +79,21 @@ export default function EventHub() {
 
       if (response.error) {
         let errorMessage = response.error.message || 'Erro ao atualizar status';
+        let pendingItems: string[] = [];
         const responseContext = (response.error as any)?.context;
 
         if (responseContext) {
           try {
             const errorPayload = await responseContext.clone().json();
             if (errorPayload?.error) errorMessage = errorPayload.error;
+            if (errorPayload?.pending_items) pendingItems = errorPayload.pending_items;
           } catch {
             try {
               const rawText = await responseContext.clone().text();
               if (rawText) {
                 const parsed = JSON.parse(rawText);
                 if (parsed?.error) errorMessage = parsed.error;
+                if (parsed?.pending_items) pendingItems = parsed.pending_items;
               }
             } catch {
               // Keep fallback
@@ -98,12 +101,32 @@ export default function EventHub() {
           }
         }
 
+        if (pendingItems.length > 0) {
+          toast({
+            title: 'Não é possível finalizar o evento',
+            description: `Itens pendentes:\n• ${pendingItems.join('\n• ')}`,
+            variant: 'destructive',
+            duration: 12000,
+          });
+          return;
+        }
+
         throw new Error(errorMessage);
       }
 
       const result = response.data;
       if (result?.error) {
-        toast({ title: 'Atenção', description: result.error, variant: 'destructive' });
+        const pendingItems: string[] = result.pending_items || [];
+        if (pendingItems.length > 0) {
+          toast({
+            title: 'Não é possível finalizar o evento',
+            description: `Itens pendentes:\n• ${pendingItems.join('\n• ')}`,
+            variant: 'destructive',
+            duration: 10000,
+          });
+        } else {
+          toast({ title: 'Atenção', description: result.error, variant: 'destructive' });
+        }
         return;
       }
 
