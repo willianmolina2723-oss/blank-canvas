@@ -88,7 +88,7 @@ export default function TransportForm() {
   };
 
   const setCurrentTime = (field: 'departure_time' | 'arrival_time') => {
-    const now = new Date().toISOString().slice(0, 16);
+    const now = nowBrasiliaLocal();
     handleChange(field, now);
   };
 
