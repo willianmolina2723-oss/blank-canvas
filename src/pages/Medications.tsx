@@ -85,14 +85,14 @@ export default function Medications() {
   };
 
   const handleCheck = (index: number) => {
-    if (isConfirmed) return;
+    if (isConfirmed || !canEdit) return;
     setMedications(prev =>
       prev.map((med, i) => (i === index ? { ...med, checked: !med.checked } : med))
     );
   };
 
   const handleQuantityChange = (index: number, value: string) => {
-    if (isConfirmed) return;
+    if (isConfirmed || !canEdit) return;
     const qty = Math.max(0, parseInt(value) || 0);
     setMedications(prev =>
       prev.map((med, i) => (i === index ? { ...med, quantity: qty } : med))
