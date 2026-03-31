@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MedicationItem {
