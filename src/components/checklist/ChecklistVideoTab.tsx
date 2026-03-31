@@ -220,7 +220,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     }
 
     animFrameRef.current = requestAnimationFrame(drawFrame);
-  }, []);
+  }, [geoAddress]);
 
   const loadRecordings = async () => {
     setIsLoading(true);
