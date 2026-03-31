@@ -105,6 +105,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [geoAddress, setGeoAddress] = useState<string | null>(null);
 
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
