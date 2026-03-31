@@ -328,10 +328,10 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
             <canvas ref={canvasRef} className="w-full rounded-lg" />
           </div>
 
-          {geoAddress && (
+          {geoLines && (
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-              <span className="line-clamp-2">{geoAddress}</span>
+              <span className="line-clamp-2">{geoLines.join(', ')}</span>
             </div>
           )}
 
