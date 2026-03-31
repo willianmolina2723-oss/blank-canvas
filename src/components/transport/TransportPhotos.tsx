@@ -20,8 +20,9 @@ interface TransportPhotosProps {
 
 function formatTimestampBrasilia(): string {
   const now = toBrasiliaDate(new Date());
+  const months = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} (Brasília)`;
+  return `${pad(now.getDate())} de ${months[now.getMonth()]} de ${now.getFullYear()}, ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
