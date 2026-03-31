@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { todayBrasilia } from '@/utils/dateFormat';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,7 @@ export function MaintenanceHistory({ ambulanceId, ambulanceCode, open, onOpenCha
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
-    maintenance_date: new Date().toISOString().slice(0, 10),
+    maintenance_date: todayBrasilia(),
     description: '',
     cost: '',
     performed_by: '',
@@ -89,7 +90,7 @@ export function MaintenanceHistory({ ambulanceId, ambulanceCode, open, onOpenCha
 
       toast({ title: 'Sucesso', description: 'Manutenção registrada.' });
       setShowAddForm(false);
-      setForm({ maintenance_date: new Date().toISOString().slice(0, 10), description: '', cost: '', performed_by: '', notes: '' });
+      setForm({ maintenance_date: todayBrasilia(), description: '', cost: '', performed_by: '', notes: '' });
       loadLogs();
     } catch (err) {
       console.error('Error adding maintenance:', err);

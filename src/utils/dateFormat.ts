@@ -47,3 +47,17 @@ export function formatDateTimeBR(date: Date | string | number): string {
 export function formatDateTimeSecsBR(date: Date | string | number): string {
   return formatBR(date, "dd/MM/yyyy 'às' HH:mm:ss");
 }
+
+/**
+ * Returns the current date/time in Brasília timezone formatted for datetime-local inputs (yyyy-MM-dd'T'HH:mm).
+ */
+export function nowBrasiliaLocal(): string {
+  return formatBR(new Date(), "yyyy-MM-dd'T'HH:mm");
+}
+
+/**
+ * Returns today's date in Brasília timezone as yyyy-MM-dd.
+ */
+export function todayBrasilia(): string {
+  return formatBR(new Date(), 'yyyy-MM-dd');
+}

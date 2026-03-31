@@ -14,6 +14,7 @@ import { ArrowLeft, Truck, Save, Loader2, MapPin, Clock } from 'lucide-react';
 import { TransportPhotos } from '@/components/transport/TransportPhotos';
 import { useToast } from '@/hooks/use-toast';
 import type { TransportRecord, AppRole } from '@/types/database';
+import { nowBrasiliaLocal } from '@/utils/dateFormat';
 
 export default function TransportForm() {
   const { eventId } = useParams();
@@ -88,7 +89,7 @@ export default function TransportForm() {
   };
 
   const setCurrentTime = (field: 'departure_time' | 'arrival_time') => {
-    const now = new Date().toISOString().slice(0, 16);
+    const now = nowBrasiliaLocal();
     handleChange(field, now);
   };
 
