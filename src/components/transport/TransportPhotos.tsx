@@ -161,7 +161,7 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
       const addressLines = geoLines || ['Obtendo localização...'];
       const allLines = [timestamp, ...addressLines];
 
-      const fontSize = Math.max(18, Math.floor(canvas.width / 30));
+      const fontSize = 60;
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.textBaseline = 'top';
 
