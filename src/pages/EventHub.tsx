@@ -103,7 +103,17 @@ export default function EventHub() {
 
       const result = response.data;
       if (result?.error) {
-        toast({ title: 'Atenção', description: result.error, variant: 'destructive' });
+        const pendingItems: string[] = result.pending_items || [];
+        if (pendingItems.length > 0) {
+          toast({
+            title: 'Não é possível finalizar o evento',
+            description: `Itens pendentes:\n• ${pendingItems.join('\n• ')}`,
+            variant: 'destructive',
+            duration: 10000,
+          });
+        } else {
+          toast({ title: 'Atenção', description: result.error, variant: 'destructive' });
+        }
         return;
       }
 
