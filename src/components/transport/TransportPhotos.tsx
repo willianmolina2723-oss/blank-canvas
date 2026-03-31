@@ -156,43 +156,50 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Draw overlay
+      // Build overlay lines: timestamp + address lines
       const timestamp = formatTimestampBrasilia();
-      const address = geoAddress || 'Obtendo localização...';
-      const truncAddr = address.length > 80 ? address.substring(0, 77) + '...' : address;
+      const addressLines = geoLines || ['Obtendo localização...'];
+      const allLines = [timestamp, ...addressLines];
 
-      const fontSize = Math.max(14, Math.floor(canvas.width / 50));
-      ctx.font = `bold ${fontSize}px monospace`;
+      const fontSize = Math.max(14, Math.floor(canvas.width / 45));
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.textBaseline = 'top';
 
-      const lines = [timestamp, truncAddr];
-      const lineHeight = fontSize * 1.4;
-      const padding = 10;
-      const boxHeight = lines.length * lineHeight + padding * 2;
-      const boxY = canvas.height - boxHeight - 10;
+      const lineHeight = fontSize * 1.5;
+      const padding = 12;
+      const rightMargin = 20;
+      const bottomMargin = 20;
 
       // Measure max width
       let maxW = 0;
-      for (const line of lines) {
+      for (const line of allLines) {
         const m = ctx.measureText(line);
         if (m.width > maxW) maxW = m.width;
       }
 
-      // Background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(8, boxY, maxW + padding * 2, boxHeight);
+      const boxWidth = maxW + padding * 2;
+      const boxHeight = allLines.length * lineHeight + padding * 2;
+      const boxX = canvas.width - boxWidth - rightMargin;
+      const boxY = canvas.height - boxHeight - bottomMargin;
 
-      // Text
+      // Semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.roundRect?.(boxX, boxY, boxWidth, boxHeight, 8);
+      ctx.fill();
+
+      // Right-aligned white text
       ctx.fillStyle = '#FFFFFF';
-      ctx.textBaseline = 'top';
-      lines.forEach((line, i) => {
-        ctx.fillText(line, 8 + padding, boxY + padding + i * lineHeight);
+      ctx.textAlign = 'right';
+      allLines.forEach((line, i) => {
+        ctx.fillText(line, canvas.width - rightMargin - padding, boxY + padding + i * lineHeight);
       });
+      ctx.textAlign = 'left'; // reset
 
       animFrameRef.current = requestAnimationFrame(loop);
     };
 
     loop();
-  }, [geoAddress]);
+  }, [geoLines]);
 
   // Re-start overlay when geoAddress updates
   useEffect(() => {
