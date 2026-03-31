@@ -51,7 +51,17 @@ export default function MedicalEvolutionForm() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
 
-  const canEdit = roles.includes('medico') || roles.includes('admin');
+  const [eventRole, setEventRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (eventId && profile) {
+      supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
+        .then(({ data }) => setEventRole(data?.role || null));
+    }
+  }, [eventId, profile]);
+
+  const { canEditMedicalEvolution } = usePermissions({ eventRole: eventRole as any });
+  const canEdit = canEditMedicalEvolution;
 
   useEffect(() => {
     if (eventId) {
