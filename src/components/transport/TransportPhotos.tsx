@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, X, Loader2, ImageIcon } from 'lucide-react';
+import { Camera, X, Loader2, ImageIcon, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { toBrasiliaDate } from '@/utils/dateFormat';
 
 interface TransportPhoto {
   name: string;
@@ -17,26 +18,57 @@ interface TransportPhotosProps {
   canEdit: boolean;
 }
 
+function formatTimestampBrasilia(): string {
+  const now = toBrasiliaDate(new Date());
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} (Brasília)`;
+}
+
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=pt-BR`,
+      { headers: { 'User-Agent': 'SAPH-App/1.0' } }
+    );
+    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const data = await res.json();
+    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
+}
+
 export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
   const [photos, setPhotos] = useState<TransportPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [geoAddress, setGeoAddress] = useState<string | null>(null);
 
   useEffect(() => {
     if (transportId) loadPhotos();
   }, [transportId]);
 
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
+
   const loadPhotos = async () => {
     if (!transportId) return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        'transport-photos',
-        { body: { action: 'list', transport_id: transportId } }
-      );
+      const { data, error } = await supabase.functions.invoke('transport-photos', {
+        body: { action: 'list', transport_id: transportId },
+      });
       if (error) throw error;
       if (data?.photos) setPhotos(data.photos);
     } catch (err) {
@@ -46,10 +78,150 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
     }
   };
 
+  const stopCamera = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraReady(false);
+    setShowCamera(false);
+  }, []);
+
+  const openCamera = async () => {
+    setShowCamera(true);
+    setGeoAddress(null);
+
+    // Fetch geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const addr = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+          setGeoAddress(addr);
+        },
+        () => setGeoAddress('Localização indisponível'),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setCameraReady(true);
+        drawOverlay();
+      }
+    } catch (err) {
+      console.error('Camera error:', err);
+      toast({ title: 'Erro', description: 'Não foi possível acessar a câmera.', variant: 'destructive' });
+      stopCamera();
+    }
+  };
+
+  const drawOverlay = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const loop = () => {
+      if (!streamRef.current) return;
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Draw overlay
+      const timestamp = formatTimestampBrasilia();
+      const address = geoAddress || 'Obtendo localização...';
+      const truncAddr = address.length > 80 ? address.substring(0, 77) + '...' : address;
+
+      const fontSize = Math.max(14, Math.floor(canvas.width / 50));
+      ctx.font = `bold ${fontSize}px monospace`;
+
+      const lines = [timestamp, truncAddr];
+      const lineHeight = fontSize * 1.4;
+      const padding = 10;
+      const boxHeight = lines.length * lineHeight + padding * 2;
+      const boxY = canvas.height - boxHeight - 10;
+
+      // Measure max width
+      let maxW = 0;
+      for (const line of lines) {
+        const m = ctx.measureText(line);
+        if (m.width > maxW) maxW = m.width;
+      }
+
+      // Background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(8, boxY, maxW + padding * 2, boxHeight);
+
+      // Text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textBaseline = 'top';
+      lines.forEach((line, i) => {
+        ctx.fillText(line, 8 + padding, boxY + padding + i * lineHeight);
+      });
+
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+
+    loop();
+  }, [geoAddress]);
+
+  // Re-start overlay when geoAddress updates
+  useEffect(() => {
+    if (showCamera && cameraReady) {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      drawOverlay();
+    }
+  }, [geoAddress, showCamera, cameraReady, drawOverlay]);
+
+  const capturePhoto = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !transportId) return;
+
+    setIsUploading(true);
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao capturar'))), 'image/jpeg', 0.9);
+      });
+
+      const formData = new FormData();
+      formData.append('file', blob, `photo_${Date.now()}.jpg`);
+      formData.append('transport_id', transportId);
+      formData.append('action', 'upload');
+
+      const { data, error } = await supabase.functions.invoke('transport-photos', { body: formData });
+      if (error) throw new Error(error.message || 'Falha ao enviar foto');
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: 'Sucesso', description: 'Foto capturada e enviada.' });
+      loadPhotos();
+    } catch (err: any) {
+      console.error('Capture error:', err);
+      toast({ title: 'Erro', description: err?.message || 'Falha ao enviar foto.', variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const MAX_FILE_SIZE_MB = 30;
   const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !transportId) return;
 
@@ -57,17 +229,11 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
     try {
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('image/')) {
-          toast({ title: 'Arquivo inválido', description: `"${file.name}" não é uma imagem. Envie apenas fotos (JPEG, PNG, etc).`, variant: 'destructive' });
+          toast({ title: 'Arquivo inválido', description: `"${file.name}" não é uma imagem.`, variant: 'destructive' });
           continue;
         }
-
         if (file.size > MAX_FILE_SIZE) {
-          const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-          toast({ 
-            title: 'Foto muito grande', 
-            description: `"${file.name}" tem ${sizeMB}MB. O limite é ${MAX_FILE_SIZE_MB}MB. Reduza a resolução ou tire a foto em qualidade menor.`, 
-            variant: 'destructive' 
-          });
+          toast({ title: 'Foto muito grande', description: `"${file.name}" excede ${MAX_FILE_SIZE_MB}MB.`, variant: 'destructive' });
           continue;
         }
 
@@ -76,27 +242,16 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
         formData.append('transport_id', transportId);
         formData.append('action', 'upload');
 
-        const { data, error } = await supabase.functions.invoke(
-          'transport-photos',
-          { body: formData }
-        );
-
-        if (error) {
-          console.error('Upload error:', error);
-          throw new Error(error.message || 'Falha ao enviar foto');
-        }
-
-        if (data?.error) {
-          throw new Error(data.error);
-        }
+        const { data, error } = await supabase.functions.invoke('transport-photos', { body: formData });
+        if (error) throw new Error(error.message || 'Falha ao enviar foto');
+        if (data?.error) throw new Error(data.error);
       }
 
       toast({ title: 'Sucesso', description: 'Foto(s) enviada(s) com sucesso.' });
       loadPhotos();
     } catch (err: any) {
-      console.error('Error uploading:', err);
-      const msg = err?.message || 'Falha ao enviar foto. Verifique o tamanho e tente novamente.';
-      toast({ title: 'Erro ao enviar foto', description: msg, variant: 'destructive' });
+      console.error('Upload error:', err);
+      toast({ title: 'Erro ao enviar foto', description: err?.message || 'Falha ao enviar.', variant: 'destructive' });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -105,18 +260,16 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
 
   const handleDelete = async (photo: TransportPhoto) => {
     try {
-      const { error } = await supabase.functions.invoke(
-        'transport-photos',
-        { body: { action: 'delete', transport_id: transportId, path: photo.path } }
-      );
-
+      const { error } = await supabase.functions.invoke('transport-photos', {
+        body: { action: 'delete', transport_id: transportId, path: photo.path },
+      });
       if (error) throw error;
 
       toast({ title: 'Sucesso', description: 'Foto removida.' });
-      setPhotos(prev => prev.filter(p => p.path !== photo.path));
+      setPhotos((prev) => prev.filter((p) => p.path !== photo.path));
       if (selectedPhoto === photo.url) setSelectedPhoto(null);
     } catch (err) {
-      console.error('Error deleting:', err);
+      console.error('Delete error:', err);
       toast({ title: 'Erro', description: 'Falha ao remover foto.', variant: 'destructive' });
     }
   };
@@ -139,6 +292,55 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
     );
   }
 
+  // Camera view
+  if (showCamera) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Camera className="h-5 w-5" />
+            Capturar Foto
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative bg-black rounded-lg overflow-hidden">
+            <video ref={videoRef} className="hidden" playsInline muted autoPlay />
+            <canvas ref={canvasRef} className="w-full rounded-lg" />
+          </div>
+
+          {geoAddress && (
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+              <span className="line-clamp-2">{geoAddress}</span>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={stopCamera}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={capturePhoto}
+              disabled={!cameraReady || isUploading}
+              className="flex-1"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Camera className="h-4 w-4 mr-2" />
+              )}
+              {isUploading ? 'Enviando...' : 'Capturar'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <>
       <Card>
@@ -150,28 +352,36 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
         </CardHeader>
         <CardContent className="space-y-4">
           {canEdit && (
-            <div>
+            <div className="flex gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 multiple
-                capture="environment"
                 className="hidden"
-                onChange={handleUpload}
+                onChange={handleFileUpload}
               />
+              <Button
+                variant="outline"
+                onClick={openCamera}
+                disabled={isUploading}
+                className="flex-1 h-16 border-dashed"
+              >
+                <Camera className="h-5 w-5 mr-2" />
+                Câmera com Carimbo
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="w-full h-20 border-dashed"
+                className="flex-1 h-16 border-dashed"
               >
                 {isUploading ? (
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 ) : (
-                  <Camera className="h-5 w-5 mr-2" />
+                  <ImageIcon className="h-5 w-5 mr-2" />
                 )}
-                {isUploading ? 'Enviando...' : 'Tirar Foto ou Selecionar'}
+                Galeria
               </Button>
             </div>
           )}
@@ -210,16 +420,12 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
         </CardContent>
       </Card>
 
-      {/* Lightbox */}
       {selectedPhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setSelectedPhoto(null)}
         >
-          <button
-            className="absolute top-4 right-4 text-white"
-            onClick={() => setSelectedPhoto(null)}
-          >
+          <button className="absolute top-4 right-4 text-white" onClick={() => setSelectedPhoto(null)}>
             <X className="h-8 w-8" />
           </button>
           <img
