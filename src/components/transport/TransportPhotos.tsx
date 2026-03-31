@@ -106,16 +106,16 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
 
   const openCamera = async () => {
     setShowCamera(true);
-    setGeoAddress(null);
+    setGeoLines(null);
 
     // Fetch geolocation
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const addr = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-          setGeoAddress(addr);
+          const lines = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+          setGeoLines(lines);
         },
-        () => setGeoAddress('Localização indisponível'),
+        () => setGeoLines(['Localização indisponível']),
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
