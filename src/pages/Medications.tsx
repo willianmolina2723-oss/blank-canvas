@@ -204,7 +204,7 @@ export default function Medications() {
                   value={med.quantity}
                   onChange={(e) => handleQuantityChange(index, e.target.value)}
                   className="h-8 w-14 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                  disabled={isConfirmed}
+                  disabled={isConfirmed || !canEdit}
                 />
               </div>
             </div>
