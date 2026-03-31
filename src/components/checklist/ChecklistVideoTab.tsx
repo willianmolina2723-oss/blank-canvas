@@ -15,6 +15,7 @@ import {
   RotateCcw, Camera, Trash2, Shield
 } from 'lucide-react';
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
+import { toBrasiliaDate } from '@/utils/dateFormat';
 
 type VideoType = 'salao' | 'cabine' | 'externa';
 
@@ -61,11 +62,26 @@ function getDeviceInfo(): string {
   return `${platform} | ${ua.substring(0, 150)}`;
 }
 
-// Format timestamp for overlay
-function formatTimestamp(): string {
-  const now = new Date();
+// Format timestamp for overlay in Brasília timezone
+function formatTimestampBrasilia(): string {
+  const now = toBrasiliaDate(new Date());
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} (Brasília)`;
+}
+
+// Reverse geocode coordinates to a readable address
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=pt-BR`,
+      { headers: { 'User-Agent': 'SAPH-App/1.0' } }
+    );
+    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const data = await res.json();
+    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
 }
 
 export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: Props) {
@@ -89,6 +105,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [geoAddress, setGeoAddress] = useState<string | null>(null);
 
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -135,24 +152,58 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     // Draw video frame
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Draw timestamp overlay
-    const ts = formatTimestamp();
-    const fontSize = Math.max(16, Math.floor(canvas.height / 25));
+    // Draw timestamp overlay (Brasília)
+    const ts = formatTimestampBrasilia();
+    const fontSize = Math.max(14, Math.floor(canvas.height / 30));
     ctx.font = `bold ${fontSize}px monospace`;
 
-    // Background bar
-    const textMetrics = ctx.measureText(ts);
-    const padding = 10;
-    const barHeight = fontSize + padding * 2;
-    const barWidth = textMetrics.width + padding * 2;
+    // Prepare lines: timestamp + address (if available)
+    const lines: string[] = [ts];
+    if (geoAddress) {
+      // Truncate address to fit on screen (max ~60 chars per line)
+      const maxLen = 65;
+      if (geoAddress.length > maxLen) {
+        lines.push(geoAddress.substring(0, maxLen));
+        lines.push(geoAddress.substring(maxLen, maxLen * 2));
+      } else {
+        lines.push(geoAddress);
+      }
+    }
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(canvas.width - barWidth - 10, canvas.height - barHeight - 10, barWidth, barHeight);
+    const smallFontSize = Math.max(11, Math.floor(fontSize * 0.75));
+    const padding = 8;
+    const lineHeight = fontSize + 4;
+    const smallLineHeight = smallFontSize + 3;
 
-    // Text
+    // Measure widths
+    ctx.font = `bold ${fontSize}px monospace`;
+    let maxWidth = ctx.measureText(ts).width;
+    ctx.font = `${smallFontSize}px monospace`;
+    for (let i = 1; i < lines.length; i++) {
+      maxWidth = Math.max(maxWidth, ctx.measureText(lines[i]).width);
+    }
+
+    const totalHeight = lineHeight + (lines.length - 1) * smallLineHeight + padding * 2;
+    const barWidth = maxWidth + padding * 2;
+    const barX = canvas.width - barWidth - 10;
+    const barY = canvas.height - totalHeight - 10;
+
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillRect(barX, barY, barWidth, totalHeight);
+
+    // Timestamp line
     ctx.fillStyle = '#FFFFFF';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(ts, canvas.width - barWidth - 10 + padding, canvas.height - barHeight / 2 - 10);
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(ts, barX + padding, barY + padding);
+
+    // Address lines
+    ctx.fillStyle = '#E0E0E0';
+    ctx.font = `${smallFontSize}px monospace`;
+    for (let i = 1; i < lines.length; i++) {
+      ctx.fillText(lines[i], barX + padding, barY + padding + lineHeight + (i - 1) * smallLineHeight);
+    }
 
     // REC indicator if recording
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -169,7 +220,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     }
 
     animFrameRef.current = requestAnimationFrame(drawFrame);
-  }, []);
+  }, [geoAddress]);
 
   const loadRecordings = async () => {
     setIsLoading(true);
@@ -214,6 +265,18 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     setRecordingType(type);
     setShowCamera(true);
     setCameraReady(false);
+    setGeoAddress(null);
+
+    // Fetch geolocation + address in background
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000, enableHighAccuracy: true })
+      );
+      const addr = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+      setGeoAddress(addr);
+    } catch {
+      setGeoAddress(null);
+    }
 
     try {
       const constraints: MediaStreamConstraints = {
