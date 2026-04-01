@@ -54,8 +54,10 @@ interface Props {
 interface FuelData {
   km_inicial: string;
   combustivel_inicial: string;
+  km_reserva_inicial: string;
   km_final: string;
   combustivel_final: string;
+  km_reserva_final: string;
   abastecido: boolean;
   observacoes: string;
 }
