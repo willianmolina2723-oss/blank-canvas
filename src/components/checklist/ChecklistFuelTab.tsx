@@ -106,6 +106,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
             ...prev,
             km_final: parsed.km_final || '',
             combustivel_final: parsed.combustivel_final || '',
+            km_reserva_final: parsed.km_reserva_final || '',
             abastecido: parsed.abastecido || false,
             observacoes: parsed.observacoes || '',
           }));
