@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Fuel, Car, Droplets, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Car, Droplets, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface UTIData {
   documentos: string;
