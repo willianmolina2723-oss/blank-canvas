@@ -8,6 +8,7 @@ import { Loader2, Camera, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { Profile, AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
 
