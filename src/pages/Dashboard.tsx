@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useActiveEvents } from '@/hooks/useActiveEvents';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 
 export default function Dashboard() {
   const { roles, isAdmin, isSuperAdmin, isLoading: authLoading, isReadOnly } = useAuth();
