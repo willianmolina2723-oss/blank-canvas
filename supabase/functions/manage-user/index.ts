@@ -56,6 +56,14 @@ Deno.serve(async (req) => {
     if (!user_id) throw new Error('user_id é obrigatório')
     if (user_id === caller.id) throw new Error('Não é possível modificar sua própria conta')
 
+    // Cross-tenant validation: ensure target user belongs to same empresa (unless super admin)
+    if (!saCheck) {
+      const { data: targetProfile } = await supabaseAdmin.from('profiles').select('empresa_id').eq('user_id', user_id).maybeSingle()
+      if (!targetProfile || targetProfile.empresa_id !== callerEmpresaId) {
+        throw new Error('Usuário não pertence à sua organização')
+      }
+    }
+
     switch (action) {
       case 'suspend': {
         await supabaseAdmin.from('profiles').update({
