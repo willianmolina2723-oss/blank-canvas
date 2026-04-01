@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Fuel, CheckCircle2, Loader2, AlertTriangle, Car } from 'lucide-react';
+import { Fuel, CheckCircle2, Loader2, AlertTriangle, Car, Camera, X, MapPin, ImageIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { toBrasiliaDate } from '@/utils/dateFormat';
 
 const FUEL_LEVELS = [
   { value: 'R', label: 'R', color: 'text-red-500' },
