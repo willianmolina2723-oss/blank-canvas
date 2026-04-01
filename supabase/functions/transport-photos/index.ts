@@ -95,10 +95,20 @@ serve(async (req) => {
 
     // Handle JSON body (list / delete)
     const body = await req.json();
-    const { action, transport_id, path } = body;
+    const { action, transport_id, event_id, photo_type, path } = body;
 
-    if (action === 'list' && transport_id) {
-      const folder = `transport-photos/${transport_id}`;
+    if (action === 'list') {
+      let folder: string;
+      if (photo_type === 'fuel_receipt' && event_id) {
+        folder = `fuel-receipts/${event_id}`;
+      } else if (transport_id) {
+        folder = `transport-photos/${transport_id}`;
+      } else {
+        return new Response(JSON.stringify({ error: 'transport_id ou event_id é obrigatório' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const { data: files, error: listError } = await supabase.storage
         .from(BUCKET)
         .list(folder, { sortBy: { column: 'created_at', order: 'desc' } });
