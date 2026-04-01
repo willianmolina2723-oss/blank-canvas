@@ -530,6 +530,72 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
               disabled={!canCheck || isEndConfirmed} />
             <Label className="text-sm">Viatura foi abastecida</Label>
           </div>
+          {data.abastecido && (
+            <div className="animate-in slide-in-from-top-2 space-y-3 border border-primary/20 rounded-lg p-3 bg-primary/5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold uppercase tracking-wider text-primary">
+                  📷 Comprovante de Abastecimento *
+                </Label>
+                {receiptPhotos.length > 0 && (
+                  <Badge variant="default" className="text-xs">
+                    {receiptPhotos.length} foto{receiptPhotos.length > 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
+
+              {receiptPhotos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {receiptPhotos.map(photo => (
+                    <div key={photo.path} className="relative group">
+                      <img
+                        src={photo.url}
+                        alt="Comprovante"
+                        className="w-full h-20 object-cover rounded-lg cursor-pointer border"
+                        onClick={() => setSelectedPhoto(selectedPhoto === photo.url ? null : photo.url)}
+                      />
+                      {canCheck && !isEndConfirmed && (
+                        <button
+                          onClick={() => deleteReceiptPhoto(photo)}
+                          className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedPhoto && (
+                <div className="relative">
+                  <img src={selectedPhoto} alt="Comprovante ampliado" className="w-full rounded-lg border" />
+                  <Button size="sm" variant="outline" className="absolute top-2 right-2" onClick={() => setSelectedPhoto(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {canCheck && !isEndConfirmed && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={openCamera} disabled={isUploading}>
+                    <Camera className="h-4 w-4 mr-1" />
+                    Câmera
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <ImageIcon className="h-4 w-4 mr-1" />
+                    Galeria
+                  </Button>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                </div>
+              )}
+
+              {receiptPhotos.length === 0 && (
+                <p className="text-xs text-destructive text-center">
+                  Foto do comprovante é obrigatória para confirmar.
+                </p>
+              )}
+            </div>
+          )}
           <div>
             <Label className="text-xs font-medium">Observações</Label>
             <Textarea placeholder="Observações sobre o combustível..." value={data.observacoes}
