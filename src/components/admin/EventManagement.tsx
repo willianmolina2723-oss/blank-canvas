@@ -144,7 +144,7 @@ export function EventManagement() {
       setEventToClose(null);
       invalidate();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível encerrar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível encerrar.'), variant: 'destructive' });
     } finally {
       setIsClosing(false);
     }
