@@ -136,7 +136,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
        console.error('Error fetching data:', error);
        toast({
          title: 'Erro',
-         description: 'Não foi possível carregar os dados.',
+         description: explainError(error, 'Não foi possível carregar os dados.'),
          variant: 'destructive',
        });
      } finally {
