@@ -401,7 +401,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       toast({ title: 'Salvo', description: 'Dados de finalização registrados.' });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

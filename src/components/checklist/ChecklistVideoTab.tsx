@@ -533,7 +533,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
       toast({ title: 'Sucesso', description: 'Vídeos confirmados com sucesso.' });
     } catch (err) {
       console.error('Confirm error:', err);
-      toast({ title: 'Erro', description: 'Não foi possível confirmar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar.'), variant: 'destructive' });
     }
   };
 

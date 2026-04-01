@@ -229,7 +229,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
       console.error('Error confirming UTI:', err);
       toast({
         title: 'Erro',
-        description: err instanceof Error ? err.message : 'Não foi possível confirmar.',
+        description: explainError(err, 'Não foi possível confirmar.'),
         variant: 'destructive',
       });
     } finally {
