@@ -93,7 +93,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       if (startItem?.notes) {
         try {
           const parsed = JSON.parse(startItem.notes);
-          setData(prev => ({ ...prev, km_inicial: parsed.km_inicial || '', combustivel_inicial: parsed.combustivel_inicial || '' }));
+          setData(prev => ({ ...prev, km_inicial: parsed.km_inicial || '', combustivel_inicial: parsed.combustivel_inicial || '', km_reserva_inicial: parsed.km_reserva_inicial || '' }));
         } catch {}
         setIsStartConfirmed(!!startItem.is_checked);
         setStartItemId(startItem.id);
