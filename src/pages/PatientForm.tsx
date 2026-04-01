@@ -469,7 +469,7 @@ export default function PatientForm() {
       await loadPatients();
     } catch (err) {
       console.error('Error saving patient:', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar os dados do paciente.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar os dados do paciente.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

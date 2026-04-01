@@ -301,7 +301,7 @@ export default function PayrollPage() {
       setParticipants(Array.from(participantMap.values()).sort((a, b) => b.totalMinutes - a.totalMinutes));
     } catch (error) {
       console.error('Payroll fetch error:', error);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os dados de pagamento.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível carregar os dados de pagamento.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }

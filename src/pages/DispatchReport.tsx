@@ -477,7 +477,7 @@ export default function DispatchReportPage() {
       toast({ title: 'PDF gerado', description: 'O relatório de envio foi baixado com sucesso.' });
     } catch (err) {
       console.error('Error generating PDF:', err);
-      toast({ title: 'Erro', description: 'Não foi possível gerar o PDF.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível gerar o PDF.'), variant: 'destructive' });
     } finally {
       setIsGeneratingPdf(false);
     }

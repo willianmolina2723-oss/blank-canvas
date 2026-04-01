@@ -69,7 +69,7 @@ export default function ReportsPage() {
       setEvents(eventsWithDetails);
     } catch (error) {
       console.error('Error fetching reports:', error);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os relatórios.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível carregar os relatórios.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }

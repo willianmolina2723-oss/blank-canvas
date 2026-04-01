@@ -135,7 +135,7 @@ export default function Medications() {
       console.error('Error saving medications:', err);
       toast({
         title: 'Erro',
-        description: 'Não foi possível salvar o inventário.',
+        description: explainError(err, 'Não foi possível salvar o inventário.'),
         variant: 'destructive',
       });
     } finally {

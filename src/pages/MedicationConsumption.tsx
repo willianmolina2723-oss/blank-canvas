@@ -146,7 +146,7 @@ export default function MedicationConsumption() {
       toast({ title: 'Sucesso', description: 'Consumo de medicamentos confirmado.' });
     } catch (err) {
       console.error('Error saving medication consumption:', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

@@ -197,7 +197,7 @@ export default function NewEventPage() {
       navigate('/');
     } catch (err: any) {
       console.error('Error creating event:', err);
-      toast({ title: 'Erro', description: err.message || 'Não foi possível criar o evento.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar o evento.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

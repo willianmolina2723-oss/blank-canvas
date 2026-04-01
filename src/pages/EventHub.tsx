@@ -143,7 +143,7 @@ export default function EventHub() {
       console.error('Error updating status:', err);
       toast({
         title: 'Erro',
-        description: err.message || 'Não foi possível atualizar o status do evento.',
+        description: explainError(err, 'Não foi possível atualizar o status do evento.'),
         variant: 'destructive',
       });
     } finally {

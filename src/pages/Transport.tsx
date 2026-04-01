@@ -81,7 +81,7 @@ export default function TransportForm() {
         if (insertError) throw insertError;
         setExistingTransportId(newRecord.id);
       }
-    } catch (err) { console.error('Error loading transport:', err); }
+    } catch (err) { console.error('Error loading transport:', err); toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar o transporte.'), variant: 'destructive' }); }
     finally { setIsLoading(false); }
   };
 

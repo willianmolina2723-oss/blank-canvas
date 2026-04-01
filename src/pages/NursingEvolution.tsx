@@ -239,7 +239,7 @@ export default function NursingEvolutionForm() {
       });
     } catch (err) {
       console.error('Error saving:', err);
-      toast({ title: 'Erro', description: 'Não foi possível registrar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível registrar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

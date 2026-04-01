@@ -98,7 +98,7 @@ export default function Checklist() {
       setItems(displayItems);
     } catch (err) {
       console.error('Error loading checklist:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar o checklist.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar o checklist.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }

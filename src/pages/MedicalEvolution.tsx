@@ -296,7 +296,7 @@ export default function MedicalEvolutionForm() {
       console.error('Error saving evolution:', err);
       toast({
         title: 'Erro',
-        description: 'Não foi possível salvar a evolução.',
+        description: explainError(err, 'Não foi possível salvar a evolução.'),
         variant: 'destructive',
       });
     } finally {

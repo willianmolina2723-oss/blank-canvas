@@ -177,19 +177,11 @@ export default function Signatures() {
       });
     } catch (err: any) {
       console.error('Error saving signature:', err);
-      if (err.message?.includes('unique')) {
-        toast({
-          title: 'Erro',
-          description: 'Você já assinou este tipo de documento neste evento.',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível salvar a assinatura.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Erro',
+        description: explainError(err, 'Não foi possível salvar a assinatura.'),
+        variant: 'destructive',
+      });
     } finally {
       setIsSaving(false);
     }

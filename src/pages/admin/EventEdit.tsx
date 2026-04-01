@@ -245,7 +245,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
        console.error('Error saving event:', error);
        toast({
          title: 'Erro',
-         description: error.message || 'Não foi possível salvar as alterações.',
+         description: explainError(error, 'Não foi possível salvar as alterações.'),
          variant: 'destructive',
        });
      } finally {
