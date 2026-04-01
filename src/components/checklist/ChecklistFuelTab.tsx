@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Fuel, CheckCircle2, Loader2, AlertTriangle, Car, Camera, X, MapPin, ImageIcon } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -171,8 +172,8 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
         setCameraReady(true);
         drawOverlay();
       }
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível acessar a câmera.', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível acessar a câmera.'), variant: 'destructive' });
       stopCamera();
     }
   };
@@ -356,7 +357,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       toast({ title: 'Salvo', description: 'Dados de início registrados.' });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -400,7 +401,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       toast({ title: 'Salvo', description: 'Dados de finalização registrados.' });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

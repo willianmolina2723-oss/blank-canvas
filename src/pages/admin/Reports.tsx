@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { FileText, Loader2, Search, Download, Eye, MapPin, Send } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import type { Event, Ambulance, EventParticipant, Profile, AppRole } from '@/types/database';
@@ -68,7 +69,7 @@ export default function ReportsPage() {
       setEvents(eventsWithDetails);
     } catch (error) {
       console.error('Error fetching reports:', error);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os relatórios.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível carregar os relatórios.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }

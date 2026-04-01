@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Truck, Save, Loader2, MapPin, Clock } from 'lucide-react';
 import { TransportPhotos } from '@/components/transport/TransportPhotos';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { TransportRecord, AppRole } from '@/types/database';
 import { nowBrasiliaLocal, formatBR } from '@/utils/dateFormat';
 
@@ -80,7 +81,7 @@ export default function TransportForm() {
         if (insertError) throw insertError;
         setExistingTransportId(newRecord.id);
       }
-    } catch (err) { console.error('Error loading transport:', err); }
+    } catch (err) { console.error('Error loading transport:', err); toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar o transporte.'), variant: 'destructive' }); }
     finally { setIsLoading(false); }
   };
 
@@ -125,7 +126,7 @@ export default function TransportForm() {
       toast({ title: 'Sucesso', description: 'Dados de transporte salvos com sucesso.' });
     } catch (err) {
       console.error('Error saving transport:', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar os dados de transporte.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar os dados de transporte.'), variant: 'destructive' });
     } finally { setIsSaving(false); }
   };
 

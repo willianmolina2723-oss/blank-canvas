@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Loader2, MapPin, Eye, Pencil, Trash2, Users, Search, CheckCircle, Calendar, Ambulance, FileText, Send } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -127,7 +128,7 @@ export function EventManagement() {
       setEventToDelete(null);
       invalidate();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível excluir.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível excluir.'), variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
@@ -143,7 +144,7 @@ export function EventManagement() {
       setEventToClose(null);
       invalidate();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível encerrar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível encerrar.'), variant: 'destructive' });
     } finally {
       setIsClosing(false);
     }

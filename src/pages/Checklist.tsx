@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2, Video, Fuel } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { UTIConditionsTab } from '@/components/checklist/UTIConditionsTab';
 import { ChecklistVideoTab } from '@/components/checklist/ChecklistVideoTab';
 import { ChecklistFuelTab } from '@/components/checklist/ChecklistFuelTab';
@@ -97,7 +98,7 @@ export default function Checklist() {
       setItems(displayItems);
     } catch (err) {
       console.error('Error loading checklist:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar o checklist.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar o checklist.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +146,7 @@ export default function Checklist() {
       );
     } catch (err) {
       console.error('Error updating item:', err);
-      toast({ title: 'Erro', description: 'Não foi possível atualizar o item.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível atualizar o item.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -167,7 +168,7 @@ export default function Checklist() {
       toast({ title: 'Item adicionado', description: 'O item foi adicionado ao checklist.' });
     } catch (err) {
       console.error('Error adding item:', err);
-      toast({ title: 'Erro', description: 'Não foi possível adicionar o item.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível adicionar o item.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -239,7 +240,7 @@ export default function Checklist() {
       toast({ title: 'Sucesso', description: 'Checklist confirmado com sucesso.' });
     } catch (err) {
       console.error('Error confirming checklist:', err);
-      toast({ title: 'Erro', description: 'Não foi possível confirmar o checklist.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar o checklist.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

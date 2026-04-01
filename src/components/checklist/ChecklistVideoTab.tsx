@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import {
   invokeManageRecording,
   isRecordingSetupError,
@@ -498,7 +499,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
       await loadRecordings();
     } catch (err: any) {
       console.error('Delete error:', err);
-      toast({ title: 'Erro', description: err.message || 'Não foi possível remover.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível remover.'), variant: 'destructive' });
     }
   };
 
@@ -532,7 +533,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
       toast({ title: 'Sucesso', description: 'Vídeos confirmados com sucesso.' });
     } catch (err) {
       console.error('Confirm error:', err);
-      toast({ title: 'Erro', description: 'Não foi possível confirmar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar.'), variant: 'destructive' });
     }
   };
 

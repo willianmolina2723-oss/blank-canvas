@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useActiveEvents } from '@/hooks/useActiveEvents';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 
 export default function Dashboard() {
   const { roles, isAdmin, isSuperAdmin, isLoading: authLoading, isReadOnly } = useAuth();
@@ -107,7 +108,7 @@ export default function Dashboard() {
       console.error('Error updating status:', err);
       toast({
         title: 'Erro',
-        description: err.message || 'Não foi possível atualizar o status.',
+        description: explainError(err, 'Não foi possível atualizar o status.'),
         variant: 'destructive',
       });
     } finally {

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Camera, X, Loader2, ImageIcon, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { toBrasiliaDate } from '@/utils/dateFormat';
 
 interface TransportPhoto {
@@ -135,7 +136,7 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
       }
     } catch (err) {
       console.error('Camera error:', err);
-      toast({ title: 'Erro', description: 'Não foi possível acessar a câmera.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível acessar a câmera.'), variant: 'destructive' });
       stopCamera();
     }
   };

@@ -8,6 +8,7 @@ import { Loader2, Camera, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { Profile, AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
 
@@ -130,7 +131,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
       onOpenChange(false);
     } catch (err) {
       console.error('Error updating user:', err);
-      toast({ title: 'Erro', description: 'Não foi possível atualizar o usuário.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível atualizar o usuário.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

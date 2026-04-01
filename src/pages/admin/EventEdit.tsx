@@ -11,7 +11,8 @@
  import { Checkbox } from '@/components/ui/checkbox';
  import { Alert, AlertDescription } from '@/components/ui/alert';
  import { Badge } from '@/components/ui/badge';
- import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
  import { useAuth } from '@/contexts/AuthContext';
  import { ArrowLeft, Save, Loader2, Clock, AlertCircle } from 'lucide-react';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
@@ -135,7 +136,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
        console.error('Error fetching data:', error);
        toast({
          title: 'Erro',
-         description: 'Não foi possível carregar os dados.',
+         description: explainError(error, 'Não foi possível carregar os dados.'),
          variant: 'destructive',
        });
      } finally {
@@ -244,7 +245,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
        console.error('Error saving event:', error);
        toast({
          title: 'Erro',
-         description: error.message || 'Não foi possível salvar as alterações.',
+         description: explainError(error, 'Não foi possível salvar as alterações.'),
          variant: 'destructive',
        });
      } finally {

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Plus, Loader2, Ambulance, MapPin, FileText, Users, Clock, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Ambulance as AmbulanceType, Profile, AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
@@ -127,7 +128,7 @@ export default function NewEventPage() {
       setParticipants(participantsList);
     } catch (err) {
       console.error('Error loading data:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os dados.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar os dados.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -196,7 +197,7 @@ export default function NewEventPage() {
       navigate('/');
     } catch (err: any) {
       console.error('Error creating event:', err);
-      toast({ title: 'Erro', description: err.message || 'Não foi possível criar o evento.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar o evento.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

@@ -29,6 +29,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   ArrowLeft, Search, FileDown, Loader2, UserRound, Calendar,
@@ -98,7 +99,7 @@ function CreatePatientDialog({
       onCreated();
     } catch (err: any) {
       console.error('Error creating patient:', err);
-      toast({ title: 'Erro', description: err.message || 'Não foi possível criar a ficha.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar a ficha.'), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -329,7 +330,7 @@ export default function PatientsPage() {
       setPatients((data || []) as PatientWithEvent[]);
     } catch (error) {
       console.error('Error fetching patients:', error);
-      toast({ title: 'Erro', description: 'Não foi possível carregar a lista de pacientes.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar a lista de pacientes.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -383,7 +384,7 @@ export default function PatientsPage() {
       toast({ title: 'PDF exportado com sucesso!' });
     } catch (error) {
       console.error('Error exporting PDF:', error);
-      toast({ title: 'Erro', description: 'Não foi possível exportar o PDF.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível exportar o PDF.'), variant: 'destructive' });
     } finally {
       setExportingId(null);
     }

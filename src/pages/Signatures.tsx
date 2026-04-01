@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, PenTool, Save, Loader2, Trash2, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { DigitalSignature, SignatureType } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
 
@@ -176,19 +177,11 @@ export default function Signatures() {
       });
     } catch (err: any) {
       console.error('Error saving signature:', err);
-      if (err.message?.includes('unique')) {
-        toast({
-          title: 'Erro',
-          description: 'Você já assinou este tipo de documento neste evento.',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível salvar a assinatura.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Erro',
+        description: explainError(err, 'Não foi possível salvar a assinatura.'),
+        variant: 'destructive',
+      });
     } finally {
       setIsSaving(false);
     }

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Pill, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
@@ -145,7 +146,7 @@ export default function MedicationConsumption() {
       toast({ title: 'Sucesso', description: 'Consumo de medicamentos confirmado.' });
     } catch (err) {
       console.error('Error saving medication consumption:', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

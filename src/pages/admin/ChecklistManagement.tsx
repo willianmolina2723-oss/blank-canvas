@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Plus, Trash2, Loader2, ClipboardCheck, Search } from 'lucide-react';
 
@@ -85,7 +86,7 @@ export default function ChecklistManagementPage() {
       console.error('Error fetching templates:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os itens do checklist.',
+        description: explainError(error, 'Não foi possível carregar os itens do checklist.'),
         variant: 'destructive',
       });
     } finally {
@@ -142,7 +143,7 @@ export default function ChecklistManagementPage() {
       console.error('Error adding item:', error);
       toast({
         title: 'Erro',
-        description: error.message || 'Não foi possível adicionar o item.',
+        description: explainError(error, 'Não foi possível adicionar o item.'),
         variant: 'destructive',
       });
     } finally {
@@ -175,7 +176,7 @@ export default function ChecklistManagementPage() {
       console.error('Error deleting item:', error);
       toast({
         title: 'Erro',
-        description: error.message || 'Não foi possível remover o item.',
+        description: explainError(error, 'Não foi possível remover o item.'),
         variant: 'destructive',
       });
     } finally {

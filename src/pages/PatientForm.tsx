@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, UserRound, Save, Loader2, AlertTriangle, Plus, Edit2, ClipboardList, PenTool, Eraser, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { Patient } from '@/types/database';
 
 const OCCURRENCE_OPTIONS = [
@@ -468,7 +469,7 @@ export default function PatientForm() {
       await loadPatients();
     } catch (err) {
       console.error('Error saving patient:', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar os dados do paciente.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar os dados do paciente.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

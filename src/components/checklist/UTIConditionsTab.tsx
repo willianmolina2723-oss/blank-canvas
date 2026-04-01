@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Car, Droplets, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface UTIData {
@@ -153,7 +154,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
       console.error('Error saving UTI data:', err);
       toast({
         title: 'Erro',
-        description: err instanceof Error ? err.message : 'Não foi possível salvar.',
+        description: explainError(err, 'Não foi possível salvar.'),
         variant: 'destructive',
       });
     } finally {
@@ -228,7 +229,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
       console.error('Error confirming UTI:', err);
       toast({
         title: 'Erro',
-        description: err instanceof Error ? err.message : 'Não foi possível confirmar.',
+        description: explainError(err, 'Não foi possível confirmar.'),
         variant: 'destructive',
       });
     } finally {

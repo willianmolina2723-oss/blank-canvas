@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Upload, Trash2, Image, Loader2, Save, Building2, CreditCard } from 'lucide-react';
 import {
   uploadLogo, deleteLogo, checkLogoExists,
@@ -64,7 +65,7 @@ export function LogoUpload() {
       toast({ title: 'Logo enviada', description: 'A logo será incluída em todos os PDFs gerados.' });
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast({ title: 'Erro no upload', description: error.message || 'Não foi possível enviar a logo.', variant: 'destructive' });
+      toast({ title: 'Erro no upload', description: explainError(error, 'Não foi possível enviar a logo.'), variant: 'destructive' });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -77,7 +78,7 @@ export function LogoUpload() {
       setLogoUrl(null);
       toast({ title: 'Logo removida', description: 'Os PDFs serão gerados sem logo.' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: 'Não foi possível remover a logo.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível remover a logo.'), variant: 'destructive' });
     }
   };
 
@@ -102,7 +103,7 @@ export function LogoUpload() {
       toast({ title: 'Modelo de crachá enviado', description: 'Os crachás serão gerados com este modelo.' });
     } catch (error: any) {
       console.error('Badge upload error:', error);
-      toast({ title: 'Erro no upload', description: error.message || 'Não foi possível enviar o modelo.', variant: 'destructive' });
+      toast({ title: 'Erro no upload', description: explainError(error, 'Não foi possível enviar o modelo.'), variant: 'destructive' });
     } finally {
       setIsUploadingBadge(false);
       if (badgeInputRef.current) badgeInputRef.current.value = '';
@@ -115,7 +116,7 @@ export function LogoUpload() {
       setBadgeUrl(null);
       toast({ title: 'Modelo removido', description: 'Os crachás usarão o modelo padrão.' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: 'Não foi possível remover o modelo.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível remover o modelo.'), variant: 'destructive' });
     }
   };
 
@@ -125,7 +126,7 @@ export function LogoUpload() {
       await saveOrgName(orgName);
       toast({ title: 'Nome salvo', description: 'O nome da organização será exibido nos PDFs.' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: 'Não foi possível salvar o nome.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível salvar o nome.'), variant: 'destructive' });
     } finally {
       setIsSavingName(false);
     }

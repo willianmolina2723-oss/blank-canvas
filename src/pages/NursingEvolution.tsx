@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Loader2, Plus, PenTool, Clock, ShieldCheck, UserRound, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { NursingEvolution, Patient, Profile } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
 
@@ -238,7 +239,7 @@ export default function NursingEvolutionForm() {
       });
     } catch (err) {
       console.error('Error saving:', err);
-      toast({ title: 'Erro', description: 'Não foi possível registrar.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível registrar.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

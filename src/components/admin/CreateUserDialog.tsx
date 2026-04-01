@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Loader2, UserPlus, Camera, X, Info, Copy, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -160,7 +161,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUs
       console.error('Error creating user:', error);
       toast({
         title: 'Erro ao criar usuário',
-        description: error.message || 'Não foi possível criar o usuário.',
+        description: explainError(error, 'Não foi possível criar o usuário.'),
         variant: 'destructive',
       });
     } finally {

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Truck, Pencil, Trash2, Loader2, Wrench, Search, CalendarDays, Hash, Fuel } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { Ambulance as AmbulanceType } from '@/types/database';
@@ -122,7 +123,7 @@ export function AmbulanceManagement({ onAdd }: { onAdd?: (fn: () => void) => voi
       handleCloseDialog();
       invalidate();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível salvar a viatura.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível salvar a viatura.'), variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -136,7 +137,7 @@ export function AmbulanceManagement({ onAdd }: { onAdd?: (fn: () => void) => voi
       toast({ title: 'Viatura excluída', description: `A viatura ${ambulance.code} foi excluída.` });
       invalidate();
     } catch {
-      toast({ title: 'Erro', description: 'Não foi possível excluir a viatura.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível excluir a viatura.'), variant: 'destructive' });
     }
   };
 

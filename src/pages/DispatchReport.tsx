@@ -13,6 +13,7 @@ import {
   CheckCircle2, AlertTriangle, Pill, Car, Package, Camera, ListChecks
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { formatBR } from '@/utils/dateFormat';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -148,7 +149,7 @@ export default function DispatchReportPage() {
       }
     } catch (err) {
       console.error('Error loading dispatch report data:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os dados do relatório de envio.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar os dados do relatório de envio.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -476,7 +477,7 @@ export default function DispatchReportPage() {
       toast({ title: 'PDF gerado', description: 'O relatório de envio foi baixado com sucesso.' });
     } catch (err) {
       console.error('Error generating PDF:', err);
-      toast({ title: 'Erro', description: 'Não foi possível gerar o PDF.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível gerar o PDF.'), variant: 'destructive' });
     } finally {
       setIsGeneratingPdf(false);
     }
