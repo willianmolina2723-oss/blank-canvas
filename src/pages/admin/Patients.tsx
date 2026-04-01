@@ -384,7 +384,7 @@ export default function PatientsPage() {
       toast({ title: 'PDF exportado com sucesso!' });
     } catch (error) {
       console.error('Error exporting PDF:', error);
-      toast({ title: 'Erro', description: explainError(err, 'Não foi possível exportar o PDF.'), variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível exportar o PDF.'), variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
