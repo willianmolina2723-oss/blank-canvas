@@ -13,6 +13,7 @@ import {
   CheckCircle2, AlertTriangle, Pill, Car, Package, Camera, ListChecks
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { formatBR } from '@/utils/dateFormat';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';

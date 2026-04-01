@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { CreateOpportunityDialog } from '@/components/opportunities/CreateOpportunityDialog';
 import { OpportunityCard } from '@/components/opportunities/OpportunityCard';
 import {

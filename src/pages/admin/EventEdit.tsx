@@ -11,7 +11,8 @@
  import { Checkbox } from '@/components/ui/checkbox';
  import { Alert, AlertDescription } from '@/components/ui/alert';
  import { Badge } from '@/components/ui/badge';
- import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
  import { useAuth } from '@/contexts/AuthContext';
  import { ArrowLeft, Save, Loader2, Clock, AlertCircle } from 'lucide-react';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';

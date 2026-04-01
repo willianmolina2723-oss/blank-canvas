@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2, Video, Fuel } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { UTIConditionsTab } from '@/components/checklist/UTIConditionsTab';
 import { ChecklistVideoTab } from '@/components/checklist/ChecklistVideoTab';
 import { ChecklistFuelTab } from '@/components/checklist/ChecklistFuelTab';

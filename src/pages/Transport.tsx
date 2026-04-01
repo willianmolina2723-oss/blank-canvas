@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Truck, Save, Loader2, MapPin, Clock } from 'lucide-react';
 import { TransportPhotos } from '@/components/transport/TransportPhotos';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { TransportRecord, AppRole } from '@/types/database';
 import { nowBrasiliaLocal, formatBR } from '@/utils/dateFormat';
 

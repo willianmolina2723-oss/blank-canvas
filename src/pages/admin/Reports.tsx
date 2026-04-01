@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { FileText, Loader2, Search, Download, Eye, MapPin, Send } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import type { Event, Ambulance, EventParticipant, Profile, AppRole } from '@/types/database';

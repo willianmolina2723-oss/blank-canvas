@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Stethoscope, Save, Loader2, Plus, AlertTriangle, Clock, PenTool, ShieldCheck, UserRound, ChevronRight, Search, Pill, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { MedicalEvolution, Patient, Profile } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
 

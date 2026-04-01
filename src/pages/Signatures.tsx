@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, PenTool, Save, Loader2, Trash2, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { DigitalSignature, SignatureType } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
 

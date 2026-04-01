@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Plus, Loader2, Ambulance, MapPin, FileText, Users, Clock, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Ambulance as AmbulanceType, Profile, AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';

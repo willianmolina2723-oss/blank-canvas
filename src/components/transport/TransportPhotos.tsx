@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Camera, X, Loader2, ImageIcon, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { toBrasiliaDate } from '@/utils/dateFormat';
 
 interface TransportPhoto {

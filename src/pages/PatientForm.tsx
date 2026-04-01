@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, UserRound, Save, Loader2, AlertTriangle, Plus, Edit2, ClipboardList, PenTool, Eraser, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import type { Patient } from '@/types/database';
 
 const OCCURRENCE_OPTIONS = [

@@ -6,6 +6,7 @@ import { Loader2, Users, ClipboardCheck, Pill, Activity, Stethoscope, Truck, Pac
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Button } from '@/components/ui/button';
 import type { Event, Ambulance as AmbulanceType, AppRole } from '@/types/database';
 import { STATUS_LABELS } from '@/types/database';
