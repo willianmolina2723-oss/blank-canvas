@@ -269,7 +269,15 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
               onChange={v => setData(p => ({ ...p, combustivel_final: v }))}
               disabled={!canCheck || isEndConfirmed} />
           </div>
-          <div className="flex items-center gap-3">
+          {data.combustivel_final === 'R' && (
+            <div className="animate-in slide-in-from-top-2">
+              <Label className="text-xs font-medium text-red-500">KM rodados na Reserva</Label>
+              <Input type="number" placeholder="Ex: 15" value={data.km_reserva_final}
+                onChange={e => setData(p => ({ ...p, km_reserva_final: e.target.value }))}
+                disabled={!canCheck || isEndConfirmed}
+                className="border-red-300 focus:border-red-500" />
+            </div>
+          )}
             <Switch checked={data.abastecido}
               onCheckedChange={v => setData(p => ({ ...p, abastecido: v }))}
               disabled={!canCheck || isEndConfirmed} />
