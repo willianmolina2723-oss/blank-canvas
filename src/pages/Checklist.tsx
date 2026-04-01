@@ -146,7 +146,7 @@ export default function Checklist() {
       );
     } catch (err) {
       console.error('Error updating item:', err);
-      toast({ title: 'Erro', description: 'Não foi possível atualizar o item.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível atualizar o item.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
