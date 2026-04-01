@@ -278,6 +278,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
                 className="border-red-300 focus:border-red-500" />
             </div>
           )}
+          <div className="flex items-center gap-3">
             <Switch checked={data.abastecido}
               onCheckedChange={v => setData(p => ({ ...p, abastecido: v }))}
               disabled={!canCheck || isEndConfirmed} />
