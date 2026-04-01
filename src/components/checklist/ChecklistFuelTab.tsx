@@ -446,7 +446,6 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       </Card>
     );
   }
-  }
 
   return (
     <div className="space-y-4">
