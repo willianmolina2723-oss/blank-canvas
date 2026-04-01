@@ -136,7 +136,7 @@ export function TransportPhotos({ transportId, canEdit }: TransportPhotosProps) 
       }
     } catch (err) {
       console.error('Camera error:', err);
-      toast({ title: 'Erro', description: 'Não foi possível acessar a câmera.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível acessar a câmera.'), variant: 'destructive' });
       stopCamera();
     }
   };
