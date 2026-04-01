@@ -128,7 +128,7 @@ export default function NewEventPage() {
       setParticipants(participantsList);
     } catch (err) {
       console.error('Error loading data:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os dados.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar os dados.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
