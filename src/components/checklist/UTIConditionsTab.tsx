@@ -154,7 +154,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
       console.error('Error saving UTI data:', err);
       toast({
         title: 'Erro',
-        description: err instanceof Error ? err.message : 'Não foi possível salvar.',
+        description: explainError(err, 'Não foi possível salvar.'),
         variant: 'destructive',
       });
     } finally {
