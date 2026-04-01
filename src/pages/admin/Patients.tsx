@@ -330,7 +330,7 @@ export default function PatientsPage() {
       setPatients((data || []) as PatientWithEvent[]);
     } catch (error) {
       console.error('Error fetching patients:', error);
-      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar a lista de pacientes.'), variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível carregar a lista de pacientes.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
