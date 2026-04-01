@@ -128,7 +128,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
     }
     setIsSaving(true);
     try {
-      const meta = JSON.stringify({ km_inicial: data.km_inicial, combustivel_inicial: data.combustivel_inicial });
+      const meta = JSON.stringify({ km_inicial: data.km_inicial, combustivel_inicial: data.combustivel_inicial, km_reserva_inicial: data.km_reserva_inicial });
       const now = new Date().toISOString();
 
       if (startItemId) {
