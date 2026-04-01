@@ -168,7 +168,7 @@ export default function Checklist() {
       toast({ title: 'Item adicionado', description: 'O item foi adicionado ao checklist.' });
     } catch (err) {
       console.error('Error adding item:', err);
-      toast({ title: 'Erro', description: 'Não foi possível adicionar o item.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível adicionar o item.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
