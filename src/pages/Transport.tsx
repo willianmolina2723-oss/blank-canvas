@@ -14,7 +14,7 @@ import { ArrowLeft, Truck, Save, Loader2, MapPin, Clock } from 'lucide-react';
 import { TransportPhotos } from '@/components/transport/TransportPhotos';
 import { useToast } from '@/hooks/use-toast';
 import type { TransportRecord, AppRole } from '@/types/database';
-import { nowBrasiliaLocal } from '@/utils/dateFormat';
+import { nowBrasiliaLocal, formatBR } from '@/utils/dateFormat';
 
 export default function TransportForm() {
   const { eventId } = useParams();
@@ -65,8 +65,8 @@ export default function TransportForm() {
 
         setTransport({
           ...data,
-          departure_time: data.departure_time ? new Date(data.departure_time).toISOString().slice(0, 16) : '',
-          arrival_time: data.arrival_time ? new Date(data.arrival_time).toISOString().slice(0, 16) : '',
+          departure_time: data.departure_time ? formatBR(new Date(data.departure_time), "yyyy-MM-dd'T'HH:mm") : '',
+          arrival_time: data.arrival_time ? formatBR(new Date(data.arrival_time), "yyyy-MM-dd'T'HH:mm") : '',
           occurrences: occText,
         });
         setReserveInitialKm(resInitKm);
