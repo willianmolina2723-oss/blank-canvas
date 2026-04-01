@@ -172,8 +172,8 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
         setCameraReady(true);
         drawOverlay();
       }
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível acessar a câmera.', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível acessar a câmera.'), variant: 'destructive' });
       stopCamera();
     }
   };
