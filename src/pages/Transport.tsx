@@ -14,7 +14,7 @@ import { ArrowLeft, Truck, Save, Loader2, MapPin, Clock } from 'lucide-react';
 import { TransportPhotos } from '@/components/transport/TransportPhotos';
 import { useToast } from '@/hooks/use-toast';
 import type { TransportRecord, AppRole } from '@/types/database';
-import { nowBrasiliaLocal } from '@/utils/dateFormat';
+import { nowBrasiliaLocal, formatBR } from '@/utils/dateFormat';
 
 export default function TransportForm() {
   const { eventId } = useParams();
