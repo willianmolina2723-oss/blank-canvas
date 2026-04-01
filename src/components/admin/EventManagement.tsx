@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Loader2, MapPin, Eye, Pencil, Trash2, Users, Search, CheckCircle, Calendar, Ambulance, FileText, Send } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import { useDebounce } from '@/hooks/useDebounce';
