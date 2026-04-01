@@ -131,7 +131,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
       onOpenChange(false);
     } catch (err) {
       console.error('Error updating user:', err);
-      toast({ title: 'Erro', description: 'Não foi possível atualizar o usuário.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível atualizar o usuário.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

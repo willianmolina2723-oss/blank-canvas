@@ -240,7 +240,7 @@ export default function Checklist() {
       toast({ title: 'Sucesso', description: 'Checklist confirmado com sucesso.' });
     } catch (err) {
       console.error('Error confirming checklist:', err);
-      toast({ title: 'Erro', description: 'Não foi possível confirmar o checklist.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar o checklist.'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
