@@ -43,17 +43,32 @@ serve(async (req) => {
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
       const transportId = formData.get('transport_id') as string | null;
+      const eventId = formData.get('event_id') as string | null;
+      const photoType = formData.get('photo_type') as string | null;
       const action = formData.get('action') as string | null;
 
-      if (action !== 'upload' || !file || !transportId) {
-        return new Response(JSON.stringify({ error: 'file, transport_id e action=upload são obrigatórios' }), {
+      if (action !== 'upload' || !file) {
+        return new Response(JSON.stringify({ error: 'file e action=upload são obrigatórios' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Determine folder based on photo_type
+      let folder: string;
+      if (photoType === 'fuel_receipt' && eventId) {
+        folder = `fuel-receipts/${eventId}`;
+      } else if (transportId) {
+        folder = `transport-photos/${transportId}`;
+      } else {
+        return new Response(JSON.stringify({ error: 'transport_id ou event_id é obrigatório' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       const ext = file.name.split('.').pop() || 'jpg';
-      const filePath = `transport-photos/${transportId}/${Date.now()}.${ext}`;
+      const filePath = `${folder}/${Date.now()}.${ext}`;
 
       const arrayBuffer = await file.arrayBuffer();
       const { error: uploadError } = await supabase.storage
