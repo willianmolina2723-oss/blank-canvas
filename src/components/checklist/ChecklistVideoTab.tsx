@@ -499,7 +499,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
       await loadRecordings();
     } catch (err: any) {
       console.error('Delete error:', err);
-      toast({ title: 'Erro', description: err.message || 'Não foi possível remover.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível remover.'), variant: 'destructive' });
     }
   };
 
