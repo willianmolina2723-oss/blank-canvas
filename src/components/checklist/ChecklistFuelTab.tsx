@@ -217,8 +217,8 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
           </div>
           <div>
             <Label className="text-xs font-medium">Combustível Final</Label>
-            <Input placeholder="Ex: 1/4, Reserva, 20L" value={data.combustivel_final}
-              onChange={e => setData(p => ({ ...p, combustivel_final: e.target.value }))}
+            <FuelLevelSelector value={data.combustivel_final}
+              onChange={v => setData(p => ({ ...p, combustivel_final: v }))}
               disabled={!canCheck || isEndConfirmed} />
           </div>
           <div className="flex items-center gap-3">
