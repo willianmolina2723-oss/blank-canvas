@@ -24,7 +24,6 @@ const EMPTY_DATA: UTIData = {
   oleo: '',
 };
 
-const FUEL_LEVELS = ['R', '¼', '½', '¾', 'C'];
 const BRI_OPTIONS = [
   { value: 'B', label: 'B', color: 'bg-green-600 hover:bg-green-700 text-white' },
   { value: 'R', label: 'R', color: 'bg-yellow-500 hover:bg-yellow-600 text-white' },
