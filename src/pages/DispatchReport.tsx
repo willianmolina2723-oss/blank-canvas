@@ -149,7 +149,7 @@ export default function DispatchReportPage() {
       }
     } catch (err) {
       console.error('Error loading dispatch report data:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os dados do relatório de envio.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar os dados do relatório de envio.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
