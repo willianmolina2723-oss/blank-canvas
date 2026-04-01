@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Truck, Pencil, Trash2, Loader2, Wrench, Search, CalendarDays, Hash, Fuel } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { Ambulance as AmbulanceType } from '@/types/database';

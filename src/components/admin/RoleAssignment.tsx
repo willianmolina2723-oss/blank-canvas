@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Loader2, Shield } from 'lucide-react';
 import type { Profile, AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';

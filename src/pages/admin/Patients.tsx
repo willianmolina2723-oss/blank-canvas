@@ -29,6 +29,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   ArrowLeft, Search, FileDown, Loader2, UserRound, Calendar,
