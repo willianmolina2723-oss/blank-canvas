@@ -44,6 +44,7 @@ function FuelLevelSelector({ value, onChange, disabled }: { value: string; onCha
   );
 }
 
+interface Props {
   eventId: string;
   canCheck: boolean;
   profileId?: string;
