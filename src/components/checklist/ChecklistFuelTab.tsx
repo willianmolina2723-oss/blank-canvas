@@ -9,6 +9,40 @@ import { useToast } from '@/hooks/use-toast';
 import { Fuel, CheckCircle2, Loader2, AlertTriangle, Car } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
+const FUEL_LEVELS = [
+  { value: 'R', label: 'R', color: 'text-red-500' },
+  { value: '1/4', label: '¼', color: '' },
+  { value: '1/2', label: '½', color: 'text-blue-500' },
+  { value: '3/4', label: '¾', color: '' },
+  { value: 'C', label: 'C', color: 'text-green-600' },
+];
+
+function FuelLevelSelector({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled: boolean }) {
+  return (
+    <div className="flex gap-2 mt-1">
+      {FUEL_LEVELS.map(level => (
+        <button
+          key={level.value}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(value === level.value ? '' : level.value)}
+          className={cn(
+            'w-12 h-12 rounded-lg border-2 text-lg font-bold transition-all',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            value === level.value
+              ? 'border-primary bg-primary/10 shadow-md scale-105'
+              : 'border-border bg-background hover:border-primary/50',
+            level.color
+          )}
+        >
+          {level.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   eventId: string;
@@ -183,9 +217,9 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
               disabled={!canCheck || isStartConfirmed} />
           </div>
           <div>
-            <Label className="text-xs font-medium">Combustível Inicial (opcional)</Label>
-            <Input placeholder="Ex: 3/4, Meio tanque, 50L" value={data.combustivel_inicial}
-              onChange={e => setData(p => ({ ...p, combustivel_inicial: e.target.value }))}
+            <Label className="text-xs font-medium">Combustível Inicial</Label>
+            <FuelLevelSelector value={data.combustivel_inicial}
+              onChange={v => setData(p => ({ ...p, combustivel_inicial: v }))}
               disabled={!canCheck || isStartConfirmed} />
           </div>
           {canCheck && !isStartConfirmed && (
@@ -217,8 +251,8 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
           </div>
           <div>
             <Label className="text-xs font-medium">Combustível Final</Label>
-            <Input placeholder="Ex: 1/4, Reserva, 20L" value={data.combustivel_final}
-              onChange={e => setData(p => ({ ...p, combustivel_final: e.target.value }))}
+            <FuelLevelSelector value={data.combustivel_final}
+              onChange={v => setData(p => ({ ...p, combustivel_final: v }))}
               disabled={!canCheck || isEndConfirmed} />
           </div>
           <div className="flex items-center gap-3">
