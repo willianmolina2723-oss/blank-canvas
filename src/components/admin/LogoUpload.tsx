@@ -78,7 +78,7 @@ export function LogoUpload() {
       setLogoUrl(null);
       toast({ title: 'Logo removida', description: 'Os PDFs serão gerados sem logo.' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: 'Não foi possível remover a logo.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível remover a logo.'), variant: 'destructive' });
     }
   };
 
