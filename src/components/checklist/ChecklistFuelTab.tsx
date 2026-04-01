@@ -54,8 +54,10 @@ interface Props {
 interface FuelData {
   km_inicial: string;
   combustivel_inicial: string;
+  km_reserva_inicial: string;
   km_final: string;
   combustivel_final: string;
+  km_reserva_final: string;
   abastecido: boolean;
   observacoes: string;
 }
@@ -63,7 +65,8 @@ interface FuelData {
 export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Props) {
   const { toast } = useToast();
   const [data, setData] = useState<FuelData>({
-    km_inicial: '', combustivel_inicial: '', km_final: '', combustivel_final: '',
+    km_inicial: '', combustivel_inicial: '', km_reserva_inicial: '',
+    km_final: '', combustivel_final: '', km_reserva_final: '',
     abastecido: false, observacoes: '',
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -90,7 +93,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       if (startItem?.notes) {
         try {
           const parsed = JSON.parse(startItem.notes);
-          setData(prev => ({ ...prev, km_inicial: parsed.km_inicial || '', combustivel_inicial: parsed.combustivel_inicial || '' }));
+          setData(prev => ({ ...prev, km_inicial: parsed.km_inicial || '', combustivel_inicial: parsed.combustivel_inicial || '', km_reserva_inicial: parsed.km_reserva_inicial || '' }));
         } catch {}
         setIsStartConfirmed(!!startItem.is_checked);
         setStartItemId(startItem.id);
@@ -103,6 +106,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
             ...prev,
             km_final: parsed.km_final || '',
             combustivel_final: parsed.combustivel_final || '',
+            km_reserva_final: parsed.km_reserva_final || '',
             abastecido: parsed.abastecido || false,
             observacoes: parsed.observacoes || '',
           }));
@@ -124,7 +128,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
     }
     setIsSaving(true);
     try {
-      const meta = JSON.stringify({ km_inicial: data.km_inicial, combustivel_inicial: data.combustivel_inicial });
+      const meta = JSON.stringify({ km_inicial: data.km_inicial, combustivel_inicial: data.combustivel_inicial, km_reserva_inicial: data.km_reserva_inicial });
       const now = new Date().toISOString();
 
       if (startItemId) {
@@ -162,6 +166,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
     try {
       const meta = JSON.stringify({
         km_final: data.km_final, combustivel_final: data.combustivel_final,
+        km_reserva_final: data.km_reserva_final,
         abastecido: data.abastecido, observacoes: data.observacoes,
       });
       const now = new Date().toISOString();
@@ -222,6 +227,15 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
               onChange={v => setData(p => ({ ...p, combustivel_inicial: v }))}
               disabled={!canCheck || isStartConfirmed} />
           </div>
+          {data.combustivel_inicial === 'R' && (
+            <div className="animate-in slide-in-from-top-2">
+              <Label className="text-xs font-medium text-red-500">KM rodados na Reserva</Label>
+              <Input type="number" placeholder="Ex: 15" value={data.km_reserva_inicial}
+                onChange={e => setData(p => ({ ...p, km_reserva_inicial: e.target.value }))}
+                disabled={!canCheck || isStartConfirmed}
+                className="border-red-300 focus:border-red-500" />
+            </div>
+          )}
           {canCheck && !isStartConfirmed && (
             <Button onClick={saveStart} disabled={isSaving || !data.km_inicial.trim()} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
@@ -255,6 +269,15 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
               onChange={v => setData(p => ({ ...p, combustivel_final: v }))}
               disabled={!canCheck || isEndConfirmed} />
           </div>
+          {data.combustivel_final === 'R' && (
+            <div className="animate-in slide-in-from-top-2">
+              <Label className="text-xs font-medium text-red-500">KM rodados na Reserva</Label>
+              <Input type="number" placeholder="Ex: 15" value={data.km_reserva_final}
+                onChange={e => setData(p => ({ ...p, km_reserva_final: e.target.value }))}
+                disabled={!canCheck || isEndConfirmed}
+                className="border-red-300 focus:border-red-500" />
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <Switch checked={data.abastecido}
               onCheckedChange={v => setData(p => ({ ...p, abastecido: v }))}
