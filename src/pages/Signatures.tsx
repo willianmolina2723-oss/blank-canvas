@@ -22,7 +22,7 @@ const SIGNATURE_TYPES: { type: SignatureType; label: string; role: string }[] = 
 export default function Signatures() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { profile, roles } = useAuth();
+  const { profile, roles, isAdmin, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -191,8 +191,12 @@ export default function Signatures() {
     const typeConfig = SIGNATURE_TYPES.find(t => t.type === type);
     if (!typeConfig) return false;
     
-    // Check if user has the required role
-    if (!roles.includes(typeConfig.role as any) && !roles.includes('admin')) return false;
+    // Admin/SuperAdmin can sign any type
+    if (isAdmin || isSuperAdmin) {
+      // still check if already signed
+    } else if (!roles.includes(typeConfig.role as any)) {
+      return false;
+    }
     
     // Check if already signed
     const existingSignature = signatures.find(

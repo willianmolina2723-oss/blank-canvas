@@ -136,8 +136,8 @@ export function AmbulanceManagement({ onAdd }: { onAdd?: (fn: () => void) => voi
       if (error) throw error;
       toast({ title: 'Viatura excluída', description: `A viatura ${ambulance.code} foi excluída.` });
       invalidate();
-    } catch {
-      toast({ title: 'Erro', description: explainError(error, 'Não foi possível excluir a viatura.'), variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro', description: explainError(e, 'Não foi possível excluir a viatura.'), variant: 'destructive' });
     }
   };
 
