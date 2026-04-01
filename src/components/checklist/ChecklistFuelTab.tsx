@@ -230,8 +230,8 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
           {data.combustivel_inicial === 'R' && (
             <div className="animate-in slide-in-from-top-2">
               <Label className="text-xs font-medium text-red-500">KM rodados na Reserva</Label>
-              <Input type="number" placeholder="Ex: 15" value={data.km_reserva_inicial}
-                onChange={e => setData(p => ({ ...p, km_reserva_inicial: e.target.value }))}
+              <Input type="number" min="0" placeholder="Ex: 15" value={data.km_reserva_inicial}
+                onChange={e => setData(p => ({ ...p, km_reserva_inicial: e.target.value.replace('-', '') }))}
                 disabled={!canCheck || isStartConfirmed}
                 className="border-red-300 focus:border-red-500" />
             </div>
