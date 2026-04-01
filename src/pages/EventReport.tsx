@@ -179,7 +179,7 @@ export default function EventReport() {
       }
     } catch (err) {
       console.error('Error loading report data:', err);
-      toast({ title: 'Erro', description: 'Não foi possível carregar os dados do relatório.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar os dados do relatório.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
