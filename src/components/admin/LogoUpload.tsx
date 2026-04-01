@@ -103,7 +103,7 @@ export function LogoUpload() {
       toast({ title: 'Modelo de crachá enviado', description: 'Os crachás serão gerados com este modelo.' });
     } catch (error: any) {
       console.error('Badge upload error:', error);
-      toast({ title: 'Erro no upload', description: error.message || 'Não foi possível enviar o modelo.', variant: 'destructive' });
+      toast({ title: 'Erro no upload', description: explainError(error, 'Não foi possível enviar o modelo.'), variant: 'destructive' });
     } finally {
       setIsUploadingBadge(false);
       if (badgeInputRef.current) badgeInputRef.current.value = '';
