@@ -24,6 +24,10 @@ Deno.serve(async (req) => {
     const { data: roleCheck } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', caller.id).eq('role', 'admin').maybeSingle()
     if (!saCheck && !roleCheck) throw new Error('Apenas administradores podem gerenciar usuários')
 
+    // Get caller's empresa_id for tenant isolation
+    const { data: callerProfile } = await supabaseAdmin.from('profiles').select('empresa_id').eq('user_id', caller.id).maybeSingle()
+    const callerEmpresaId = callerProfile?.empresa_id
+
     const body = await req.json()
     const { action, user_id, user_ids } = body
     
