@@ -183,9 +183,9 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
               disabled={!canCheck || isStartConfirmed} />
           </div>
           <div>
-            <Label className="text-xs font-medium">Combustível Inicial (opcional)</Label>
-            <Input placeholder="Ex: 3/4, Meio tanque, 50L" value={data.combustivel_inicial}
-              onChange={e => setData(p => ({ ...p, combustivel_inicial: e.target.value }))}
+            <Label className="text-xs font-medium">Combustível Inicial</Label>
+            <FuelLevelSelector value={data.combustivel_inicial}
+              onChange={v => setData(p => ({ ...p, combustivel_inicial: v }))}
               disabled={!canCheck || isStartConfirmed} />
           </div>
           {canCheck && !isStartConfirmed && (
