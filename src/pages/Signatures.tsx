@@ -22,7 +22,7 @@ const SIGNATURE_TYPES: { type: SignatureType; label: string; role: string }[] = 
 export default function Signatures() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { profile, roles } = useAuth();
+  const { profile, roles, isAdmin, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
