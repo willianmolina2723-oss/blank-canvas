@@ -7,9 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Fuel, Car, Droplets, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface UTIData {
-  combustivel_entrada: string;
-  combustivel_saida: string;
-  cartao_abastecimento: string;
   documentos: string;
   freios: string;
   direcao: string;
@@ -19,9 +16,6 @@ interface UTIData {
 }
 
 const EMPTY_DATA: UTIData = {
-  combustivel_entrada: '',
-  combustivel_saida: '',
-  cartao_abastecimento: '',
   documentos: '',
   freios: '',
   direcao: '',
