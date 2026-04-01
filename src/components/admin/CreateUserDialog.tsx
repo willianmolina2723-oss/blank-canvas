@@ -161,7 +161,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUs
       console.error('Error creating user:', error);
       toast({
         title: 'Erro ao criar usuário',
-        description: error.message || 'Não foi possível criar o usuário.',
+        description: explainError(error, 'Não foi possível criar o usuário.'),
         variant: 'destructive',
       });
     } finally {

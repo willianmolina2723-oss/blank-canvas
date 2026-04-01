@@ -176,7 +176,7 @@ export default function ChecklistManagementPage() {
       console.error('Error deleting item:', error);
       toast({
         title: 'Erro',
-        description: error.message || 'Não foi possível remover o item.',
+        description: explainError(error, 'Não foi possível remover o item.'),
         variant: 'destructive',
       });
     } finally {
