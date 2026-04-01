@@ -143,7 +143,7 @@ export default function ChecklistManagementPage() {
       console.error('Error adding item:', error);
       toast({
         title: 'Erro',
-        description: error.message || 'Não foi possível adicionar o item.',
+        description: explainError(error, 'Não foi possível adicionar o item.'),
         variant: 'destructive',
       });
     } finally {
