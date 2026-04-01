@@ -128,7 +128,7 @@ export function EventManagement() {
       setEventToDelete(null);
       invalidate();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível excluir.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível excluir.'), variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
