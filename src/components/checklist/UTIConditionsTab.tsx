@@ -256,22 +256,11 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
     </div>
   );
 
-  const fuelOptions = FUEL_LEVELS.map(l => ({
-    value: l,
-    label: l,
-    color: l === 'R' ? 'bg-red-600 hover:bg-red-700 text-white' : l === 'C' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white',
-  }));
-
   const levelOptions = LEVEL_OPTIONS.map(l => ({
     value: l,
     label: l,
     color: l === 'Mín.' ? 'bg-red-600 hover:bg-red-700 text-white' : l === 'Máx.' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white',
   }));
-
-  const yesNoOptions = [
-    { value: 'Sim', label: 'Sim', color: 'bg-green-600 hover:bg-green-700 text-white' },
-    { value: 'Não', label: 'Não', color: 'bg-red-600 hover:bg-red-700 text-white' },
-  ];
 
   return (
     <div className="space-y-4">
@@ -282,31 +271,17 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
         </div>
       )}
 
-      <Card className="border-blue-500/20">
+      <Card className="border-orange-500/20">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Fuel className="h-5 w-5 text-blue-500" />
-              Combustível
+              <Car className="h-5 w-5 text-orange-500" />
+              Checagem
             </CardTitle>
             <Badge variant={pct === 100 ? 'default' : 'secondary'}>
               {filledCount}/{totalFields} ({pct}%)
             </Badge>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {renderSelector('Entrada', 'combustivel_entrada', fuelOptions)}
-          {renderSelector('Saída', 'combustivel_saida', fuelOptions)}
-          {renderSelector('Cartão de abastecimento', 'cartao_abastecimento', yesNoOptions)}
-        </CardContent>
-      </Card>
-
-      <Card className="border-orange-500/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Car className="h-5 w-5 text-orange-500" />
-            Checagem
-          </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
             B (Bom) · R (Regular) · I (Insuficiente)
           </p>
