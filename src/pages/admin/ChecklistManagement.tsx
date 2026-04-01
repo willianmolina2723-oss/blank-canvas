@@ -86,7 +86,7 @@ export default function ChecklistManagementPage() {
       console.error('Error fetching templates:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar os itens do checklist.',
+        description: explainError(error, 'Não foi possível carregar os itens do checklist.'),
         variant: 'destructive',
       });
     } finally {
