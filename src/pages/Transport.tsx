@@ -126,7 +126,7 @@ export default function TransportForm() {
       toast({ title: 'Sucesso', description: 'Dados de transporte salvos com sucesso.' });
     } catch (err) {
       console.error('Error saving transport:', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar os dados de transporte.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar os dados de transporte.'), variant: 'destructive' });
     } finally { setIsSaving(false); }
   };
 
