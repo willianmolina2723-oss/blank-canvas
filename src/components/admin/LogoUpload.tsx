@@ -65,7 +65,7 @@ export function LogoUpload() {
       toast({ title: 'Logo enviada', description: 'A logo será incluída em todos os PDFs gerados.' });
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast({ title: 'Erro no upload', description: error.message || 'Não foi possível enviar a logo.', variant: 'destructive' });
+      toast({ title: 'Erro no upload', description: explainError(error, 'Não foi possível enviar a logo.'), variant: 'destructive' });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
