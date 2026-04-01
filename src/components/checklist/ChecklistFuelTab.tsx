@@ -65,7 +65,8 @@ interface FuelData {
 export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Props) {
   const { toast } = useToast();
   const [data, setData] = useState<FuelData>({
-    km_inicial: '', combustivel_inicial: '', km_final: '', combustivel_final: '',
+    km_inicial: '', combustivel_inicial: '', km_reserva_inicial: '',
+    km_final: '', combustivel_final: '', km_reserva_final: '',
     abastecido: false, observacoes: '',
   });
   const [isLoading, setIsLoading] = useState(true);
