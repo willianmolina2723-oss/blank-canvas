@@ -108,7 +108,7 @@ export default function Dashboard() {
       console.error('Error updating status:', err);
       toast({
         title: 'Erro',
-        description: err.message || 'Não foi possível atualizar o status.',
+        description: explainError(err, 'Não foi possível atualizar o status.'),
         variant: 'destructive',
       });
     } finally {

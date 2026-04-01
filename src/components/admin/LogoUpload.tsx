@@ -126,7 +126,7 @@ export function LogoUpload() {
       await saveOrgName(orgName);
       toast({ title: 'Nome salvo', description: 'O nome da organização será exibido nos PDFs.' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: 'Não foi possível salvar o nome.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível salvar o nome.'), variant: 'destructive' });
     } finally {
       setIsSavingName(false);
     }
