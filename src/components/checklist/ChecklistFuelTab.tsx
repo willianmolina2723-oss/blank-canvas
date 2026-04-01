@@ -166,6 +166,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
     try {
       const meta = JSON.stringify({
         km_final: data.km_final, combustivel_final: data.combustivel_final,
+        km_reserva_final: data.km_reserva_final,
         abastecido: data.abastecido, observacoes: data.observacoes,
       });
       const now = new Date().toISOString();
