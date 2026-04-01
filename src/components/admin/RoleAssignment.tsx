@@ -76,7 +76,7 @@ export function RoleAssignment({ user, onClose, onUpdate }: RoleAssignmentProps)
       console.error('Error updating roles:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível atualizar as funções.',
+        description: explainError(error, 'Não foi possível atualizar as funções.'),
         variant: 'destructive',
       });
     } finally {

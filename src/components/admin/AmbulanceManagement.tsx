@@ -123,7 +123,7 @@ export function AmbulanceManagement({ onAdd }: { onAdd?: (fn: () => void) => voi
       handleCloseDialog();
       invalidate();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível salvar a viatura.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível salvar a viatura.'), variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -137,7 +137,7 @@ export function AmbulanceManagement({ onAdd }: { onAdd?: (fn: () => void) => voi
       toast({ title: 'Viatura excluída', description: `A viatura ${ambulance.code} foi excluída.` });
       invalidate();
     } catch {
-      toast({ title: 'Erro', description: 'Não foi possível excluir a viatura.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível excluir a viatura.'), variant: 'destructive' });
     }
   };
 
