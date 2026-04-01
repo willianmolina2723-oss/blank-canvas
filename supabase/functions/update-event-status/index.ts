@@ -26,6 +26,16 @@ Deno.serve(async (req) => {
     const validStatuses = ['ativo', 'em_andamento', 'finalizado', 'cancelado']
     if (!validStatuses.includes(new_status)) throw new Error(`Status inválido: ${new_status}`)
 
+    // Cross-tenant validation
+    const { data: saCheck } = await supabaseAdmin.from('super_admins').select('id').eq('user_id', caller.id).maybeSingle()
+    if (!saCheck) {
+      const { data: callerProfile } = await supabaseAdmin.from('profiles').select('empresa_id').eq('user_id', caller.id).maybeSingle()
+      const { data: eventRow } = await supabaseAdmin.from('events').select('empresa_id').eq('id', event_id).maybeSingle()
+      if (!callerProfile || !eventRow || callerProfile.empresa_id !== eventRow.empresa_id) {
+        throw new Error('Evento não pertence à sua organização')
+      }
+    }
+
     // --- Validation for finalization ---
     if (new_status === 'finalizado') {
       const pendingItems: string[] = []
