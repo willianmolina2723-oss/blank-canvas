@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Upload, Trash2, Image, Loader2, Save, Building2, CreditCard } from 'lucide-react';
 import {
   uploadLogo, deleteLogo, checkLogoExists,
