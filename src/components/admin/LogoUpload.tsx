@@ -116,7 +116,7 @@ export function LogoUpload() {
       setBadgeUrl(null);
       toast({ title: 'Modelo removido', description: 'Os crachás usarão o modelo padrão.' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: 'Não foi possível remover o modelo.', variant: 'destructive' });
+      toast({ title: 'Erro', description: explainError(error, 'Não foi possível remover o modelo.'), variant: 'destructive' });
     }
   };
 
