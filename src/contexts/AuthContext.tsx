@@ -42,13 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
       if (session?.user) {
-          setTimeout(() => {
-            Promise.all([
-              fetchProfile(session.user.id),
-              fetchRoles(session.user.id),
-              checkSuperAdmin(session.user.id),
-            ]);
-          }, 0);
+          Promise.all([
+            fetchProfile(session.user.id),
+            fetchRoles(session.user.id),
+            checkSuperAdmin(session.user.id),
+          ]);
         } else {
           setProfile(null);
           setRoles([]);
