@@ -500,7 +500,7 @@ export default function EventFinancial() {
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">
                 {fuelCost.kmDriven === 0
-                  ? 'Sem registro de quilometragem no transporte'
+                  ? 'Sem registro de quilometragem no checklist'
                   : 'Viatura sem km/litro cadastrado'}
               </p>
             )}
