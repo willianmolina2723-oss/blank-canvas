@@ -712,9 +712,7 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
                   </div>
                 </div>
                 {rec?.video_url && (
-                  <div className="mt-2">
-                    <video src={rec.video_url} controls playsInline className="w-full rounded-md max-h-48" preload="metadata" />
-                  </div>
+                  <VideoPlayer videoUrl={rec.video_url} />
                 )}
               </div>
             );
