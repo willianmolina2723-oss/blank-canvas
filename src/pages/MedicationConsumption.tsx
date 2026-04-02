@@ -1,21 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Pill, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Pill, Plus, Trash2, Loader2, CheckCircle2, Search, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface MedItem {
   name: string;
   quantity: number;
   cost_item_id?: string;
   unit_cost?: number;
+}
+
+interface Patient {
+  id: string;
+  name: string;
 }
 
 const db = supabase as any;
@@ -31,6 +38,10 @@ export default function MedicationConsumption() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
   const [eventRole, setEventRole] = useState<string | null>(null);
 
@@ -45,13 +56,25 @@ export default function MedicationConsumption() {
   const canEdit = canEditMedicationConsumption;
 
   useEffect(() => {
-    if (eventId) loadData();
+    if (eventId) {
+      loadData();
+      loadPatients();
+    }
   }, [eventId]);
+
+  const loadPatients = async () => {
+    try {
+      const { data } = await supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null);
+      setPatients(data || []);
+      if (data && data.length === 1) setSelectedPatientId(data[0].id);
+    } catch (err) {
+      console.error('Error loading patients:', err);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Load saved consumption + cost_items via edge function
       const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
         body: { action: 'load', event_id: eventId, item_type: 'consumo_medicamentos', include_cost_items: true, cost_items_category: 'medicamento' },
       });
@@ -62,9 +85,25 @@ export default function MedicationConsumption() {
 
       if (saved.length > 0) {
         setIsConfirmed(true);
+        // Try to recover patient_id from first saved item notes JSON
+        try {
+          const firstNotes = saved[0]?.notes;
+          if (firstNotes) {
+            const parsed = JSON.parse(firstNotes);
+            if (parsed.patient_id) setSelectedPatientId(parsed.patient_id);
+          }
+        } catch { /* notes is just quantity string */ }
+
         const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
         saved.forEach((d: any) => {
-          savedMap.set(d.item_name, { qty: parseInt(d.notes || '0') || 0, cost_item_id: d.cost_item_id });
+          let qty = 0;
+          try {
+            const parsed = JSON.parse(d.notes || '0');
+            qty = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(d.notes || '0') || 0);
+          } catch {
+            qty = parseInt(d.notes || '0') || 0;
+          }
+          savedMap.set(d.item_name, { qty, cost_item_id: d.cost_item_id });
         });
 
         const loaded: MedItem[] = [];
@@ -108,7 +147,7 @@ export default function MedicationConsumption() {
   const removeItem = (index: number) => {
     if (isConfirmed) return;
     const item = medications[index];
-    if (item.cost_item_id) return; // Can't remove cost_items entries
+    if (item.cost_item_id) return;
     setMedications(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -119,7 +158,20 @@ export default function MedicationConsumption() {
 
   const totalCost = usedMeds.reduce((sum, m) => sum + (m.unit_cost || 0) * m.quantity, 0);
 
+  const filteredCostItems = useMemo(() => {
+    const costItems = medications.filter(m => m.cost_item_id);
+    if (!debouncedSearch) return costItems;
+    const q = debouncedSearch.toLowerCase();
+    return costItems.filter(m => m.name.toLowerCase().includes(q));
+  }, [medications, debouncedSearch]);
+
+  const customItems = medications.filter(m => !m.cost_item_id);
+
   const handleConfirm = async () => {
+    if (!selectedPatientId) {
+      toast({ title: 'Paciente obrigatório', description: 'Selecione o paciente antes de confirmar.', variant: 'destructive' });
+      return;
+    }
     const emptyMeds = medications.filter(m => m.quantity <= 0);
     if (emptyMeds.length > 0) {
       toast({
@@ -134,7 +186,7 @@ export default function MedicationConsumption() {
     try {
       const items = usedMeds.map(med => ({
         item_name: med.name,
-        notes: med.quantity.toString(),
+        notes: JSON.stringify({ quantity: med.quantity, patient_id: selectedPatientId }),
         cost_item_id: med.cost_item_id || null,
       }));
 
@@ -163,10 +215,6 @@ export default function MedicationConsumption() {
       </MainLayout>
     );
   }
-
-  // Separate items with cost_item_id (from cost table) and custom items
-  const costTableItems = medications.filter(m => m.cost_item_id);
-  const customItems = medications.filter(m => !m.cost_item_id);
 
   return (
     <MainLayout>
@@ -198,6 +246,29 @@ export default function MedicationConsumption() {
           )}
         </div>
 
+        {/* Patient selector */}
+        <Card className="rounded-2xl">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-bold uppercase text-muted-foreground">Paciente:</span>
+              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={isConfirmed || !canEdit}>
+                <SelectTrigger className="flex-1 h-8 text-xs">
+                  <SelectValue placeholder="Selecione o paciente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {patients.length === 0 && (
+              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento. Cadastre um paciente primeiro.</p>
+            )}
+          </CardContent>
+        </Card>
+
         {!canEdit && (
           <Card className="border-warning bg-warning/10">
             <CardContent className="py-3">
@@ -206,6 +277,19 @@ export default function MedicationConsumption() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Search */}
+        {medications.filter(m => m.cost_item_id).length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar medicamento..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         )}
 
         {medications.length === 0 && (
@@ -219,14 +303,16 @@ export default function MedicationConsumption() {
         )}
 
         {/* Cost table medications */}
-        {costTableItems.length > 0 && (
+        {filteredCostItems.length > 0 && (
           <Card className="rounded-2xl">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-black uppercase">Medicamentos</CardTitle>
+              <CardTitle className="text-sm font-black uppercase">
+                Medicamentos {debouncedSearch ? `(${filteredCostItems.length} encontrados)` : `(${medications.filter(m => m.cost_item_id).length})`}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {costTableItems.map((med) => {
+                {filteredCostItems.map((med) => {
                   const globalIndex = medications.indexOf(med);
                   return (
                     <div key={med.cost_item_id} className="flex items-center gap-3 px-4 py-2.5">
@@ -251,6 +337,14 @@ export default function MedicationConsumption() {
                   );
                 })}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {debouncedSearch && filteredCostItems.length === 0 && (
+          <Card>
+            <CardContent className="py-4 text-center text-muted-foreground text-sm">
+              Nenhum medicamento encontrado para "{debouncedSearch}"
             </CardContent>
           </Card>
         )}
@@ -342,7 +436,7 @@ export default function MedicationConsumption() {
         {canEdit && !isConfirmed ? (
           <Button
             onClick={handleConfirm}
-            disabled={!allFilled || isSaving}
+            disabled={!allFilled || !selectedPatientId || isSaving}
             className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
           >
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}

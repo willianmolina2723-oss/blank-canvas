@@ -1,21 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Package, Plus, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Package, Plus, Trash2, Loader2, CheckCircle2, Search, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface MaterialItem {
   name: string;
   quantity: number;
   cost_item_id?: string;
   unit_cost?: number;
+}
+
+interface Patient {
+  id: string;
+  name: string;
 }
 
 const db = supabase as any;
@@ -31,6 +38,10 @@ export default function MaterialConsumption() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
   const [eventRole, setEventRole] = useState<string | null>(null);
 
@@ -45,13 +56,25 @@ export default function MaterialConsumption() {
   const canEdit = canEditMaterialUsage;
 
   useEffect(() => {
-    if (eventId) loadData();
+    if (eventId) {
+      loadData();
+      loadPatients();
+    }
   }, [eventId]);
+
+  const loadPatients = async () => {
+    try {
+      const { data } = await supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null);
+      setPatients(data || []);
+      if (data && data.length === 1) setSelectedPatientId(data[0].id);
+    } catch (err) {
+      console.error('Error loading patients:', err);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Load saved consumption + cost_items via edge function
       const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
         body: { action: 'load', event_id: eventId, item_type: 'materiais', include_cost_items: true, cost_items_category: 'material' },
       });
@@ -62,9 +85,24 @@ export default function MaterialConsumption() {
 
       if (saved.length > 0) {
         setIsConfirmed(true);
+        try {
+          const firstNotes = saved[0]?.notes;
+          if (firstNotes) {
+            const parsed = JSON.parse(firstNotes);
+            if (parsed.patient_id) setSelectedPatientId(parsed.patient_id);
+          }
+        } catch { /* notes is just quantity string */ }
+
         const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
         saved.forEach((d: any) => {
-          savedMap.set(d.item_name, { qty: parseInt(d.notes || '0') || 0, cost_item_id: d.cost_item_id });
+          let qty = 0;
+          try {
+            const parsed = JSON.parse(d.notes || '0');
+            qty = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(d.notes || '0') || 0);
+          } catch {
+            qty = parseInt(d.notes || '0') || 0;
+          }
+          savedMap.set(d.item_name, { qty, cost_item_id: d.cost_item_id });
         });
 
         const loaded: MaterialItem[] = [];
@@ -118,13 +156,22 @@ export default function MaterialConsumption() {
 
   const totalCost = usedMaterials.reduce((sum, m) => sum + (m.unit_cost || 0) * m.quantity, 0);
 
+  const filteredCostItems = useMemo(() => {
+    const costItems = materials.filter(m => m.cost_item_id);
+    if (!debouncedSearch) return costItems;
+    const q = debouncedSearch.toLowerCase();
+    return costItems.filter(m => m.name.toLowerCase().includes(q));
+  }, [materials, debouncedSearch]);
+
+  const customItems = materials.filter(m => !m.cost_item_id);
+
   const handleConfirm = async () => {
+    if (!selectedPatientId) {
+      toast({ title: 'Paciente obrigatório', description: 'Selecione o paciente antes de confirmar.', variant: 'destructive' });
+      return;
+    }
     if (usedMaterials.length === 0) {
-      toast({
-        title: 'Atenção',
-        description: 'Registre a quantidade consumida de pelo menos um material.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Atenção', description: 'Registre a quantidade consumida de pelo menos um material.', variant: 'destructive' });
       return;
     }
 
@@ -132,7 +179,7 @@ export default function MaterialConsumption() {
     try {
       const items = usedMaterials.map(mat => ({
         item_name: mat.name,
-        notes: mat.quantity.toString(),
+        notes: JSON.stringify({ quantity: mat.quantity, patient_id: selectedPatientId }),
         cost_item_id: mat.cost_item_id || null,
       }));
 
@@ -161,9 +208,6 @@ export default function MaterialConsumption() {
       </MainLayout>
     );
   }
-
-  const costTableItems = materials.filter(m => m.cost_item_id);
-  const customItems = materials.filter(m => !m.cost_item_id);
 
   return (
     <MainLayout>
@@ -195,6 +239,29 @@ export default function MaterialConsumption() {
           )}
         </div>
 
+        {/* Patient selector */}
+        <Card className="rounded-2xl">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-bold uppercase text-muted-foreground">Paciente:</span>
+              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={isConfirmed || !canEdit}>
+                <SelectTrigger className="flex-1 h-8 text-xs">
+                  <SelectValue placeholder="Selecione o paciente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {patients.length === 0 && (
+              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento. Cadastre um paciente primeiro.</p>
+            )}
+          </CardContent>
+        </Card>
+
         {!canEdit && (
           <Card className="border-warning bg-warning/10">
             <CardContent className="py-3">
@@ -203,6 +270,19 @@ export default function MaterialConsumption() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Search */}
+        {materials.filter(m => m.cost_item_id).length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar material..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         )}
 
         {materials.length === 0 && (
@@ -216,9 +296,14 @@ export default function MaterialConsumption() {
         )}
 
         {/* Cost table materials */}
-        {costTableItems.length > 0 && (
+        {filteredCostItems.length > 0 && (
           <div className="space-y-0 divide-y divide-border rounded-2xl border bg-card overflow-hidden">
-            {costTableItems.map((mat) => {
+            <div className="px-4 py-2 bg-muted/50">
+              <span className="text-sm font-black uppercase">
+                Materiais {debouncedSearch ? `(${filteredCostItems.length} encontrados)` : `(${materials.filter(m => m.cost_item_id).length})`}
+              </span>
+            </div>
+            {filteredCostItems.map((mat) => {
               const globalIndex = materials.indexOf(mat);
               return (
                 <div key={mat.cost_item_id} className="flex items-center gap-3 px-4 py-3">
@@ -243,6 +328,14 @@ export default function MaterialConsumption() {
               );
             })}
           </div>
+        )}
+
+        {debouncedSearch && filteredCostItems.length === 0 && (
+          <Card>
+            <CardContent className="py-4 text-center text-muted-foreground text-sm">
+              Nenhum material encontrado para "{debouncedSearch}"
+            </CardContent>
+          </Card>
         )}
 
         {/* Custom items */}
@@ -332,7 +425,7 @@ export default function MaterialConsumption() {
         {canEdit && !isConfirmed ? (
           <Button
             onClick={handleConfirm}
-            disabled={usedMaterials.length === 0 || isSaving}
+            disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving}
             className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
           >
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
