@@ -36,6 +36,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    const now = new Date().toISOString()
+
+    // --- When starting event (em_andamento): record departure_time on event and transport ---
+    if (new_status === 'em_andamento') {
+      // Set departure_time on events table
+      await supabaseAdmin.from('events').update({
+        departure_time: now,
+        status: new_status,
+        updated_at: now,
+      }).eq('id', event_id)
+
+      // Also update transport_records departure_time
+      const { data: transport } = await supabaseAdmin.from('transport_records').select('id').eq('event_id', event_id).maybeSingle()
+      if (transport) {
+        await supabaseAdmin.from('transport_records').update({ departure_time: now, updated_at: now }).eq('id', transport.id)
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // --- Validation for finalization ---
     if (new_status === 'finalizado') {
       const pendingItems: string[] = []
@@ -55,24 +77,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 2. Transport - must have departure/arrival times and km
+      // 2. Transport - must exist (times are auto-filled, KM comes from checklist)
       const { data: transport } = await supabaseAdmin
         .from('transport_records')
-        .select('*')
+        .select('id')
         .eq('event_id', event_id)
         .maybeSingle()
 
       if (!transport) {
         pendingItems.push('Transporte: registro não encontrado')
-      } else {
-        const transportMissing: string[] = []
-        if (!transport.departure_time) transportMissing.push('horário de saída')
-        if (!transport.arrival_time) transportMissing.push('horário de chegada')
-        if (transport.initial_km === null || transport.initial_km === undefined) transportMissing.push('KM inicial')
-        if (transport.final_km === null || transport.final_km === undefined) transportMissing.push('KM final')
-        if (transportMissing.length > 0) {
-          pendingItems.push(`Transporte: faltam ${transportMissing.join(', ')}`)
-        }
       }
 
       // 3. If patients exist, validate role-based sections
@@ -83,7 +96,6 @@ Deno.serve(async (req) => {
         .is('deleted_at', null)
 
       if (patients && patients.length > 0) {
-        // Get participants and their roles
         const { data: participants } = await supabaseAdmin
           .from('event_participants')
           .select('role')
@@ -91,9 +103,7 @@ Deno.serve(async (req) => {
 
         const roles = new Set((participants || []).map(p => p.role))
 
-        // For each patient, check required sections based on assigned roles
         for (const patient of patients) {
-          // If there's a nurse/tech → nursing evolution required
           if (roles.has('enfermeiro') || roles.has('tecnico')) {
             const { data: nursing } = await supabaseAdmin
               .from('nursing_evolutions')
@@ -107,7 +117,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // If there's a doctor → medical evolution required
           if (roles.has('medico')) {
             const { data: medical } = await supabaseAdmin
               .from('medical_evolutions')
@@ -133,12 +142,28 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
+
+      // Set arrival_time on event and transport
+      await supabaseAdmin.from('events').update({
+        arrival_time: now,
+        status: new_status,
+        updated_at: now,
+      }).eq('id', event_id)
+
+      const { data: transportFinal } = await supabaseAdmin.from('transport_records').select('id').eq('event_id', event_id).maybeSingle()
+      if (transportFinal) {
+        await supabaseAdmin.from('transport_records').update({ arrival_time: now, updated_at: now }).eq('id', transportFinal.id)
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // --- Update status ---
+    // --- Other status changes (ativo, cancelado) ---
     const { error } = await supabaseAdmin.from('events').update({
       status: new_status,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     }).eq('id', event_id)
 
     if (error) throw new Error(`Erro ao atualizar evento: ${error.message}`)
@@ -147,9 +172,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
-    const status = err.message?.includes('Não é possível finalizar') ? 400 : 400
     return new Response(JSON.stringify({ error: err.message }), {
-      status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
