@@ -70,7 +70,7 @@ export default function EventFinancial() {
         db.from('event_staff_costs').select('*, profile:profiles(full_name, professional_id)').eq('event_id', id!),
         db.from('event_other_costs').select('*').eq('event_id', id!),
         db.from('cost_items').select('*').eq('is_active', true),
-        supabase.from('transport_records').select('departure_time, arrival_time, initial_km, final_km').eq('event_id', id!).maybeSingle(),
+        supabase.from('transport_records').select('departure_time, arrival_time').eq('event_id', id!).maybeSingle(),
       ]);
 
       // Calculate transport duration for staff cost
@@ -88,10 +88,24 @@ export default function EventFinancial() {
       }
       setTransportMinutes(minutes);
 
-      // Calculate fuel cost from transport km
+      // Calculate fuel cost from checklist KM data
       const DIESEL_PRICE = 6.25;
-      const initialKm = Number(transportData?.initial_km) || 0;
-      const finalKm = Number(transportData?.final_km) || 0;
+      const { data: kmItems } = await supabase
+        .from('checklist_items')
+        .select('item_type, notes')
+        .eq('event_id', id!)
+        .in('item_type', ['km_combustivel_inicio', 'km_combustivel_fim']);
+
+      let initialKm = 0;
+      let finalKm = 0;
+      (kmItems || []).forEach((item: any) => {
+        try {
+          const parsed = JSON.parse(item.notes || '{}');
+          if (item.item_type === 'km_combustivel_inicio') initialKm = Number(parsed.km_inicial) || 0;
+          if (item.item_type === 'km_combustivel_fim') finalKm = Number(parsed.km_final) || 0;
+        } catch {}
+      });
+
       const kmDriven = finalKm > initialKm ? finalKm - initialKm : 0;
       const kmPerLiter = Number((eventData as any)?.ambulance?.km_per_liter) || 0;
       if (kmDriven > 0 && kmPerLiter > 0) {
