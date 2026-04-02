@@ -48,6 +48,7 @@ export default function MedicalEvolutionForm() {
   const [medicationCatalog, setMedicationCatalog] = useState<CostItemMed[]>([]);
   const [medSearch, setMedSearch] = useState('');
   const [selectedMeds, setSelectedMeds] = useState<string[]>([]);
+  const [patientConsumption, setPatientConsumption] = useState<{ medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] }>({ medications: [], materials: [] });
 
   // Signature canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
