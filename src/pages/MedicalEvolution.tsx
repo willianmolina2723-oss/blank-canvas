@@ -141,6 +141,36 @@ export default function MedicalEvolutionForm() {
         }
       }
 
+      // Load consumed medications/materials for this patient
+      const { data: consumptionData } = await supabase
+        .from('checklist_items')
+        .select('item_name, item_type, notes')
+        .eq('event_id', eventId!)
+        .in('item_type', ['consumo_medicamentos', 'materiais']);
+
+      const meds: { name: string; qty: number }[] = [];
+      const mats: { name: string; qty: number }[] = [];
+      (consumptionData || []).forEach((ci: any) => {
+        let qty = 0;
+        let pId = '';
+        try {
+          const parsed = JSON.parse(ci.notes || '0');
+          if (typeof parsed === 'object') {
+            qty = parsed.quantity || 0;
+            pId = parsed.patient_id || '';
+          } else {
+            qty = parseInt(ci.notes || '0') || 0;
+          }
+        } catch {
+          qty = parseInt(ci.notes || '0') || 0;
+        }
+        if (qty <= 0 || (pId && pId !== patient.id)) return;
+        const item = { name: ci.item_name, qty };
+        if (ci.item_type === 'consumo_medicamentos') meds.push(item);
+        else mats.push(item);
+      });
+      setPatientConsumption({ medications: meds, materials: mats });
+
       if (evs.length === 0) {
         setIsCreatingNew(true);
       } else {
