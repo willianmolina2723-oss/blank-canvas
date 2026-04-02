@@ -279,6 +279,46 @@ export default function MedicationConsumption() {
           </Card>
         )}
 
+        {/* Summary */}
+        {usedMeds.length > 0 && (
+          <Card className="border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Resumo do Consumo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                {usedMeds.map((m, i) => (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span>{m.name} × {m.quantity}</span>
+                    <span className="font-bold">{m.unit_cost ? fmt(m.unit_cost * m.quantity) : '-'}</span>
+                  </div>
+                ))}
+                <div className="border-t pt-2 mt-2 flex justify-between text-sm font-bold">
+                  <span>Total Estimado</span>
+                  <span>{fmt(totalCost)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Confirm button */}
+        {canEdit && !isConfirmed ? (
+          <Button
+            onClick={handleConfirm}
+            disabled={usedMeds.length === 0 || !selectedPatientId || isSaving}
+            className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+            Confirmar Consumo de Medicamentos
+          </Button>
+        ) : isConfirmed ? (
+          <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
+            <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
+            Consumo de medicamentos confirmado com sucesso.
+          </div>
+        ) : null}
+
         {/* Search */}
         {medications.filter(m => m.cost_item_id).length > 0 && (
           <div className="relative">
@@ -408,46 +448,6 @@ export default function MedicationConsumption() {
             </CardContent>
           </Card>
         )}
-
-        {/* Summary */}
-        {usedMeds.length > 0 && (
-          <Card className="border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Resumo do Consumo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {usedMeds.map((m, i) => (
-                  <div key={i} className="flex justify-between text-xs">
-                    <span>{m.name} × {m.quantity}</span>
-                    <span className="font-bold">{m.unit_cost ? fmt(m.unit_cost * m.quantity) : '-'}</span>
-                  </div>
-                ))}
-                <div className="border-t pt-2 mt-2 flex justify-between text-sm font-bold">
-                  <span>Total Estimado</span>
-                  <span>{fmt(totalCost)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Confirm button */}
-        {canEdit && !isConfirmed ? (
-          <Button
-            onClick={handleConfirm}
-            disabled={!allFilled || !selectedPatientId || isSaving}
-            className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
-          >
-            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-            Confirmar Consumo de Medicamentos
-          </Button>
-        ) : isConfirmed ? (
-          <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
-            <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
-            Consumo de medicamentos confirmado com sucesso.
-          </div>
-        ) : null}
       </div>
     </MainLayout>
   );
