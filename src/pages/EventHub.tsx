@@ -186,7 +186,7 @@ export default function EventHub() {
     { title: 'MÉDICO', icon: Stethoscope, route: `/medical-evolution/${id}`, baseColor: 'bg-red-600 text-white' },
     { title: 'MATERIAIS', icon: Package, route: `/materials/${id}`, baseColor: 'bg-amber-600 text-white' },
     { title: 'TRANSPORTE', icon: Truck, route: `/transport/${id}`, baseColor: 'bg-teal-700 text-white' },
-    { title: 'REL. ENVIO', icon: Send, route: `/dispatch-report/${id}`, baseColor: 'bg-orange-600 text-white' },
+    
   ];
 
   const highlightTitles = isFullAdmin
