@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Stethoscope, Save, Loader2, Plus, AlertTriangle, Clock, PenTool, ShieldCheck, UserRound, ChevronRight, Search, Pill, X } from 'lucide-react';
+import { ArrowLeft, Stethoscope, Save, Loader2, Plus, AlertTriangle, Clock, PenTool, ShieldCheck, UserRound, ChevronRight, Search, Pill, X, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { MedicalEvolution, Patient, Profile } from '@/types/database';
@@ -48,6 +48,7 @@ export default function MedicalEvolutionForm() {
   const [medicationCatalog, setMedicationCatalog] = useState<CostItemMed[]>([]);
   const [medSearch, setMedSearch] = useState('');
   const [selectedMeds, setSelectedMeds] = useState<string[]>([]);
+  const [patientConsumption, setPatientConsumption] = useState<{ medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] }>({ medications: [], materials: [] });
 
   // Signature canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -139,6 +140,36 @@ export default function MedicalEvolutionForm() {
           setSignerProfiles(map);
         }
       }
+
+      // Load consumed medications/materials for this patient
+      const { data: consumptionData } = await supabase
+        .from('checklist_items')
+        .select('item_name, item_type, notes')
+        .eq('event_id', eventId!)
+        .in('item_type', ['consumo_medicamentos', 'materiais']);
+
+      const meds: { name: string; qty: number }[] = [];
+      const mats: { name: string; qty: number }[] = [];
+      (consumptionData || []).forEach((ci: any) => {
+        let qty = 0;
+        let pId = '';
+        try {
+          const parsed = JSON.parse(ci.notes || '0');
+          if (typeof parsed === 'object') {
+            qty = parsed.quantity || 0;
+            pId = parsed.patient_id || '';
+          } else {
+            qty = parseInt(ci.notes || '0') || 0;
+          }
+        } catch {
+          qty = parseInt(ci.notes || '0') || 0;
+        }
+        if (qty <= 0 || (pId && pId !== patient.id)) return;
+        const item = { name: ci.item_name, qty };
+        if (ci.item_type === 'consumo_medicamentos') meds.push(item);
+        else mats.push(item);
+      });
+      setPatientConsumption({ medications: meds, materials: mats });
 
       if (evs.length === 0) {
         setIsCreatingNew(true);
@@ -414,6 +445,52 @@ export default function MedicalEvolutionForm() {
           </div>
         ) : (
           <>
+            {/* Consumed medications/materials for this patient */}
+            {(patientConsumption.medications.length > 0 || patientConsumption.materials.length > 0) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {patientConsumption.medications.length > 0 && (
+                  <Card className="rounded-2xl border-primary/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-black uppercase flex items-center gap-1.5">
+                        <Pill className="h-3.5 w-3.5 text-primary" />
+                        Medicamentos Consumidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-1">
+                        {patientConsumption.medications.map((m, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span>{m.name}</span>
+                            <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {patientConsumption.materials.length > 0 && (
+                  <Card className="rounded-2xl border-primary/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-black uppercase flex items-center gap-1.5">
+                        <Package className="h-3.5 w-3.5 text-primary" />
+                        Materiais Consumidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-1">
+                        {patientConsumption.materials.map((m, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span>{m.name}</span>
+                            <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
             {/* Evolution History */}
             <div>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">

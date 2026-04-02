@@ -145,7 +145,13 @@ export default function EventFinancial() {
       const matItems: any[] = [];
 
       (checklistItems || []).forEach((ci: any) => {
-        const q = parseInt(ci.notes || '0') || 0;
+        let q = 0;
+        try {
+          const parsed = JSON.parse(ci.notes || '0');
+          q = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(ci.notes || '0') || 0);
+        } catch {
+          q = parseInt(ci.notes || '0') || 0;
+        }
         if (q <= 0) return;
         const uc: number = ci.cost_item_id
           ? Number(costItemMap.get(ci.cost_item_id) ?? 0)
