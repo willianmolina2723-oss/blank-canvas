@@ -18,6 +18,28 @@ import {
 import { formatDateTimeSecsBR } from '@/utils/dateFormat';
 import { toBrasiliaDate } from '@/utils/dateFormat';
 
+/** Resolves a video URL: if it's a public Supabase URL, creates a signed URL instead. */
+function VideoPlayer({ videoUrl }: { videoUrl: string }) {
+  const [src, setSrc] = useState(videoUrl);
+
+  useEffect(() => {
+    const SUPABASE_HOST = 'dscvovvtjcopzsdjjenj.supabase.co';
+    if (!videoUrl.includes(SUPABASE_HOST)) { setSrc(videoUrl); return; }
+    const marker = '/object/public/checklist-videos/';
+    const idx = videoUrl.indexOf(marker);
+    if (idx === -1) { setSrc(videoUrl); return; }
+    const storagePath = decodeURIComponent(videoUrl.substring(idx + marker.length));
+    supabase.storage.from('checklist-videos').createSignedUrl(storagePath, 3600)
+      .then(({ data }) => { if (data?.signedUrl) setSrc(data.signedUrl); });
+  }, [videoUrl]);
+
+  return (
+    <div className="mt-2">
+      <video src={src} controls playsInline className="w-full rounded-md max-h-48" preload="metadata" />
+    </div>
+  );
+}
+
 type VideoType = 'salao' | 'cabine' | 'externa';
 
 const VIDEO_TYPES: { key: VideoType; label: string; description: string }[] = [
