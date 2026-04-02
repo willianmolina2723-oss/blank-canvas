@@ -58,6 +58,15 @@ const DEFAULT_COST_ITEMS = [
   { name: 'Soro Glicose 250ml', category: 'medicamento', unit: 'un', unit_cost: 6.00 },
   { name: 'Soro Glicose 500ml', category: 'medicamento', unit: 'un', unit_cost: 7.50 },
   { name: 'Tenoxicam', category: 'medicamento', unit: 'un', unit_cost: 12.00 },
+  { name: 'Diazepam', category: 'medicamento', unit: 'un', unit_cost: 2.50 },
+  { name: 'Midazolam', category: 'medicamento', unit: 'un', unit_cost: 4.50 },
+  { name: 'Morfina', category: 'medicamento', unit: 'un', unit_cost: 7.00 },
+  { name: 'Petidina', category: 'medicamento', unit: 'un', unit_cost: 6.00 },
+  { name: 'Clorpromazina', category: 'medicamento', unit: 'un', unit_cost: 3.50 },
+  { name: 'Fenitoína', category: 'medicamento', unit: 'un', unit_cost: 4.50 },
+  { name: 'Haloperidol', category: 'medicamento', unit: 'un', unit_cost: 2.50 },
+  { name: 'Tramadol', category: 'medicamento', unit: 'un', unit_cost: 4.00 },
+  { name: 'Fentanil', category: 'medicamento', unit: 'un', unit_cost: 9.00 },
 ]
 
 Deno.serve(async (req) => {
