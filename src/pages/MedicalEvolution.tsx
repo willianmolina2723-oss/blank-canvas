@@ -445,6 +445,52 @@ export default function MedicalEvolutionForm() {
           </div>
         ) : (
           <>
+            {/* Consumed medications/materials for this patient */}
+            {(patientConsumption.medications.length > 0 || patientConsumption.materials.length > 0) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {patientConsumption.medications.length > 0 && (
+                  <Card className="rounded-2xl border-primary/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-black uppercase flex items-center gap-1.5">
+                        <Pill className="h-3.5 w-3.5 text-primary" />
+                        Medicamentos Consumidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-1">
+                        {patientConsumption.medications.map((m, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span>{m.name}</span>
+                            <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {patientConsumption.materials.length > 0 && (
+                  <Card className="rounded-2xl border-primary/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-black uppercase flex items-center gap-1.5">
+                        <Package className="h-3.5 w-3.5 text-primary" />
+                        Materiais Consumidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-1">
+                        {patientConsumption.materials.map((m, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span>{m.name}</span>
+                            <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
             {/* Evolution History */}
             <div>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">
