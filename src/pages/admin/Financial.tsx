@@ -106,9 +106,9 @@ export default function Financial() {
         db.from('event_staff_costs').select('*').in('event_id', eventIds),
         db.from('event_other_costs').select('*').in('event_id', eventIds),
         db.from('cost_items').select('*').eq('is_active', true),
-        supabase.from('transport_records').select('event_id, departure_time, arrival_time, initial_km, final_km').in('event_id', eventIds),
+        supabase.from('transport_records').select('event_id, departure_time, arrival_time').in('event_id', eventIds),
         supabase.from('event_participants').select('event_id, profile_id').in('event_id', eventIds),
-        supabase.from('checklist_items').select('item_name, item_type, notes, cost_item_id, event_id').in('event_id', eventIds).in('item_type', ['consumo_medicamentos', 'materiais']),
+        supabase.from('checklist_items').select('item_name, item_type, notes, cost_item_id, event_id').in('event_id', eventIds).in('item_type', ['consumo_medicamentos', 'materiais', 'km_combustivel_inicio', 'km_combustivel_fim']),
         supabase.from('ambulances').select('id, km_per_liter'),
       ]);
 
@@ -166,17 +166,29 @@ export default function Financial() {
         else matCosts += uc * q;
       });
 
-      // Fuel costs: km driven × diesel price / km_per_liter
+      // Fuel costs: km driven from checklist × diesel price / km_per_liter
       const ambulanceMap = new Map((ambulancesData || []).map((a: any) => [a.id, Number(a.km_per_liter) || 0]));
+      // Build KM map per event from checklist items
+      const kmByEvent = new Map<string, { initial: number; final: number }>();
+      (checklistItems || []).forEach((ci: any) => {
+        if (ci.item_type !== 'km_combustivel_inicio' && ci.item_type !== 'km_combustivel_fim') return;
+        try {
+          const parsed = JSON.parse(ci.notes || '{}');
+          const entry = kmByEvent.get(ci.event_id) || { initial: 0, final: 0 };
+          if (ci.item_type === 'km_combustivel_inicio') entry.initial = Number(parsed.km_inicial) || 0;
+          if (ci.item_type === 'km_combustivel_fim') entry.final = Number(parsed.km_final) || 0;
+          kmByEvent.set(ci.event_id, entry);
+        } catch {}
+      });
+
       let totalFuelCosts = 0;
       (eventsData || []).forEach((ev: any) => {
         if (!ev.ambulance_id) return;
         const kmPerLiter = ambulanceMap.get(ev.ambulance_id);
         if (!kmPerLiter || Number(kmPerLiter) <= 0) return;
-        // Find transport record for this event
-        const tr = (transports || []).find((t: any) => t.event_id === ev.id);
-        if (!tr || !tr.initial_km || !tr.final_km) return;
-        const kmDriven = Number(tr.final_km) - Number(tr.initial_km);
+        const km = kmByEvent.get(ev.id);
+        if (!km || !km.initial || !km.final) return;
+        const kmDriven = km.final - km.initial;
         if (kmDriven > 0) {
           totalFuelCosts += (kmDriven / Number(kmPerLiter)) * DIESEL_PRICE;
         }
