@@ -39,18 +39,19 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message)
 
       let costItems = null
-      if (include_cost_items && cost_items_category) {
+      if (include_cost_items && cost_items_category && empresaId) {
         const { data } = await supabaseAdmin
           .from('cost_items')
           .select('*')
           .eq('category', cost_items_category)
           .eq('is_active', true)
+          .eq('empresa_id', empresaId)
           .order('name')
 
         costItems = data
       }
 
-      return new Response(JSON.stringify({ items: checklistItems || [], cost_items: costItems }), {
+      return new Response(JSON.stringify({ data: checklistItems || [], items: checklistItems || [], cost_items: costItems }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

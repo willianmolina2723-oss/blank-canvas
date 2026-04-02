@@ -66,7 +66,7 @@ export default function Medications() {
 
       if (error) throw error;
 
-      const items = response?.data || [];
+      const items = response?.items || response?.data || [];
       if (items.length > 0) {
         setIsConfirmed(true);
         const loaded = PSYCHOTROPIC_MEDICATIONS.map(name => {
