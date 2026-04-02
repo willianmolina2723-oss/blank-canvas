@@ -120,10 +120,11 @@ export default function MedicationConsumption() {
   const totalCost = usedMeds.reduce((sum, m) => sum + (m.unit_cost || 0) * m.quantity, 0);
 
   const handleConfirm = async () => {
-    if (usedMeds.length === 0) {
+    const emptyMeds = medications.filter(m => m.quantity <= 0);
+    if (emptyMeds.length > 0) {
       toast({
-        title: 'Atenção',
-        description: 'Registre a quantidade consumida de pelo menos um medicamento.',
+        title: 'Preenchimento obrigatório',
+        description: `Todos os medicamentos devem ter quantidade ≥ 1. Faltam: ${emptyMeds.map(m => m.name).slice(0, 3).join(', ')}${emptyMeds.length > 3 ? ` e mais ${emptyMeds.length - 3}` : ''}.`,
         variant: 'destructive',
       });
       return;
@@ -341,7 +342,7 @@ export default function MedicationConsumption() {
         {canEdit && !isConfirmed ? (
           <Button
             onClick={handleConfirm}
-            disabled={usedMeds.length === 0 || isSaving}
+            disabled={!allFilled || isSaving}
             className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
           >
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
