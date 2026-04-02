@@ -113,6 +113,7 @@ export default function MedicationConsumption() {
   };
 
   const usedMeds = medications.filter(m => m.quantity > 0);
+  const allFilled = medications.length > 0 && medications.every(m => m.quantity > 0);
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
