@@ -334,7 +334,7 @@ function PatientEvolutions({ patient, evolutions, loading }: {
         </Card>
       )}
 
-      {(evolutions.nursing || []).length === 0 && (evolutions.medical || []).length === 0 && (evolutions.signatures || []).length === 0 && (
+      {(evolutions.nursing || []).length === 0 && (evolutions.medical || []).length === 0 && (evolutions.signatures || []).length === 0 && (evolutions.medications || []).length === 0 && (evolutions.materials || []).length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-2">Nenhuma evolução registrada.</p>
       )}
     </div>
