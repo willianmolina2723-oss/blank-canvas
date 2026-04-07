@@ -33,8 +33,9 @@ import {
 import {
   Building2, Search, Crown, Pencil, Ban, CheckCircle, Plus,
   TrendingUp, Users, AlertTriangle, DollarSign, BarChart3,
-  Calendar, Eye, ArrowLeft, Trash2,
+  Calendar, Eye, ArrowLeft, Trash2, Star,
 } from 'lucide-react';
+import { ReviewManagement } from '@/components/admin/ReviewManagement';
 import { differenceInDays, parseISO } from 'date-fns';
 import { formatBR } from '@/utils/dateFormat';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
@@ -521,6 +522,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="metricas" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Métricas
+            </TabsTrigger>
+            <TabsTrigger value="avaliacoes" className="gap-2">
+              <Star className="h-4 w-4" />
+              Avaliações
             </TabsTrigger>
           </TabsList>
 

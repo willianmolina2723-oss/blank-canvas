@@ -4,6 +4,7 @@ import { MobileHeader } from './MobileHeader';
 import { OfflineBanner } from './OfflineBanner';
 import { SubscriptionBanner } from '@/components/plan/SubscriptionBanner';
 import { NotificationPermission } from '@/components/notifications/NotificationPermission';
+import { ReviewPromptDialog } from '@/components/reviews/ReviewPromptDialog';
 import { SidebarStateProvider, useSidebarState } from './SidebarState';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +56,7 @@ function LayoutContent({ children }: MainLayoutProps) {
       </main>
 
       <NotificationPermission />
+      <ReviewPromptDialog />
     </div>
   );
 }
