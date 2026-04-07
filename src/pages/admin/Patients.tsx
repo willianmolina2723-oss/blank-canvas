@@ -28,6 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Pill, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
@@ -183,7 +184,7 @@ function CreatePatientDialog({
 // ── Patient Evolutions Panel ─────────────────────────────
 function PatientEvolutions({ patient, evolutions, loading }: {
   patient: PatientWithEvent;
-  evolutions: { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[] } | undefined;
+  evolutions: { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[]; medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] } | undefined;
   loading: boolean;
 }) {
   const stripSignatureMetadata = (text: string | null): string => {
@@ -222,6 +223,48 @@ function PatientEvolutions({ patient, evolutions, loading }: {
           <p className="sm:col-span-2"><span className="text-muted-foreground">Histórico:</span> {stripSignatureMetadata(patient.brief_history)}</p>
         )}
       </div>
+
+      {/* Consumed medications & materials */}
+      {((evolutions.medications || []).length > 0 || (evolutions.materials || []).length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(evolutions.medications || []).length > 0 && (
+            <Card className="bg-muted/30">
+              <CardContent className="p-3">
+                <p className="text-sm font-medium flex items-center gap-1.5 mb-2">
+                  <Pill className="h-4 w-4 text-primary" />
+                  Medicamentos Consumidos
+                </p>
+                <div className="space-y-1">
+                  {evolutions.medications.map((m, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{m.name}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {(evolutions.materials || []).length > 0 && (
+            <Card className="bg-muted/30">
+              <CardContent className="p-3">
+                <p className="text-sm font-medium flex items-center gap-1.5 mb-2">
+                  <Package className="h-4 w-4 text-primary" />
+                  Materiais Consumidos
+                </p>
+                <div className="space-y-1">
+                  {evolutions.materials.map((m, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{m.name}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Nursing evolutions */}
       {(evolutions.nursing || []).map((n, idx) => (
@@ -291,7 +334,7 @@ function PatientEvolutions({ patient, evolutions, loading }: {
         </Card>
       )}
 
-      {(evolutions.nursing || []).length === 0 && (evolutions.medical || []).length === 0 && (evolutions.signatures || []).length === 0 && (
+      {(evolutions.nursing || []).length === 0 && (evolutions.medical || []).length === 0 && (evolutions.signatures || []).length === 0 && (evolutions.medications || []).length === 0 && (evolutions.materials || []).length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-2">Nenhuma evolução registrada.</p>
       )}
     </div>
@@ -309,7 +352,7 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [evolutions, setEvolutions] = useState<Record<string, { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[] }>>({});
+  const [evolutions, setEvolutions] = useState<Record<string, { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[]; medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] }>>({});
   const [loadingEvolutions, setLoadingEvolutions] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -339,25 +382,43 @@ export default function PatientsPage() {
   const loadEvolutions = async (patient: PatientWithEvent) => {
     if (evolutions[patient.id]) return;
     if (!patient.event_id) {
-      // Admin-created patient without event — no evolutions to load
-      setEvolutions(prev => ({ ...prev, [patient.id]: { nursing: [], medical: [], signatures: [] } }));
+      setEvolutions(prev => ({ ...prev, [patient.id]: { nursing: [], medical: [], signatures: [], medications: [], materials: [] } }));
       return;
     }
     setLoadingEvolutions(patient.id);
     try {
-      const [nursingRes, medicalRes, sigRes] = await Promise.all([
+      const [nursingRes, medicalRes, sigRes, consumptionRes] = await Promise.all([
         supabase.from('nursing_evolutions').select('*').eq('event_id', patient.event_id),
         supabase.from('medical_evolutions').select('*').eq('event_id', patient.event_id),
         supabase.from('digital_signatures').select('*, profile:profiles(full_name, professional_id)').eq('event_id', patient.event_id),
+        supabase.from('checklist_items').select('item_name, item_type, notes').eq('event_id', patient.event_id).in('item_type', ['consumo_medicamentos', 'materiais']),
       ]);
       const nursingAll = (nursingRes.data || []) as NursingEvolution[];
       const medicalAll = (medicalRes.data || []) as MedicalEvolution[];
+
+      const meds: { name: string; qty: number }[] = [];
+      const mats: { name: string; qty: number }[] = [];
+      (consumptionRes.data || []).forEach((ci: any) => {
+        let qty = 0;
+        let pId = '';
+        try {
+          const parsed = JSON.parse(ci.notes || '0');
+          if (typeof parsed === 'object') { qty = parsed.quantity || 0; pId = parsed.patient_id || ''; }
+          else { qty = parseInt(ci.notes || '0') || 0; }
+        } catch { qty = parseInt(ci.notes || '0') || 0; }
+        if (qty <= 0 || (pId && pId !== patient.id)) return;
+        if (ci.item_type === 'consumo_medicamentos') meds.push({ name: ci.item_name, qty });
+        else mats.push({ name: ci.item_name, qty });
+      });
+
       setEvolutions(prev => ({
         ...prev,
         [patient.id]: {
           nursing: nursingAll.filter(n => !n.patient_id || n.patient_id === patient.id),
           medical: medicalAll.filter(m => !m.patient_id || m.patient_id === patient.id),
           signatures: (sigRes.data || []) as any,
+          medications: meds,
+          materials: mats,
         },
       }));
     } catch (err) {
