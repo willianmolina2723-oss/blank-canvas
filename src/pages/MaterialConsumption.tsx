@@ -382,7 +382,7 @@ export default function MaterialConsumption() {
                       value={mat.quantity}
                       onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
                       className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                      disabled={isConfirmed || !canEdit}
+                      disabled={!canEdit}
                     />
                   </div>
                 </div>
@@ -419,9 +419,9 @@ export default function MaterialConsumption() {
                           value={mat.quantity}
                           onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
                           className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                          disabled={isConfirmed || !canEdit}
+                          disabled={!canEdit}
                         />
-                        {!isConfirmed && canEdit && (
+                        {canEdit && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(globalIndex)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -436,7 +436,7 @@ export default function MaterialConsumption() {
         )}
 
         {/* Add custom item */}
-        {canEdit && !isConfirmed && (
+        {canEdit && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Adicionar Material</CardTitle>
