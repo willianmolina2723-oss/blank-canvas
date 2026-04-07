@@ -674,6 +674,11 @@ export default function SuperAdmin() {
               </Card>
             </div>
           </TabsContent>
+
+          {/* Reviews Tab */}
+          <TabsContent value="avaliacoes">
+            <ReviewManagement />
+          </TabsContent>
         </Tabs>
       </div>
 
