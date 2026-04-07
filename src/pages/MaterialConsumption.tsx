@@ -193,6 +193,7 @@ export default function MaterialConsumption() {
       if (error) throw error;
 
       setIsConfirmed(true);
+      setHasChanges(false);
       toast({ title: 'Sucesso', description: 'Consumo de materiais confirmado.' });
     } catch (err) {
       console.error('Error saving materials:', err);
@@ -308,6 +309,23 @@ export default function MaterialConsumption() {
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Confirmar Consumo de Materiais
           </Button>
+        ) : isConfirmed && canEdit ? (
+          <div className="space-y-2">
+            <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
+              <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
+              Consumo de materiais confirmado com sucesso.
+            </div>
+            {hasChanges && (
+              <Button
+                onClick={handleConfirm}
+                disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving}
+                className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Atualizar Consumo de Materiais
+              </Button>
+            )}
+          </div>
         ) : isConfirmed ? (
           <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
             <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
