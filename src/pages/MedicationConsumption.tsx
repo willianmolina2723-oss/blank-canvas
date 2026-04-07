@@ -172,11 +172,10 @@ export default function MedicationConsumption() {
       toast({ title: 'Paciente obrigatório', description: 'Selecione o paciente antes de confirmar.', variant: 'destructive' });
       return;
     }
-    const emptyMeds = medications.filter(m => m.quantity <= 0);
-    if (emptyMeds.length > 0) {
+    if (usedMeds.length === 0) {
       toast({
-        title: 'Preenchimento obrigatório',
-        description: `Todos os medicamentos devem ter quantidade ≥ 1. Faltam: ${emptyMeds.map(m => m.name).slice(0, 3).join(', ')}${emptyMeds.length > 3 ? ` e mais ${emptyMeds.length - 3}` : ''}.`,
+        title: 'Nenhum medicamento selecionado',
+        description: 'Selecione ao menos um medicamento com quantidade ≥ 1.',
         variant: 'destructive',
       });
       return;
