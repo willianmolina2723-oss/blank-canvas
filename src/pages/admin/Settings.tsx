@@ -3,6 +3,7 @@ import { formatDateBR } from '@/utils/dateFormat';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LogoUpload } from '@/components/admin/LogoUpload';
+import { SettingsReviewSection } from '@/components/reviews/SettingsReviewSection';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Settings as SettingsIcon, CreditCard, CheckCircle, ArrowUpCircle, Loader2 } from 'lucide-react';
@@ -253,6 +254,9 @@ export default function Settings() {
 
         {/* Logo/Identity Section */}
         <LogoUpload />
+
+        {/* Review Section */}
+        <SettingsReviewSection />
       </div>
     </MainLayout>
   );
