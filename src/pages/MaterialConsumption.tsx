@@ -132,22 +132,25 @@ export default function MaterialConsumption() {
   };
 
   const handleQuantityChange = (index: number, value: string) => {
-    if (isConfirmed) return;
     const qty = Math.max(0, parseInt(value) || 0);
     setMaterials(prev => prev.map((m, i) => (i === index ? { ...m, quantity: qty } : m)));
+    if (isConfirmed) setHasChanges(true);
   };
 
+  const [hasChanges, setHasChanges] = useState(false);
+
   const addCustomItem = () => {
-    if (!newItemName.trim() || isConfirmed) return;
+    if (!newItemName.trim()) return;
     setMaterials(prev => [...prev, { name: newItemName.trim(), quantity: 0 }]);
     setNewItemName('');
+    if (isConfirmed) setHasChanges(true);
   };
 
   const removeItem = (index: number) => {
-    if (isConfirmed) return;
     const item = materials[index];
     if (item.cost_item_id) return;
     setMaterials(prev => prev.filter((_, i) => i !== index));
+    if (isConfirmed) setHasChanges(true);
   };
 
   const usedMaterials = materials.filter(m => m.quantity > 0);
@@ -190,6 +193,7 @@ export default function MaterialConsumption() {
       if (error) throw error;
 
       setIsConfirmed(true);
+      setHasChanges(false);
       toast({ title: 'Sucesso', description: 'Consumo de materiais confirmado.' });
     } catch (err) {
       console.error('Error saving materials:', err);
@@ -305,6 +309,23 @@ export default function MaterialConsumption() {
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Confirmar Consumo de Materiais
           </Button>
+        ) : isConfirmed && canEdit ? (
+          <div className="space-y-2">
+            <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
+              <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
+              Consumo de materiais confirmado com sucesso.
+            </div>
+            {hasChanges && (
+              <Button
+                onClick={handleConfirm}
+                disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving}
+                className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Atualizar Consumo de Materiais
+              </Button>
+            )}
+          </div>
         ) : isConfirmed ? (
           <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
             <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
@@ -361,7 +382,7 @@ export default function MaterialConsumption() {
                       value={mat.quantity}
                       onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
                       className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                      disabled={isConfirmed || !canEdit}
+                      disabled={!canEdit}
                     />
                   </div>
                 </div>
@@ -398,9 +419,9 @@ export default function MaterialConsumption() {
                           value={mat.quantity}
                           onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
                           className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                          disabled={isConfirmed || !canEdit}
+                          disabled={!canEdit}
                         />
-                        {!isConfirmed && canEdit && (
+                        {canEdit && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(globalIndex)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -415,7 +436,7 @@ export default function MaterialConsumption() {
         )}
 
         {/* Add custom item */}
-        {canEdit && !isConfirmed && (
+        {canEdit && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Adicionar Material</CardTitle>

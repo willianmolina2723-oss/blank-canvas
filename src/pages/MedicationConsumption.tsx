@@ -133,22 +133,25 @@ export default function MedicationConsumption() {
   };
 
   const handleQuantityChange = (index: number, value: string) => {
-    if (isConfirmed) return;
     const qty = Math.max(0, parseInt(value) || 0);
     setMedications(prev => prev.map((m, i) => (i === index ? { ...m, quantity: qty } : m)));
+    if (isConfirmed) setHasChanges(true);
   };
 
+  const [hasChanges, setHasChanges] = useState(false);
+
   const addCustomItem = () => {
-    if (!newItemName.trim() || isConfirmed) return;
+    if (!newItemName.trim()) return;
     setMedications(prev => [...prev, { name: newItemName.trim(), quantity: 0 }]);
     setNewItemName('');
+    if (isConfirmed) setHasChanges(true);
   };
 
   const removeItem = (index: number) => {
-    if (isConfirmed) return;
     const item = medications[index];
     if (item.cost_item_id) return;
     setMedications(prev => prev.filter((_, i) => i !== index));
+    if (isConfirmed) setHasChanges(true);
   };
 
   const usedMeds = medications.filter(m => m.quantity > 0);
@@ -196,6 +199,7 @@ export default function MedicationConsumption() {
       if (error) throw error;
 
       setIsConfirmed(true);
+      setHasChanges(false);
       toast({ title: 'Sucesso', description: 'Consumo de medicamentos confirmado.' });
     } catch (err) {
       console.error('Error saving medication consumption:', err);
@@ -311,6 +315,23 @@ export default function MedicationConsumption() {
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Confirmar Consumo de Medicamentos
           </Button>
+        ) : isConfirmed && canEdit ? (
+          <div className="space-y-2">
+            <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
+              <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
+              Consumo de medicamentos confirmado com sucesso.
+            </div>
+            {hasChanges && (
+              <Button
+                onClick={handleConfirm}
+                disabled={usedMeds.length === 0 || !selectedPatientId || isSaving}
+                className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Atualizar Consumo de Medicamentos
+              </Button>
+            )}
+          </div>
         ) : isConfirmed ? (
           <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
             <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
@@ -369,7 +390,7 @@ export default function MedicationConsumption() {
                           value={med.quantity}
                           onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
                           className="h-7 w-14 text-center text-xs font-bold border-primary/30 bg-primary/5"
-                          disabled={isConfirmed || !canEdit}
+                          disabled={!canEdit}
                         />
                       </div>
                     </div>
@@ -408,9 +429,9 @@ export default function MedicationConsumption() {
                           value={med.quantity}
                           onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
                           className="h-7 w-14 text-center text-xs font-bold border-primary/30 bg-primary/5"
-                          disabled={isConfirmed || !canEdit}
+                          disabled={!canEdit}
                         />
-                        {!isConfirmed && canEdit && (
+                        {canEdit && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(globalIndex)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -425,7 +446,7 @@ export default function MedicationConsumption() {
         )}
 
         {/* Add custom item */}
-        {canEdit && !isConfirmed && (
+        {canEdit && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Adicionar Medicamento</CardTitle>
