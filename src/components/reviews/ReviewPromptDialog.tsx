@@ -154,9 +154,6 @@ export function ReviewPromptDialog() {
               Agora não
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Sua avaliação será publicada na página inicial após aprovação.
-          </p>
         </div>
       </DialogContent>
     </Dialog>
