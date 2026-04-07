@@ -352,7 +352,7 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [evolutions, setEvolutions] = useState<Record<string, { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[] }>>({});
+  const [evolutions, setEvolutions] = useState<Record<string, { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[]; medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] }>>({});
   const [loadingEvolutions, setLoadingEvolutions] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -382,25 +382,43 @@ export default function PatientsPage() {
   const loadEvolutions = async (patient: PatientWithEvent) => {
     if (evolutions[patient.id]) return;
     if (!patient.event_id) {
-      // Admin-created patient without event — no evolutions to load
-      setEvolutions(prev => ({ ...prev, [patient.id]: { nursing: [], medical: [], signatures: [] } }));
+      setEvolutions(prev => ({ ...prev, [patient.id]: { nursing: [], medical: [], signatures: [], medications: [], materials: [] } }));
       return;
     }
     setLoadingEvolutions(patient.id);
     try {
-      const [nursingRes, medicalRes, sigRes] = await Promise.all([
+      const [nursingRes, medicalRes, sigRes, consumptionRes] = await Promise.all([
         supabase.from('nursing_evolutions').select('*').eq('event_id', patient.event_id),
         supabase.from('medical_evolutions').select('*').eq('event_id', patient.event_id),
         supabase.from('digital_signatures').select('*, profile:profiles(full_name, professional_id)').eq('event_id', patient.event_id),
+        supabase.from('checklist_items').select('item_name, item_type, notes').eq('event_id', patient.event_id).in('item_type', ['consumo_medicamentos', 'materiais']),
       ]);
       const nursingAll = (nursingRes.data || []) as NursingEvolution[];
       const medicalAll = (medicalRes.data || []) as MedicalEvolution[];
+
+      const meds: { name: string; qty: number }[] = [];
+      const mats: { name: string; qty: number }[] = [];
+      (consumptionRes.data || []).forEach((ci: any) => {
+        let qty = 0;
+        let pId = '';
+        try {
+          const parsed = JSON.parse(ci.notes || '0');
+          if (typeof parsed === 'object') { qty = parsed.quantity || 0; pId = parsed.patient_id || ''; }
+          else { qty = parseInt(ci.notes || '0') || 0; }
+        } catch { qty = parseInt(ci.notes || '0') || 0; }
+        if (qty <= 0 || (pId && pId !== patient.id)) return;
+        if (ci.item_type === 'consumo_medicamentos') meds.push({ name: ci.item_name, qty });
+        else mats.push({ name: ci.item_name, qty });
+      });
+
       setEvolutions(prev => ({
         ...prev,
         [patient.id]: {
           nursing: nursingAll.filter(n => !n.patient_id || n.patient_id === patient.id),
           medical: medicalAll.filter(m => !m.patient_id || m.patient_id === patient.id),
           signatures: (sigRes.data || []) as any,
+          medications: meds,
+          materials: mats,
         },
       }));
     } catch (err) {
