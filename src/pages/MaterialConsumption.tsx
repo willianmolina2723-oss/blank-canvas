@@ -132,22 +132,25 @@ export default function MaterialConsumption() {
   };
 
   const handleQuantityChange = (index: number, value: string) => {
-    if (isConfirmed) return;
     const qty = Math.max(0, parseInt(value) || 0);
     setMaterials(prev => prev.map((m, i) => (i === index ? { ...m, quantity: qty } : m)));
+    if (isConfirmed) setHasChanges(true);
   };
 
+  const [hasChanges, setHasChanges] = useState(false);
+
   const addCustomItem = () => {
-    if (!newItemName.trim() || isConfirmed) return;
+    if (!newItemName.trim()) return;
     setMaterials(prev => [...prev, { name: newItemName.trim(), quantity: 0 }]);
     setNewItemName('');
+    if (isConfirmed) setHasChanges(true);
   };
 
   const removeItem = (index: number) => {
-    if (isConfirmed) return;
     const item = materials[index];
     if (item.cost_item_id) return;
     setMaterials(prev => prev.filter((_, i) => i !== index));
+    if (isConfirmed) setHasChanges(true);
   };
 
   const usedMaterials = materials.filter(m => m.quantity > 0);
