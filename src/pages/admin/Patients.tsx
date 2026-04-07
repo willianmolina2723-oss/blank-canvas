@@ -28,6 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Pill, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
@@ -183,7 +184,7 @@ function CreatePatientDialog({
 // ── Patient Evolutions Panel ─────────────────────────────
 function PatientEvolutions({ patient, evolutions, loading }: {
   patient: PatientWithEvent;
-  evolutions: { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[] } | undefined;
+  evolutions: { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[]; medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] } | undefined;
   loading: boolean;
 }) {
   const stripSignatureMetadata = (text: string | null): string => {
@@ -222,6 +223,48 @@ function PatientEvolutions({ patient, evolutions, loading }: {
           <p className="sm:col-span-2"><span className="text-muted-foreground">Histórico:</span> {stripSignatureMetadata(patient.brief_history)}</p>
         )}
       </div>
+
+      {/* Consumed medications & materials */}
+      {((evolutions.medications || []).length > 0 || (evolutions.materials || []).length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(evolutions.medications || []).length > 0 && (
+            <Card className="bg-muted/30">
+              <CardContent className="p-3">
+                <p className="text-sm font-medium flex items-center gap-1.5 mb-2">
+                  <Pill className="h-4 w-4 text-primary" />
+                  Medicamentos Consumidos
+                </p>
+                <div className="space-y-1">
+                  {evolutions.medications.map((m, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{m.name}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {(evolutions.materials || []).length > 0 && (
+            <Card className="bg-muted/30">
+              <CardContent className="p-3">
+                <p className="text-sm font-medium flex items-center gap-1.5 mb-2">
+                  <Package className="h-4 w-4 text-primary" />
+                  Materiais Consumidos
+                </p>
+                <div className="space-y-1">
+                  {evolutions.materials.map((m, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{m.name}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{m.qty}×</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Nursing evolutions */}
       {(evolutions.nursing || []).map((n, idx) => (
