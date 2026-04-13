@@ -9,14 +9,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, PenTool, Save, Loader2, Trash2, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
-import type { DigitalSignature, SignatureType } from '@/types/database';
+import type { SignatureType } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
 
-const SIGNATURE_TYPES: { type: SignatureType; label: string; role: string }[] = [
-  { type: 'enfermagem', label: 'Evolução de Enfermagem', role: 'enfermeiro' },
-  { type: 'medica', label: 'Evolução Médica', role: 'medico' },
-  { type: 'transporte', label: 'Transporte', role: 'condutor' },
-  { type: 'checklist', label: 'Checklist', role: 'condutor' },
+interface SignatureWithProfile {
+  id: string;
+  event_id: string;
+  profile_id: string;
+  signature_type: SignatureType;
+  signature_data: string;
+  professional_id: string | null;
+  signed_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  signer_name?: string;
+  signer_professional_id?: string | null;
+}
+
+const SIGNATURE_TYPES: { type: SignatureType; label: string; role: string; requiresProfessionalId: boolean }[] = [
+  { type: 'enfermagem', label: 'Evolução de Enfermagem', role: 'enfermeiro', requiresProfessionalId: true },
+  { type: 'medica', label: 'Evolução Médica', role: 'medico', requiresProfessionalId: true },
+  { type: 'transporte', label: 'Transporte', role: 'condutor', requiresProfessionalId: false },
+  { type: 'checklist', label: 'Checklist', role: 'condutor', requiresProfessionalId: false },
 ];
 
 export default function Signatures() {
@@ -26,7 +40,7 @@ export default function Signatures() {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  const [signatures, setSignatures] = useState<DigitalSignature[]>([]);
+  const [signatures, setSignatures] = useState<SignatureWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -34,15 +48,11 @@ export default function Signatures() {
   const [hasDrawn, setHasDrawn] = useState(false);
 
   useEffect(() => {
-    if (eventId) {
-      loadSignatures();
-    }
+    if (eventId) loadSignatures();
   }, [eventId]);
 
   useEffect(() => {
-    if (selectedType && canvasRef.current) {
-      setupCanvas();
-    }
+    if (selectedType && canvasRef.current) setupCanvas();
   }, [selectedType]);
 
   const loadSignatures = async () => {
@@ -50,11 +60,18 @@ export default function Signatures() {
     try {
       const { data, error } = await supabase
         .from('digital_signatures')
-        .select('*')
+        .select('*, profiles!digital_signatures_profile_id_fkey(full_name, professional_id)')
         .eq('event_id', eventId);
 
       if (error) throw error;
-      setSignatures(data as DigitalSignature[]);
+
+      const enriched: SignatureWithProfile[] = (data || []).map((s: any) => ({
+        ...s,
+        signer_name: s.profiles?.full_name || null,
+        signer_professional_id: s.profiles?.professional_id || s.professional_id || null,
+      }));
+
+      setSignatures(enriched);
     } catch (err) {
       console.error('Error loading signatures:', err);
     } finally {
@@ -65,17 +82,12 @@ export default function Signatures() {
   const setupCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    // Set canvas size
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * window.devicePixelRatio;
     canvas.height = rect.height * window.devicePixelRatio;
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-    // Set drawing style
     ctx.strokeStyle = '#0066cc';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
@@ -85,28 +97,17 @@ export default function Signatures() {
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-
     const rect = canvas.getBoundingClientRect();
-    
     if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
     }
-    
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
     setIsDrawing(true);
     const { x, y } = getCoordinates(e);
     ctx.beginPath();
@@ -116,35 +117,57 @@ export default function Signatures() {
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     if (!isDrawing) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
     const { x, y } = getCoordinates(e);
     ctx.lineTo(x, y);
     ctx.stroke();
     setHasDrawn(true);
   };
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
+  const stopDrawing = () => setIsDrawing(false);
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawn(false);
   };
 
+  const handleSelectType = (type: SignatureType) => {
+    const typeConfig = SIGNATURE_TYPES.find(t => t.type === type);
+    if (!typeConfig) return;
+
+    // Validate professional_id for clinical signatures
+    if (typeConfig.requiresProfessionalId && !profile?.professional_id) {
+      toast({
+        title: 'Registro profissional obrigatório',
+        description: 'Seu cadastro não possui registro profissional (CRM, COREN, etc). Atualize seus dados na aba de Usuários antes de assinar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSelectedType(type);
+  };
+
   const saveSignature = async () => {
     if (!selectedType || !hasDrawn || !profile) return;
-
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    const typeConfig = SIGNATURE_TYPES.find(t => t.type === selectedType);
+
+    // Re-validate professional_id before saving
+    if (typeConfig?.requiresProfessionalId && !profile.professional_id) {
+      toast({
+        title: 'Registro profissional obrigatório',
+        description: 'Atualize seu registro profissional antes de assinar.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -158,16 +181,22 @@ export default function Signatures() {
           signature_type: selectedType,
           signature_data: signatureData,
           professional_id: profile.professional_id,
-          ip_address: '', // Would need to get from server
+          ip_address: '',
           user_agent: navigator.userAgent,
           empresa_id: profile?.empresa_id || null,
         })
-        .select()
+        .select('*, profiles!digital_signatures_profile_id_fkey(full_name, professional_id)')
         .single();
 
       if (error) throw error;
 
-      setSignatures([...signatures, data as DigitalSignature]);
+      const enriched: SignatureWithProfile = {
+        ...data,
+        signer_name: (data as any).profiles?.full_name || profile.full_name,
+        signer_professional_id: (data as any).profiles?.professional_id || profile.professional_id,
+      };
+
+      setSignatures([...signatures, enriched]);
       setSelectedType(null);
       setHasDrawn(false);
 
@@ -191,14 +220,10 @@ export default function Signatures() {
     const typeConfig = SIGNATURE_TYPES.find(t => t.type === type);
     if (!typeConfig) return false;
     
-    // Admin/SuperAdmin can sign any type
-    if (isAdmin || isSuperAdmin) {
-      // still check if already signed
-    } else if (!roles.includes(typeConfig.role as any)) {
+    if (!(isAdmin || isSuperAdmin) && !roles.includes(typeConfig.role as any)) {
       return false;
     }
     
-    // Check if already signed
     const existingSignature = signatures.find(
       s => s.signature_type === type && s.profile_id === profile?.id
     );
@@ -208,8 +233,7 @@ export default function Signatures() {
   };
 
   const getSignatureStatus = (type: SignatureType) => {
-    const sig = signatures.find(s => s.signature_type === type);
-    return sig;
+    return signatures.find(s => s.signature_type === type);
   };
 
   if (isLoading) {
@@ -242,9 +266,10 @@ export default function Signatures() {
         {/* Signature Types */}
         {!selectedType && (
           <div className="grid gap-4 sm:grid-cols-2">
-            {SIGNATURE_TYPES.map(({ type, label, role }) => {
+            {SIGNATURE_TYPES.map(({ type, label, role, requiresProfessionalId }) => {
               const existingSig = getSignatureStatus(type);
               const canUserSign = canSign(type);
+              const missingProfId = requiresProfessionalId && !profile?.professional_id && canUserSign;
 
               return (
                 <Card
@@ -256,20 +281,37 @@ export default function Signatures() {
                         ? 'hover:border-primary/50' 
                         : 'opacity-60'
                   }`}
-                  onClick={() => canUserSign && setSelectedType(type)}
+                  onClick={() => canUserSign && handleSelectType(type)}
                 >
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold">{label}</h3>
                         {existingSig ? (
-                          <p className="text-sm text-muted-foreground">
-                            Assinado em {formatBR(existingSig.signed_at, "dd/MM/yyyy 'às' HH:mm")}
-                          </p>
+                          <div className="space-y-0.5">
+                            <p className="text-sm text-muted-foreground">
+                              Assinado por: <span className="font-medium text-foreground">{existingSig.signer_name || 'Desconhecido'}</span>
+                            </p>
+                            {existingSig.signer_professional_id && (
+                              <p className="text-xs text-muted-foreground">
+                                Registro: {existingSig.signer_professional_id}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {formatBR(existingSig.signed_at, "dd/MM/yyyy 'às' HH:mm")}
+                            </p>
+                          </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Requer: {role === 'enfermeiro' ? 'Enfermeiro' : role === 'medico' ? 'Médico' : 'Condutor'}
-                          </p>
+                          <div>
+                            <p className="text-sm text-muted-foreground">
+                              Requer: {role === 'enfermeiro' ? 'Enfermeiro' : role === 'medico' ? 'Médico' : 'Condutor'}
+                            </p>
+                            {missingProfId && (
+                              <p className="text-xs text-destructive mt-0.5">
+                                ⚠ Registro profissional não cadastrado
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                       {existingSig ? (
@@ -296,13 +338,18 @@ export default function Signatures() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground text-center mb-2">
+              <div className="p-4 bg-muted rounded-lg space-y-1">
+                <p className="text-sm text-muted-foreground text-center">
                   Ao assinar, você confirma que as informações estão corretas e que o registro será bloqueado para edição.
                 </p>
-                <p className="text-xs text-center text-muted-foreground">
-                  {profile?.full_name} • {profile?.professional_id || 'Sem registro profissional'}
+                <p className="text-sm font-semibold text-center text-foreground">
+                  {profile?.full_name}
                 </p>
+                {profile?.professional_id && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Registro profissional: {profile.professional_id}
+                  </p>
+                )}
               </div>
 
               <div className="border-2 border-dashed border-border rounded-lg p-1">
@@ -362,9 +409,12 @@ export default function Signatures() {
                     <p className="font-medium">
                       {SIGNATURE_TYPES.find(t => t.type === sig.signature_type)?.label}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-foreground">
+                      {sig.signer_name || 'Desconhecido'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
                       {formatBR(sig.signed_at, "dd/MM/yyyy 'às' HH:mm")}
-                      {sig.professional_id && ` • ${sig.professional_id}`}
+                      {sig.signer_professional_id && ` • ${sig.signer_professional_id}`}
                     </p>
                   </div>
                   <Check className="h-5 w-5 text-success" />
