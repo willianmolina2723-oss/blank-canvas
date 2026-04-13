@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,9 @@ export default function MaterialConsumption() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [hasChanges, setHasChanges] = useState(false);
 
+  const allSavedItemsRef = useRef<any[]>([]);
+  const costItemsCacheRef = useRef<any[]>([]);
+
   const [eventRole, setEventRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,99 +58,96 @@ export default function MaterialConsumption() {
   const canEdit = canEditMaterialUsage;
 
   useEffect(() => {
-    if (eventId) {
-      loadPatients();
-    }
+    if (eventId) loadAll();
   }, [eventId]);
 
-  // Load data when patient changes
-  useEffect(() => {
-    if (eventId && selectedPatientId) {
-      loadDataForPatient(selectedPatientId);
-    }
-  }, [eventId, selectedPatientId]);
-
-  const loadPatients = async () => {
-    try {
-      const { data } = await supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null);
-      setPatients(data || []);
-      if (data && data.length === 1) setSelectedPatientId(data[0].id);
-      if (!data || data.length === 0) {
-        loadCostItemsOnly();
-      }
-    } catch (err) {
-      console.error('Error loading patients:', err);
-    }
-  };
-
-  const loadCostItemsOnly = async () => {
+  const loadAll = async () => {
     setIsLoading(true);
     try {
-      const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
-        body: { action: 'load', event_id: eventId, item_type: 'materiais', include_cost_items: true, cost_items_category: 'material' },
-      });
-      if (error) throw error;
-      const costItems = response?.cost_items || [];
-      const loaded: MaterialItem[] = costItems.map((ci: any) => ({
-        name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
-      }));
-      setMaterials(loaded);
-      setIsConfirmed(false);
-    } catch (err) {
-      console.error('Error loading cost items:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const [patientsRes, checklistRes] = await Promise.all([
+        supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null),
+        supabase.functions.invoke('manage-checklist', {
+          body: { action: 'load', event_id: eventId, item_type: 'materiais', include_cost_items: true, cost_items_category: 'material' },
+        }),
+      ]);
 
-  const loadDataForPatient = async (patientId: string) => {
-    setIsLoading(true);
-    setHasChanges(false);
-    try {
-      const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
-        body: { action: 'load', event_id: eventId, item_type: 'materiais', include_cost_items: true, cost_items_category: 'material', patient_id: patientId },
-      });
-      if (error) throw error;
+      const loadedPatients = patientsRes.data || [];
+      setPatients(loadedPatients);
 
+      if (checklistRes.error) throw checklistRes.error;
+      const response = checklistRes.data;
       const saved = response?.data || [];
       const costItems = response?.cost_items || [];
 
-      if (saved.length > 0) {
-        setIsConfirmed(true);
-        const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
-        saved.forEach((d: any) => {
-          let qty = 0;
-          try {
-            const parsed = JSON.parse(d.notes || '0');
-            qty = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(d.notes || '0') || 0);
-          } catch {
-            qty = parseInt(d.notes || '0') || 0;
-          }
-          savedMap.set(d.item_name, { qty, cost_item_id: d.cost_item_id });
-        });
+      allSavedItemsRef.current = saved;
+      costItemsCacheRef.current = costItems;
 
-        const loaded: MaterialItem[] = [];
-        (costItems || []).forEach((ci: any) => {
-          const s = savedMap.get(ci.name);
-          loaded.push({ name: ci.name, quantity: s?.qty ?? 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost) });
-          savedMap.delete(ci.name);
-        });
-        savedMap.forEach((val, name) => {
-          loaded.push({ name, quantity: val.qty, cost_item_id: val.cost_item_id });
-        });
-        setMaterials(loaded);
+      let autoPatientId = '';
+      if (loadedPatients.length === 1) {
+        autoPatientId = loadedPatients[0].id;
+      } else if (saved.length > 0) {
+        try {
+          const parsed = JSON.parse(saved[0]?.notes || '{}');
+          if (parsed.patient_id) autoPatientId = parsed.patient_id;
+        } catch {}
+      }
+
+      if (autoPatientId) {
+        setSelectedPatientId(autoPatientId);
+        applyPatientData(autoPatientId, saved, costItems);
       } else {
-        setIsConfirmed(false);
-        const loaded: MaterialItem[] = (costItems || []).map((ci: any) => ({
+        setMaterials(costItems.map((ci: any) => ({
           name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
-        }));
-        setMaterials(loaded);
+        })));
+        setIsConfirmed(false);
       }
     } catch (err) {
       console.error('Error loading materials:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyPatientData = (patientId: string, savedItems: any[], costItems: any[]) => {
+    const patientItems = savedItems.filter((item: any) => {
+      try { return JSON.parse(item.notes || '{}').patient_id === patientId; }
+      catch { return false; }
+    });
+
+    if (patientItems.length > 0) {
+      setIsConfirmed(true);
+      const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
+      patientItems.forEach((d: any) => {
+        let qty = 0;
+        try {
+          const parsed = JSON.parse(d.notes || '0');
+          qty = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(d.notes || '0') || 0);
+        } catch { qty = parseInt(d.notes || '0') || 0; }
+        savedMap.set(d.item_name, { qty, cost_item_id: d.cost_item_id });
+      });
+
+      const loaded: MaterialItem[] = [];
+      costItems.forEach((ci: any) => {
+        const s = savedMap.get(ci.name);
+        loaded.push({ name: ci.name, quantity: s?.qty ?? 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost) });
+        savedMap.delete(ci.name);
+      });
+      savedMap.forEach((val, name) => {
+        loaded.push({ name, quantity: val.qty, cost_item_id: val.cost_item_id });
+      });
+      setMaterials(loaded);
+    } else {
+      setIsConfirmed(false);
+      setMaterials(costItems.map((ci: any) => ({
+        name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
+      })));
+    }
+    setHasChanges(false);
+  };
+
+  const handlePatientChange = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    applyPatientData(patientId, allSavedItemsRef.current, costItemsCacheRef.current);
   };
 
   const handleQuantityChange = (index: number, value: string) => {
@@ -171,9 +171,7 @@ export default function MaterialConsumption() {
   };
 
   const usedMaterials = materials.filter(m => m.quantity > 0);
-
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
   const totalCost = usedMaterials.reduce((sum, m) => sum + (m.unit_cost || 0) * m.quantity, 0);
 
   const filteredCostItems = useMemo(() => {
@@ -209,6 +207,14 @@ export default function MaterialConsumption() {
 
       if (error) throw error;
 
+      allSavedItemsRef.current = [
+        ...allSavedItemsRef.current.filter((item: any) => {
+          try { return JSON.parse(item.notes || '{}').patient_id !== selectedPatientId; }
+          catch { return true; }
+        }),
+        ...items,
+      ];
+
       setIsConfirmed(true);
       setHasChanges(false);
       toast({ title: 'Sucesso', description: 'Consumo de materiais confirmado.' });
@@ -233,7 +239,6 @@ export default function MaterialConsumption() {
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto space-y-4 animate-fade-in pb-8">
-        {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
@@ -252,21 +257,18 @@ export default function MaterialConsumption() {
                 <span className="text-xs font-bold uppercase">Confirmado</span>
               </div>
               {canEdit && (
-                <Button variant="outline" size="sm" className="text-xs" onClick={() => setIsConfirmed(false)}>
-                  Editar
-                </Button>
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => setIsConfirmed(false)}>Editar</Button>
               )}
             </div>
           )}
         </div>
 
-        {/* Patient selector - always enabled */}
         <Card className="rounded-2xl">
           <CardContent className="py-3">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-bold uppercase text-muted-foreground">Paciente:</span>
-              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={!canEdit}>
+              <Select value={selectedPatientId} onValueChange={handlePatientChange} disabled={!canEdit}>
                 <SelectTrigger className="flex-1 h-8 text-xs">
                   <SelectValue placeholder="Selecione o paciente..." />
                 </SelectTrigger>
@@ -278,7 +280,7 @@ export default function MaterialConsumption() {
               </Select>
             </div>
             {patients.length === 0 && (
-              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento. Cadastre um paciente primeiro.</p>
+              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento.</p>
             )}
           </CardContent>
         </Card>
@@ -286,19 +288,14 @@ export default function MaterialConsumption() {
         {!canEdit && (
           <Card className="border-warning bg-warning/10">
             <CardContent className="py-3">
-              <p className="text-sm text-center">
-                Apenas profissionais de saúde podem registrar consumo de materiais.
-              </p>
+              <p className="text-sm text-center">Apenas profissionais de saúde podem registrar consumo de materiais.</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Summary */}
         {usedMaterials.length > 0 && (
           <Card className="border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Resumo do Consumo</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo do Consumo</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-1">
                 {usedMaterials.map((m, i) => (
@@ -308,21 +305,15 @@ export default function MaterialConsumption() {
                   </div>
                 ))}
                 <div className="border-t pt-2 mt-2 flex justify-between text-sm font-bold">
-                  <span>Total Estimado</span>
-                  <span>{fmt(totalCost)}</span>
+                  <span>Total Estimado</span><span>{fmt(totalCost)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Confirm button */}
         {canEdit && !isConfirmed ? (
-          <Button
-            onClick={handleConfirm}
-            disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving}
-            className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
-          >
+          <Button onClick={handleConfirm} disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving} className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Confirmar Consumo de Materiais
           </Button>
@@ -333,11 +324,7 @@ export default function MaterialConsumption() {
               Consumo de materiais confirmado com sucesso.
             </div>
             {hasChanges && (
-              <Button
-                onClick={handleConfirm}
-                disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving}
-                className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
-              >
+              <Button onClick={handleConfirm} disabled={usedMaterials.length === 0 || !selectedPatientId || isSaving} className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                 Atualizar Consumo de Materiais
               </Button>
@@ -350,16 +337,10 @@ export default function MaterialConsumption() {
           </div>
         ) : null}
 
-        {/* Search */}
         {materials.filter(m => m.cost_item_id).length > 0 && (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar material..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Buscar material..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
         )}
 
@@ -373,7 +354,6 @@ export default function MaterialConsumption() {
           </Card>
         )}
 
-        {/* Cost table materials */}
         {filteredCostItems.length > 0 && (
           <div className="space-y-0 divide-y divide-border rounded-2xl border bg-card overflow-hidden">
             <div className="px-4 py-2 bg-muted/50">
@@ -387,20 +367,11 @@ export default function MaterialConsumption() {
                 <div key={mat.cost_item_id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1">
                     <span className="text-sm font-semibold">{mat.name}</span>
-                    {mat.unit_cost ? (
-                      <span className="text-[10px] text-muted-foreground ml-2">{fmt(mat.unit_cost)}/un</span>
-                    ) : null}
+                    {mat.unit_cost ? <span className="text-[10px] text-muted-foreground ml-2">{fmt(mat.unit_cost)}/un</span> : null}
                   </div>
                   <div className="flex flex-col items-center">
                     <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Qtd.</span>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={mat.quantity}
-                      onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
-                      className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                      disabled={!canEdit}
-                    />
+                    <Input type="number" min="0" value={mat.quantity} onChange={(e) => handleQuantityChange(globalIndex, e.target.value)} className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5" disabled={!canEdit} />
                   </div>
                 </div>
               );
@@ -409,19 +380,12 @@ export default function MaterialConsumption() {
         )}
 
         {debouncedSearch && filteredCostItems.length === 0 && (
-          <Card>
-            <CardContent className="py-4 text-center text-muted-foreground text-sm">
-              Nenhum material encontrado para "{debouncedSearch}"
-            </CardContent>
-          </Card>
+          <Card><CardContent className="py-4 text-center text-muted-foreground text-sm">Nenhum material encontrado para "{debouncedSearch}"</CardContent></Card>
         )}
 
-        {/* Custom items */}
         {customItems.length > 0 && (
           <Card className="rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-black uppercase">Itens Adicionados</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-black uppercase">Itens Adicionados</CardTitle></CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
                 {customItems.map((mat) => {
@@ -430,14 +394,7 @@ export default function MaterialConsumption() {
                     <div key={`custom-${globalIndex}`} className="flex items-center gap-3 px-4 py-3">
                       <span className="flex-1 text-sm font-semibold">{mat.name}</span>
                       <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={mat.quantity}
-                          onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
-                          className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5"
-                          disabled={!canEdit}
-                        />
+                        <Input type="number" min="0" value={mat.quantity} onChange={(e) => handleQuantityChange(globalIndex, e.target.value)} className="h-8 w-16 text-center text-sm font-bold border-primary/30 bg-primary/5" disabled={!canEdit} />
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(globalIndex)}>
                             <Trash2 className="h-4 w-4" />
@@ -452,25 +409,13 @@ export default function MaterialConsumption() {
           </Card>
         )}
 
-        {/* Add custom item */}
         {canEdit && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Adicionar Material</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Adicionar Material</CardTitle></CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                <Input
-                  placeholder="Nome do material..."
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && addCustomItem()}
-                />
-                <Button onClick={addCustomItem} disabled={!newItemName.trim()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar
-                </Button>
+                <Input placeholder="Nome do material..." value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="flex-1" onKeyDown={(e) => e.key === 'Enter' && addCustomItem()} />
+                <Button onClick={addCustomItem} disabled={!newItemName.trim()}><Plus className="h-4 w-4 mr-2" />Adicionar</Button>
               </div>
             </CardContent>
           </Card>

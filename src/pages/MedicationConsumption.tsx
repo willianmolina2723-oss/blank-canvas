@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,12 @@ interface Patient {
   name: string;
 }
 
+interface SavedItem {
+  item_name: string;
+  notes: string;
+  cost_item_id?: string;
+}
+
 export default function MedicationConsumption() {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -32,7 +38,6 @@ export default function MedicationConsumption() {
   const { profile } = useAuth();
 
   const [medications, setMedications] = useState<MedItem[]>([]);
-  const [costItemsCache, setCostItemsCache] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +47,10 @@ export default function MedicationConsumption() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Cache all saved items and cost items to avoid repeated edge function calls
+  const allSavedItemsRef = useRef<SavedItem[]>([]);
+  const costItemsCacheRef = useRef<any[]>([]);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
 
@@ -55,106 +64,108 @@ export default function MedicationConsumption() {
   const { canEditMedicationConsumption } = usePermissions({ eventRole: eventRole as any });
   const canEdit = canEditMedicationConsumption;
 
+  // Load everything in parallel on mount
   useEffect(() => {
     if (eventId) {
-      loadPatients();
+      loadAll();
     }
   }, [eventId]);
 
-  // Load data when patient changes
-  useEffect(() => {
-    if (eventId && selectedPatientId) {
-      loadDataForPatient(selectedPatientId);
-    }
-  }, [eventId, selectedPatientId]);
-
-  const loadPatients = async () => {
-    try {
-      const { data } = await supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null);
-      setPatients(data || []);
-      if (data && data.length === 1) setSelectedPatientId(data[0].id);
-      else if (!selectedPatientId && data && data.length > 0) {
-        // Don't auto-select, let user choose
-      }
-      // If no patients, still load cost items
-      if (!data || data.length === 0) {
-        loadCostItemsOnly();
-      }
-    } catch (err) {
-      console.error('Error loading patients:', err);
-    }
-  };
-
-  const loadCostItemsOnly = async () => {
+  const loadAll = async () => {
     setIsLoading(true);
     try {
-      const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
-        body: { action: 'load', event_id: eventId, item_type: 'consumo_medicamentos', include_cost_items: true, cost_items_category: 'medicamento' },
-      });
-      if (error) throw error;
-      const costItems = response?.cost_items || [];
-      setCostItemsCache(costItems);
-      const loaded: MedItem[] = costItems.map((ci: any) => ({
-        name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
-      }));
-      setMedications(loaded);
-      setIsConfirmed(false);
-    } catch (err) {
-      console.error('Error loading cost items:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      // Load patients AND checklist data in parallel
+      const [patientsRes, checklistRes] = await Promise.all([
+        supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null),
+        supabase.functions.invoke('manage-checklist', {
+          body: { action: 'load', event_id: eventId, item_type: 'consumo_medicamentos', include_cost_items: true, cost_items_category: 'medicamento' },
+        }),
+      ]);
 
-  const loadDataForPatient = async (patientId: string) => {
-    setIsLoading(true);
-    setHasChanges(false);
-    try {
-      const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
-        body: { action: 'load', event_id: eventId, item_type: 'consumo_medicamentos', include_cost_items: true, cost_items_category: 'medicamento', patient_id: patientId },
-      });
-      if (error) throw error;
+      const loadedPatients = patientsRes.data || [];
+      setPatients(loadedPatients);
 
+      if (checklistRes.error) throw checklistRes.error;
+      const response = checklistRes.data;
       const saved = response?.data || [];
       const costItems = response?.cost_items || [];
-      setCostItemsCache(costItems);
 
-      if (saved.length > 0) {
-        setIsConfirmed(true);
-        const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
-        saved.forEach((d: any) => {
-          let qty = 0;
-          try {
-            const parsed = JSON.parse(d.notes || '0');
-            qty = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(d.notes || '0') || 0);
-          } catch {
-            qty = parseInt(d.notes || '0') || 0;
-          }
-          savedMap.set(d.item_name, { qty, cost_item_id: d.cost_item_id });
-        });
+      allSavedItemsRef.current = saved;
+      costItemsCacheRef.current = costItems;
 
-        const loaded: MedItem[] = [];
-        (costItems || []).forEach((ci: any) => {
-          const s = savedMap.get(ci.name);
-          loaded.push({ name: ci.name, quantity: s?.qty ?? 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost) });
-          savedMap.delete(ci.name);
-        });
-        savedMap.forEach((val, name) => {
-          loaded.push({ name, quantity: val.qty, cost_item_id: val.cost_item_id });
-        });
-        setMedications(loaded);
+      // Auto-select patient
+      let autoPatientId = '';
+      if (loadedPatients.length === 1) {
+        autoPatientId = loadedPatients[0].id;
+      } else if (saved.length > 0) {
+        // Try to get first patient from saved data
+        try {
+          const parsed = JSON.parse(saved[0]?.notes || '{}');
+          if (parsed.patient_id) autoPatientId = parsed.patient_id;
+        } catch {}
+      }
+
+      if (autoPatientId) {
+        setSelectedPatientId(autoPatientId);
+        applyPatientData(autoPatientId, saved, costItems);
       } else {
-        setIsConfirmed(false);
-        const loaded: MedItem[] = (costItems || []).map((ci: any) => ({
+        // No patient selected, show empty cost items
+        setMedications(costItems.map((ci: any) => ({
           name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
-        }));
-        setMedications(loaded);
+        })));
+        setIsConfirmed(false);
       }
     } catch (err) {
       console.error('Error loading medication consumption:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyPatientData = (patientId: string, savedItems: any[], costItems: any[]) => {
+    // Filter saved items for this patient
+    const patientItems = savedItems.filter((item: any) => {
+      try {
+        const parsed = JSON.parse(item.notes || '{}');
+        return parsed.patient_id === patientId;
+      } catch { return false; }
+    });
+
+    if (patientItems.length > 0) {
+      setIsConfirmed(true);
+      const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
+      patientItems.forEach((d: any) => {
+        let qty = 0;
+        try {
+          const parsed = JSON.parse(d.notes || '0');
+          qty = typeof parsed === 'object' ? (parsed.quantity || 0) : (parseInt(d.notes || '0') || 0);
+        } catch { qty = parseInt(d.notes || '0') || 0; }
+        savedMap.set(d.item_name, { qty, cost_item_id: d.cost_item_id });
+      });
+
+      const loaded: MedItem[] = [];
+      costItems.forEach((ci: any) => {
+        const s = savedMap.get(ci.name);
+        loaded.push({ name: ci.name, quantity: s?.qty ?? 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost) });
+        savedMap.delete(ci.name);
+      });
+      savedMap.forEach((val, name) => {
+        loaded.push({ name, quantity: val.qty, cost_item_id: val.cost_item_id });
+      });
+      setMedications(loaded);
+    } else {
+      setIsConfirmed(false);
+      setMedications(costItems.map((ci: any) => ({
+        name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
+      })));
+    }
+    setHasChanges(false);
+  };
+
+  // When patient changes, apply from cache (instant, no API call)
+  const handlePatientChange = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    applyPatientData(patientId, allSavedItemsRef.current, costItemsCacheRef.current);
   };
 
   const handleQuantityChange = (index: number, value: string) => {
@@ -178,9 +189,7 @@ export default function MedicationConsumption() {
   };
 
   const usedMeds = medications.filter(m => m.quantity > 0);
-
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
   const totalCost = usedMeds.reduce((sum, m) => sum + (m.unit_cost || 0) * m.quantity, 0);
 
   const filteredCostItems = useMemo(() => {
@@ -216,6 +225,15 @@ export default function MedicationConsumption() {
 
       if (error) throw error;
 
+      // Update cache: remove old items for this patient, add new ones
+      allSavedItemsRef.current = [
+        ...allSavedItemsRef.current.filter((item: any) => {
+          try { return JSON.parse(item.notes || '{}').patient_id !== selectedPatientId; }
+          catch { return true; }
+        }),
+        ...items,
+      ];
+
       setIsConfirmed(true);
       setHasChanges(false);
       toast({ title: 'Sucesso', description: 'Consumo de medicamentos confirmado.' });
@@ -240,7 +258,6 @@ export default function MedicationConsumption() {
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto space-y-4 animate-fade-in pb-8">
-        {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
@@ -267,13 +284,12 @@ export default function MedicationConsumption() {
           )}
         </div>
 
-        {/* Patient selector - always enabled for switching */}
         <Card className="rounded-2xl">
           <CardContent className="py-3">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-bold uppercase text-muted-foreground">Paciente:</span>
-              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={!canEdit}>
+              <Select value={selectedPatientId} onValueChange={handlePatientChange} disabled={!canEdit}>
                 <SelectTrigger className="flex-1 h-8 text-xs">
                   <SelectValue placeholder="Selecione o paciente..." />
                 </SelectTrigger>
@@ -285,7 +301,7 @@ export default function MedicationConsumption() {
               </Select>
             </div>
             {patients.length === 0 && (
-              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento. Cadastre um paciente primeiro.</p>
+              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento.</p>
             )}
           </CardContent>
         </Card>
@@ -293,19 +309,14 @@ export default function MedicationConsumption() {
         {!canEdit && (
           <Card className="border-warning bg-warning/10">
             <CardContent className="py-3">
-              <p className="text-sm text-center">
-                Apenas profissionais de saúde podem registrar consumo de medicamentos.
-              </p>
+              <p className="text-sm text-center">Apenas profissionais de saúde podem registrar consumo de medicamentos.</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Summary */}
         {usedMeds.length > 0 && (
           <Card className="border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Resumo do Consumo</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo do Consumo</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-1">
                 {usedMeds.map((m, i) => (
@@ -315,21 +326,15 @@ export default function MedicationConsumption() {
                   </div>
                 ))}
                 <div className="border-t pt-2 mt-2 flex justify-between text-sm font-bold">
-                  <span>Total Estimado</span>
-                  <span>{fmt(totalCost)}</span>
+                  <span>Total Estimado</span><span>{fmt(totalCost)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Confirm button */}
         {canEdit && !isConfirmed ? (
-          <Button
-            onClick={handleConfirm}
-            disabled={usedMeds.length === 0 || !selectedPatientId || isSaving}
-            className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
-          >
+          <Button onClick={handleConfirm} disabled={usedMeds.length === 0 || !selectedPatientId || isSaving} className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Confirmar Consumo de Medicamentos
           </Button>
@@ -340,11 +345,7 @@ export default function MedicationConsumption() {
               Consumo de medicamentos confirmado com sucesso.
             </div>
             {hasChanges && (
-              <Button
-                onClick={handleConfirm}
-                disabled={usedMeds.length === 0 || !selectedPatientId || isSaving}
-                className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest"
-              >
+              <Button onClick={handleConfirm} disabled={usedMeds.length === 0 || !selectedPatientId || isSaving} className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
                 Atualizar Consumo de Medicamentos
               </Button>
@@ -357,16 +358,10 @@ export default function MedicationConsumption() {
           </div>
         ) : null}
 
-        {/* Search */}
         {medications.filter(m => m.cost_item_id).length > 0 && (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar medicamento..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Buscar medicamento..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
         )}
 
@@ -380,7 +375,6 @@ export default function MedicationConsumption() {
           </Card>
         )}
 
-        {/* Cost table medications */}
         {filteredCostItems.length > 0 && (
           <Card className="rounded-2xl">
             <CardHeader className="pb-2">
@@ -396,20 +390,11 @@ export default function MedicationConsumption() {
                     <div key={med.cost_item_id} className="flex items-center gap-3 px-4 py-2.5">
                       <div className="flex-1">
                         <span className="text-xs font-semibold">{med.name}</span>
-                        {med.unit_cost ? (
-                          <span className="text-[10px] text-muted-foreground ml-2">{fmt(med.unit_cost)}/un</span>
-                        ) : null}
+                        {med.unit_cost ? <span className="text-[10px] text-muted-foreground ml-2">{fmt(med.unit_cost)}/un</span> : null}
                       </div>
                       <div className="flex flex-col items-center">
                         <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold">Qtde</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={med.quantity}
-                          onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
-                          className="h-7 w-14 text-center text-xs font-bold border-primary/30 bg-primary/5"
-                          disabled={!canEdit}
-                        />
+                        <Input type="number" min="0" value={med.quantity} onChange={(e) => handleQuantityChange(globalIndex, e.target.value)} className="h-7 w-14 text-center text-xs font-bold border-primary/30 bg-primary/5" disabled={!canEdit} />
                       </div>
                     </div>
                   );
@@ -420,19 +405,12 @@ export default function MedicationConsumption() {
         )}
 
         {debouncedSearch && filteredCostItems.length === 0 && (
-          <Card>
-            <CardContent className="py-4 text-center text-muted-foreground text-sm">
-              Nenhum medicamento encontrado para "{debouncedSearch}"
-            </CardContent>
-          </Card>
+          <Card><CardContent className="py-4 text-center text-muted-foreground text-sm">Nenhum medicamento encontrado para "{debouncedSearch}"</CardContent></Card>
         )}
 
-        {/* Custom items */}
         {customItems.length > 0 && (
           <Card className="rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-black uppercase">Itens Adicionados</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-black uppercase">Itens Adicionados</CardTitle></CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
                 {customItems.map((med) => {
@@ -441,14 +419,7 @@ export default function MedicationConsumption() {
                     <div key={`custom-${globalIndex}`} className="flex items-center gap-3 px-4 py-2.5">
                       <span className="flex-1 text-xs font-semibold">{med.name}</span>
                       <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={med.quantity}
-                          onChange={(e) => handleQuantityChange(globalIndex, e.target.value)}
-                          className="h-7 w-14 text-center text-xs font-bold border-primary/30 bg-primary/5"
-                          disabled={!canEdit}
-                        />
+                        <Input type="number" min="0" value={med.quantity} onChange={(e) => handleQuantityChange(globalIndex, e.target.value)} className="h-7 w-14 text-center text-xs font-bold border-primary/30 bg-primary/5" disabled={!canEdit} />
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(globalIndex)}>
                             <Trash2 className="h-3 w-3" />
@@ -463,25 +434,13 @@ export default function MedicationConsumption() {
           </Card>
         )}
 
-        {/* Add custom item */}
         {canEdit && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Adicionar Medicamento</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm">Adicionar Medicamento</CardTitle></CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                <Input
-                  placeholder="Nome do medicamento..."
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => e.key === 'Enter' && addCustomItem()}
-                />
-                <Button onClick={addCustomItem} disabled={!newItemName.trim()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar
-                </Button>
+                <Input placeholder="Nome do medicamento..." value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="flex-1" onKeyDown={(e) => e.key === 'Enter' && addCustomItem()} />
+                <Button onClick={addCustomItem} disabled={!newItemName.trim()}><Plus className="h-4 w-4 mr-2" />Adicionar</Button>
               </div>
             </CardContent>
           </Card>
