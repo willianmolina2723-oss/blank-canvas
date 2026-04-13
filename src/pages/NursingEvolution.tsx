@@ -409,7 +409,7 @@ export default function NursingEvolutionForm() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
                     <Plus className="h-4 w-4" />
-                    Registrar Missão
+                    Registrar Evolução
                   </h2>
                   <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
                     Protocolo Seguro
