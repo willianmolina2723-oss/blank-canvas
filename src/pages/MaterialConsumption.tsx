@@ -25,13 +25,11 @@ interface Patient {
   name: string;
 }
 
-const db = supabase as any;
-
 export default function MaterialConsumption() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { roles, profile } = useAuth();
+  const { profile } = useAuth();
 
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
@@ -42,13 +40,14 @@ export default function MaterialConsumption() {
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [hasChanges, setHasChanges] = useState(false);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (eventId && profile) {
       supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
-        .then(({ data }) => setEventRole(data?.role || null));
+        .then(({ data }: any) => setEventRole(data?.role || null));
     }
   }, [eventId, profile]);
 
@@ -57,26 +56,56 @@ export default function MaterialConsumption() {
 
   useEffect(() => {
     if (eventId) {
-      loadData();
       loadPatients();
     }
   }, [eventId]);
+
+  // Load data when patient changes
+  useEffect(() => {
+    if (eventId && selectedPatientId) {
+      loadDataForPatient(selectedPatientId);
+    }
+  }, [eventId, selectedPatientId]);
 
   const loadPatients = async () => {
     try {
       const { data } = await supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null);
       setPatients(data || []);
       if (data && data.length === 1) setSelectedPatientId(data[0].id);
+      if (!data || data.length === 0) {
+        loadCostItemsOnly();
+      }
     } catch (err) {
       console.error('Error loading patients:', err);
     }
   };
 
-  const loadData = async () => {
+  const loadCostItemsOnly = async () => {
     setIsLoading(true);
     try {
       const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
         body: { action: 'load', event_id: eventId, item_type: 'materiais', include_cost_items: true, cost_items_category: 'material' },
+      });
+      if (error) throw error;
+      const costItems = response?.cost_items || [];
+      const loaded: MaterialItem[] = costItems.map((ci: any) => ({
+        name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
+      }));
+      setMaterials(loaded);
+      setIsConfirmed(false);
+    } catch (err) {
+      console.error('Error loading cost items:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadDataForPatient = async (patientId: string) => {
+    setIsLoading(true);
+    setHasChanges(false);
+    try {
+      const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
+        body: { action: 'load', event_id: eventId, item_type: 'materiais', include_cost_items: true, cost_items_category: 'material', patient_id: patientId },
       });
       if (error) throw error;
 
@@ -85,14 +114,6 @@ export default function MaterialConsumption() {
 
       if (saved.length > 0) {
         setIsConfirmed(true);
-        try {
-          const firstNotes = saved[0]?.notes;
-          if (firstNotes) {
-            const parsed = JSON.parse(firstNotes);
-            if (parsed.patient_id) setSelectedPatientId(parsed.patient_id);
-          }
-        } catch { /* notes is just quantity string */ }
-
         const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
         saved.forEach((d: any) => {
           let qty = 0;
@@ -116,11 +137,9 @@ export default function MaterialConsumption() {
         });
         setMaterials(loaded);
       } else {
+        setIsConfirmed(false);
         const loaded: MaterialItem[] = (costItems || []).map((ci: any) => ({
-          name: ci.name,
-          quantity: 0,
-          cost_item_id: ci.id,
-          unit_cost: Number(ci.unit_cost),
+          name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
         }));
         setMaterials(loaded);
       }
@@ -136,8 +155,6 @@ export default function MaterialConsumption() {
     setMaterials(prev => prev.map((m, i) => (i === index ? { ...m, quantity: qty } : m)));
     if (isConfirmed) setHasChanges(true);
   };
-
-  const [hasChanges, setHasChanges] = useState(false);
 
   const addCustomItem = () => {
     if (!newItemName.trim()) return;
@@ -187,7 +204,7 @@ export default function MaterialConsumption() {
       }));
 
       const { error } = await supabase.functions.invoke('manage-checklist', {
-        body: { action: 'save', event_id: eventId, item_type: 'materiais', items },
+        body: { action: 'save', event_id: eventId, item_type: 'materiais', items, patient_id: selectedPatientId },
       });
 
       if (error) throw error;
@@ -243,13 +260,13 @@ export default function MaterialConsumption() {
           )}
         </div>
 
-        {/* Patient selector */}
+        {/* Patient selector - always enabled */}
         <Card className="rounded-2xl">
           <CardContent className="py-3">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-bold uppercase text-muted-foreground">Paciente:</span>
-              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={isConfirmed || !canEdit}>
+              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={!canEdit}>
                 <SelectTrigger className="flex-1 h-8 text-xs">
                   <SelectValue placeholder="Selecione o paciente..." />
                 </SelectTrigger>

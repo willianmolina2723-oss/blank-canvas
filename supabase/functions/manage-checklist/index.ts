@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     if (!caller) throw new Error('Não autorizado')
 
     const body = await req.json()
-    const { action, event_id, item_type, items, include_cost_items, cost_items_category } = body
+    const { action, event_id, item_type, items, include_cost_items, cost_items_category, patient_id } = body
 
     if (!event_id || !item_type) throw new Error('event_id e item_type são obrigatórios')
 
@@ -30,13 +30,28 @@ Deno.serve(async (req) => {
     const empresaId = callerProfile?.empresa_id
 
     if (action === 'load') {
-      const { data: checklistItems, error } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('checklist_items')
         .select('*')
         .eq('event_id', event_id)
         .eq('item_type', item_type)
 
+      const { data: checklistItems, error } = await query
+
       if (error) throw new Error(error.message)
+
+      // If patient_id is provided, filter items by patient_id in notes JSON
+      let filteredItems = checklistItems || []
+      if (patient_id) {
+        filteredItems = filteredItems.filter((item: any) => {
+          try {
+            const parsed = JSON.parse(item.notes || '{}')
+            return parsed.patient_id === patient_id
+          } catch {
+            return false
+          }
+        })
+      }
 
       let costItems = null
       if (include_cost_items && cost_items_category && empresaId) {
@@ -51,7 +66,7 @@ Deno.serve(async (req) => {
         costItems = data
       }
 
-      return new Response(JSON.stringify({ data: checklistItems || [], items: checklistItems || [], cost_items: costItems }), {
+      return new Response(JSON.stringify({ data: filteredItems, items: filteredItems, cost_items: costItems }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -59,12 +74,38 @@ Deno.serve(async (req) => {
     if (action === 'save') {
       if (!items || !Array.isArray(items)) throw new Error('items é obrigatório')
 
-      // Delete existing items for this event/type
-      await supabaseAdmin
-        .from('checklist_items')
-        .delete()
-        .eq('event_id', event_id)
-        .eq('item_type', item_type)
+      // If patient_id is provided, only delete items for that specific patient
+      if (patient_id) {
+        // Load existing items to find which ones belong to this patient
+        const { data: existing } = await supabaseAdmin
+          .from('checklist_items')
+          .select('id, notes')
+          .eq('event_id', event_id)
+          .eq('item_type', item_type)
+
+        const idsToDelete = (existing || []).filter((item: any) => {
+          try {
+            const parsed = JSON.parse(item.notes || '{}')
+            return parsed.patient_id === patient_id
+          } catch {
+            return false
+          }
+        }).map((item: any) => item.id)
+
+        if (idsToDelete.length > 0) {
+          await supabaseAdmin
+            .from('checklist_items')
+            .delete()
+            .in('id', idsToDelete)
+        }
+      } else {
+        // Legacy: delete all items for this event/type
+        await supabaseAdmin
+          .from('checklist_items')
+          .delete()
+          .eq('event_id', event_id)
+          .eq('item_type', item_type)
+      }
 
       // Insert new items
       if (items.length > 0) {

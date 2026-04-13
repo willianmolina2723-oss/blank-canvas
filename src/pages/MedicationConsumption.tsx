@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -25,15 +25,14 @@ interface Patient {
   name: string;
 }
 
-const db = supabase as any;
-
 export default function MedicationConsumption() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { roles, profile } = useAuth();
+  const { profile } = useAuth();
 
   const [medications, setMedications] = useState<MedItem[]>([]);
+  const [costItemsCache, setCostItemsCache] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,13 +41,14 @@ export default function MedicationConsumption() {
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [hasChanges, setHasChanges] = useState(false);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (eventId && profile) {
       supabase.from('event_participants').select('role').eq('event_id', eventId).eq('profile_id', profile.id).maybeSingle()
-        .then(({ data }) => setEventRole(data?.role || null));
+        .then(({ data }: any) => setEventRole(data?.role || null));
     }
   }, [eventId, profile]);
 
@@ -57,43 +57,70 @@ export default function MedicationConsumption() {
 
   useEffect(() => {
     if (eventId) {
-      loadData();
       loadPatients();
     }
   }, [eventId]);
+
+  // Load data when patient changes
+  useEffect(() => {
+    if (eventId && selectedPatientId) {
+      loadDataForPatient(selectedPatientId);
+    }
+  }, [eventId, selectedPatientId]);
 
   const loadPatients = async () => {
     try {
       const { data } = await supabase.from('patients').select('id, name').eq('event_id', eventId).is('deleted_at', null);
       setPatients(data || []);
       if (data && data.length === 1) setSelectedPatientId(data[0].id);
+      else if (!selectedPatientId && data && data.length > 0) {
+        // Don't auto-select, let user choose
+      }
+      // If no patients, still load cost items
+      if (!data || data.length === 0) {
+        loadCostItemsOnly();
+      }
     } catch (err) {
       console.error('Error loading patients:', err);
     }
   };
 
-  const loadData = async () => {
+  const loadCostItemsOnly = async () => {
     setIsLoading(true);
     try {
       const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
         body: { action: 'load', event_id: eventId, item_type: 'consumo_medicamentos', include_cost_items: true, cost_items_category: 'medicamento' },
       });
       if (error) throw error;
+      const costItems = response?.cost_items || [];
+      setCostItemsCache(costItems);
+      const loaded: MedItem[] = costItems.map((ci: any) => ({
+        name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
+      }));
+      setMedications(loaded);
+      setIsConfirmed(false);
+    } catch (err) {
+      console.error('Error loading cost items:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadDataForPatient = async (patientId: string) => {
+    setIsLoading(true);
+    setHasChanges(false);
+    try {
+      const { data: response, error } = await supabase.functions.invoke('manage-checklist', {
+        body: { action: 'load', event_id: eventId, item_type: 'consumo_medicamentos', include_cost_items: true, cost_items_category: 'medicamento', patient_id: patientId },
+      });
+      if (error) throw error;
 
       const saved = response?.data || [];
       const costItems = response?.cost_items || [];
+      setCostItemsCache(costItems);
 
       if (saved.length > 0) {
         setIsConfirmed(true);
-        // Try to recover patient_id from first saved item notes JSON
-        try {
-          const firstNotes = saved[0]?.notes;
-          if (firstNotes) {
-            const parsed = JSON.parse(firstNotes);
-            if (parsed.patient_id) setSelectedPatientId(parsed.patient_id);
-          }
-        } catch { /* notes is just quantity string */ }
-
         const savedMap = new Map<string, { qty: number; cost_item_id?: string }>();
         saved.forEach((d: any) => {
           let qty = 0;
@@ -117,11 +144,9 @@ export default function MedicationConsumption() {
         });
         setMedications(loaded);
       } else {
+        setIsConfirmed(false);
         const loaded: MedItem[] = (costItems || []).map((ci: any) => ({
-          name: ci.name,
-          quantity: 0,
-          cost_item_id: ci.id,
-          unit_cost: Number(ci.unit_cost),
+          name: ci.name, quantity: 0, cost_item_id: ci.id, unit_cost: Number(ci.unit_cost),
         }));
         setMedications(loaded);
       }
@@ -138,8 +163,6 @@ export default function MedicationConsumption() {
     if (isConfirmed) setHasChanges(true);
   };
 
-  const [hasChanges, setHasChanges] = useState(false);
-
   const addCustomItem = () => {
     if (!newItemName.trim()) return;
     setMedications(prev => [...prev, { name: newItemName.trim(), quantity: 0 }]);
@@ -155,7 +178,6 @@ export default function MedicationConsumption() {
   };
 
   const usedMeds = medications.filter(m => m.quantity > 0);
-  const allFilled = medications.length > 0 && medications.every(m => m.quantity > 0);
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -176,11 +198,7 @@ export default function MedicationConsumption() {
       return;
     }
     if (usedMeds.length === 0) {
-      toast({
-        title: 'Nenhum medicamento selecionado',
-        description: 'Selecione ao menos um medicamento com quantidade ≥ 1.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Nenhum medicamento selecionado', description: 'Selecione ao menos um medicamento com quantidade ≥ 1.', variant: 'destructive' });
       return;
     }
 
@@ -193,7 +211,7 @@ export default function MedicationConsumption() {
       }));
 
       const { error } = await supabase.functions.invoke('manage-checklist', {
-        body: { action: 'save', event_id: eventId, item_type: 'consumo_medicamentos', items },
+        body: { action: 'save', event_id: eventId, item_type: 'consumo_medicamentos', items, patient_id: selectedPatientId },
       });
 
       if (error) throw error;
@@ -249,13 +267,13 @@ export default function MedicationConsumption() {
           )}
         </div>
 
-        {/* Patient selector */}
+        {/* Patient selector - always enabled for switching */}
         <Card className="rounded-2xl">
           <CardContent className="py-3">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs font-bold uppercase text-muted-foreground">Paciente:</span>
-              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={isConfirmed || !canEdit}>
+              <Select value={selectedPatientId} onValueChange={setSelectedPatientId} disabled={!canEdit}>
                 <SelectTrigger className="flex-1 h-8 text-xs">
                   <SelectValue placeholder="Selecione o paciente..." />
                 </SelectTrigger>
