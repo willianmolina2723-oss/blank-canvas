@@ -8,6 +8,7 @@ import { Loader2, Camera, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { explainError } from '@/utils/explainError';
 import type { Profile, AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
@@ -27,6 +28,7 @@ const ALL_ROLES: AppRole[] = ['admin', 'condutor', 'enfermeiro', 'tecnico', 'med
 
 export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
   const { toast } = useToast();
+  const { isSuperAdmin } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,7 +46,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
       setEmail(user.email || '');
       setPhone(user.phone || '');
       setProfessionalId(user.professional_id || '');
-      setPinCode(user.pin_code || '');
+      setPinCode(''); // Never load existing PIN - it's hashed
       setSelectedRoles(user.roles || []);
       setPhotoPreview(user.avatar_url || null);
       setPhotoFile(null);
@@ -71,6 +73,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
   };
 
   const handleRoleToggle = (role: AppRole) => {
+    // Only super admins can toggle admin role
+    if (role === 'admin' && !isSuperAdmin) return;
     setSelectedRoles(prev =>
       prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
     );
@@ -94,36 +98,27 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
         avatarUrl = null;
       }
 
+      // Update profile via edge function (PIN is hashed server-side)
       const { error } = await supabase.functions.invoke('update-profile', {
         body: {
           profile_id: user.id,
           full_name: fullName.trim(),
           phone: phone.trim() || null,
           professional_id: professionalId.trim() || null,
-          pin_code: pinCode.trim() || null,
+          pin_code: pinCode.trim() || null, // Will be hashed server-side
           avatar_url: avatarUrl,
         },
       });
       if (error) throw error;
 
-      // Update roles
-      const rolesToAdd = selectedRoles.filter(r => !user.roles.includes(r));
-      const rolesToRemove = user.roles.filter(r => !selectedRoles.includes(r));
-
-      for (const role of rolesToRemove) {
-        const { error: delErr } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', user.user_id)
-          .eq('role', role);
-        if (delErr) throw delErr;
-      }
-
-      for (const role of rolesToAdd) {
-        const { error: addErr } = await supabase
-          .from('user_roles')
-          .insert({ user_id: user.user_id, role });
-        if (addErr) throw addErr;
+      // Update roles via dedicated edge function
+      const rolesChanged = JSON.stringify([...selectedRoles].sort()) !== JSON.stringify([...user.roles].sort());
+      if (rolesChanged) {
+        const { data: roleResult, error: roleError } = await supabase.functions.invoke('manage-roles', {
+          body: { user_id: user.user_id, roles: selectedRoles },
+        });
+        if (roleError) throw roleError;
+        if (roleResult?.error) throw new Error(roleResult.error);
       }
 
       toast({ title: 'Sucesso', description: 'Dados do usuário atualizados.' });
@@ -201,23 +196,39 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-pin">Código PIN</Label>
-            <Input id="edit-pin" value={pinCode} onChange={(e) => setPinCode(e.target.value)} placeholder="Digite o PIN (opcional)" />
+            <Input
+              id="edit-pin"
+              type="password"
+              value={pinCode}
+              onChange={(e) => setPinCode(e.target.value)}
+              placeholder="Definir novo PIN (deixe vazio para manter)"
+            />
+            <p className="text-xs text-muted-foreground">O PIN é criptografado. Deixe em branco para manter o atual.</p>
           </div>
           <div className="space-y-2">
             <Label>Funções</Label>
             <div className="space-y-3 rounded-md border p-3">
-              {ALL_ROLES.map((role) => (
-                <div key={role} className="flex items-center space-x-3">
-                  <Checkbox
-                    id={`edit-role-${role}`}
-                    checked={selectedRoles.includes(role)}
-                    onCheckedChange={() => handleRoleToggle(role)}
-                  />
-                  <Label htmlFor={`edit-role-${role}`} className="text-sm font-medium cursor-pointer">
-                    {ROLE_LABELS[role]}
-                  </Label>
-                </div>
-              ))}
+              {ALL_ROLES.map((role) => {
+                const isAdminRole = role === 'admin';
+                const isDisabled = isAdminRole && !isSuperAdmin;
+                return (
+                  <div key={role} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`edit-role-${role}`}
+                      checked={selectedRoles.includes(role)}
+                      onCheckedChange={() => handleRoleToggle(role)}
+                      disabled={isDisabled}
+                    />
+                    <Label
+                      htmlFor={`edit-role-${role}`}
+                      className={`text-sm font-medium cursor-pointer ${isDisabled ? 'opacity-50' : ''}`}
+                    >
+                      {ROLE_LABELS[role]}
+                      {isDisabled && ' (somente Super Admin)'}
+                    </Label>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

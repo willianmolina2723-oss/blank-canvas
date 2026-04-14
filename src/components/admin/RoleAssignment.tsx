@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { explainError } from '@/utils/explainError';
 import { Loader2, Shield } from 'lucide-react';
 import type { Profile, AppRole } from '@/types/database';
@@ -26,8 +27,10 @@ export function RoleAssignment({ user, onClose, onUpdate }: RoleAssignmentProps)
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>(user.roles);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { isSuperAdmin } = useAuth();
 
   const handleRoleToggle = (role: AppRole) => {
+    if (role === 'admin' && !isSuperAdmin) return;
     setSelectedRoles(prev =>
       prev.includes(role)
         ? prev.filter(r => r !== role)
@@ -38,32 +41,13 @@ export function RoleAssignment({ user, onClose, onUpdate }: RoleAssignmentProps)
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // Determine roles to add and remove
-      const rolesToAdd = selectedRoles.filter(r => !user.roles.includes(r));
-      const rolesToRemove = user.roles.filter(r => !selectedRoles.includes(r));
+      // Use edge function for role management (server-side validation)
+      const { data: result, error } = await supabase.functions.invoke('manage-roles', {
+        body: { user_id: user.user_id, roles: selectedRoles },
+      });
 
-      // Remove roles
-      for (const role of rolesToRemove) {
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', user.user_id)
-          .eq('role', role);
-
-        if (error) throw error;
-      }
-
-      // Add roles
-      for (const role of rolesToAdd) {
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: user.user_id,
-            role: role,
-          });
-
-        if (error) throw error;
-      }
+      if (error) throw error;
+      if (result?.error) throw new Error(result.error);
 
       toast({
         title: 'Funções atualizadas',
@@ -98,21 +82,27 @@ export function RoleAssignment({ user, onClose, onUpdate }: RoleAssignmentProps)
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {ALL_ROLES.map((role) => (
-            <div key={role} className="flex items-center space-x-3">
-              <Checkbox
-                id={role}
-                checked={selectedRoles.includes(role)}
-                onCheckedChange={() => handleRoleToggle(role)}
-              />
-              <Label
-                htmlFor={role}
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                {ROLE_LABELS[role]}
-              </Label>
-            </div>
-          ))}
+          {ALL_ROLES.map((role) => {
+            const isAdminRole = role === 'admin';
+            const isDisabled = isAdminRole && !isSuperAdmin;
+            return (
+              <div key={role} className="flex items-center space-x-3">
+                <Checkbox
+                  id={role}
+                  checked={selectedRoles.includes(role)}
+                  onCheckedChange={() => handleRoleToggle(role)}
+                  disabled={isDisabled}
+                />
+                <Label
+                  htmlFor={role}
+                  className={`text-sm font-medium leading-none cursor-pointer ${isDisabled ? 'opacity-50' : ''}`}
+                >
+                  {ROLE_LABELS[role]}
+                  {isDisabled && ' (somente Super Admin)'}
+                </Label>
+              </div>
+            );
+          })}
         </div>
 
         <DialogFooter className="gap-2">

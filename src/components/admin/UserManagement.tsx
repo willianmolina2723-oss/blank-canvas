@@ -46,7 +46,7 @@ export function UserManagement() {
     queryKey: ['admin-users', debouncedSearch, roleFilter, page],
     queryFn: async () => {
       let query = supabase
-        .from('profiles')
+        .from('profiles_safe')
         .select('*', { count: 'exact' })
         .is('deleted_at', null)
         .order('full_name');

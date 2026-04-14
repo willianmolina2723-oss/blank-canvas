@@ -35,11 +35,21 @@ Deno.serve(async (req) => {
     if (updates.full_name !== undefined) updateData.full_name = updates.full_name
     if (updates.phone !== undefined) updateData.phone = updates.phone
     if (updates.professional_id !== undefined) updateData.professional_id = updates.professional_id
-    if (updates.pin_code !== undefined) updateData.pin_code = updates.pin_code
     if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url
 
-    const { error } = await supabaseAdmin.from('profiles').update(updateData).eq(filter.column, filter.value)
-    if (error) throw new Error(`Erro ao atualizar perfil: ${error.message}`)
+    // Handle PIN: hash it server-side instead of storing plain text
+    if (updates.pin_code !== undefined) {
+      // Use the set_pin function to hash the PIN
+      const targetUserId = user_id || (await supabaseAdmin.from('profiles').select('user_id').eq('id', profile_id).maybeSingle()).data?.user_id
+      if (targetUserId) {
+        await supabaseAdmin.rpc('set_pin', { _user_id: targetUserId, _pin: updates.pin_code || null })
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      const { error } = await supabaseAdmin.from('profiles').update(updateData).eq(filter.column, filter.value)
+      if (error) throw new Error(`Erro ao atualizar perfil: ${error.message}`)
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
