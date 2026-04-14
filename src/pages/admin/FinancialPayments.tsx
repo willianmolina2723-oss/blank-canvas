@@ -247,7 +247,7 @@ export default function FinancialPayments() {
         const sc = staffCostMap.get(`${event.id}_${pid}`);
         const role = p.role as string;
         const profileValorHora = Number(prof.valor_hora) || 0;
-        const hourlyRate = profileValorHora > 0 ? profileValorHora : getDefaultRate(role);
+        const hourlyRate = getDefaultRate(role, profileValorHora);
         const hasStaffCost = !!sc;
         const effectiveRate = hasStaffCost && Number(sc.base_value) > 0
           ? Number(sc.base_value)

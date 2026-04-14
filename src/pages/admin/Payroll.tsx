@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/database';
 import type { AppRole } from '@/types/database';
+import { useDefaultRates } from '@/hooks/useDefaultRates';
 
 interface EventEntry {
   eventId: string;
@@ -70,14 +71,6 @@ interface WeekInfo {
   paymentDate: Date;
   paymentLabel: string;
 }
-
-const DEFAULT_RATES: Record<AppRole, number> = {
-  admin: 0,
-  medico: 80,
-  enfermeiro: 18,
-  tecnico: 18,
-  condutor: 18,
-};
 
 function formatHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
