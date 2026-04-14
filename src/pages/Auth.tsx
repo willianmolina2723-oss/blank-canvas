@@ -46,10 +46,17 @@ export default function Auth() {
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
+      const msg = error.message || '';
+      if (msg.includes('Invalid login credentials')) {
         toast({
           title: 'Erro de autenticação',
           description: 'Email ou senha incorretos.',
+          variant: 'destructive',
+        });
+      } else if (msg.includes('leaked') || msg.includes('pwned') || msg.includes('compromised') || msg.includes('HIBP') || msg.includes('data breach')) {
+        toast({
+          title: 'Senha comprometida',
+          description: 'Sua senha foi encontrada em vazamentos de dados. Use "Esqueci minha senha" para criar uma nova senha segura.',
           variant: 'destructive',
         });
       } else {

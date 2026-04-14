@@ -52,6 +52,12 @@ function translateRlsError(msg: string): string {
   if (msg.includes('Invalid login credentials')) {
     return 'Email ou senha incorretos.';
   }
+  if (msg.includes('password') && (msg.includes('leaked') || msg.includes('pwned') || msg.includes('compromised') || msg.includes('data breach') || msg.includes('HIBP'))) {
+    return 'Esta senha foi encontrada em vazamentos de dados conhecidos. Por segurança, escolha uma senha diferente que nunca foi exposta.';
+  }
+  if (msg.includes('Password should be at least')) {
+    return 'A senha deve ter no mínimo 8 caracteres, incluindo letras e números.';
+  }
   if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
     return 'Este registro já existe. Verifique os dados e tente novamente.';
   }

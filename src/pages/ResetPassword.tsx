@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Ambulance, Loader2, Lock, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { validatePassword } from '@/utils/passwordValidation';
+import { explainError } from '@/utils/explainError';
 import { PasswordStrengthIndicator } from '@/components/auth/PasswordStrengthIndicator';
 
 export default function ResetPassword() {
@@ -55,7 +56,7 @@ export default function ResetPassword() {
     setIsLoading(false);
 
     if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao redefinir senha', description: explainError(error, 'Não foi possível redefinir a senha.'), variant: 'destructive' });
       return;
     }
 
