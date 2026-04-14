@@ -150,8 +150,8 @@ export default function EarningsForecast() {
           <Card>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-blue-500" />
+                <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-secondary-foreground" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Horas Previstas</p>
@@ -229,9 +229,9 @@ export default function EarningsForecast() {
         </Card>
 
         {valorHora === 0 && (
-          <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="py-3">
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+              <p className="text-sm text-destructive">
                 ⚠️ Seu valor/hora ainda não foi definido. Peça ao administrador para configurar seu valor na gestão de usuários.
               </p>
             </CardContent>
