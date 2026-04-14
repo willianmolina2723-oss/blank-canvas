@@ -1798,6 +1798,7 @@ export type Database = {
           must_change_password: boolean | null
           phone: string | null
           pin_code: string | null
+          pin_hash: string | null
           professional_id: string | null
           updated_at: string
           user_id: string
@@ -1814,6 +1815,7 @@ export type Database = {
           must_change_password?: boolean | null
           phone?: string | null
           pin_code?: string | null
+          pin_hash?: string | null
           professional_id?: string | null
           updated_at?: string
           user_id: string
@@ -1830,6 +1832,7 @@ export type Database = {
           must_change_password?: boolean | null
           phone?: string | null
           pin_code?: string | null
+          pin_hash?: string | null
           professional_id?: string | null
           updated_at?: string
           user_id?: string
@@ -2070,7 +2073,6 @@ export type Database = {
           id: string | null
           must_change_password: boolean | null
           phone: string | null
-          pin_code: string | null
           professional_id: string | null
           updated_at: string | null
           user_id: string | null
@@ -2086,7 +2088,6 @@ export type Database = {
           id?: string | null
           must_change_password?: boolean | null
           phone?: string | null
-          pin_code?: never
           professional_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -2102,7 +2103,6 @@ export type Database = {
           id?: string | null
           must_change_password?: boolean | null
           phone?: string | null
-          pin_code?: never
           professional_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -2145,8 +2145,11 @@ export type Database = {
       is_event_participant: { Args: { _event_id: string }; Returns: boolean }
       is_event_signed: { Args: { _event_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      is_super_admin_by_id: { Args: { _user_id: string }; Returns: boolean }
       same_empresa: { Args: { _empresa_id: string }; Returns: boolean }
       same_empresa_user: { Args: { _user_id: string }; Returns: boolean }
+      set_pin: { Args: { _pin: string; _user_id: string }; Returns: undefined }
+      verify_pin: { Args: { _pin: string; _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "condutor" | "enfermeiro" | "medico" | "tecnico"
