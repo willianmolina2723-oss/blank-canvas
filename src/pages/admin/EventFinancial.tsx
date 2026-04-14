@@ -275,8 +275,15 @@ export default function EventFinancial() {
 
   const finalValue = finance.contract_value - finance.discounts + finance.additions;
   const totalStaff = staffCosts.length > 0
-    ? staffCosts.reduce((s: number, c: any) => s + calcStaffTotal(c), 0)
-    : participants.length * (transportMinutes / 60) * DEFAULT_RATE;
+    ? staffCosts.reduce((s: number, c: any) => {
+        const pt = participants.find((p: any) => p.profile_id === c.profile_id);
+        return s + calcStaffTotal(c, pt);
+      }, 0)
+    : participants.reduce((s: number, p: any) => {
+        const profileRate = Number(p.profile?.valor_hora) || 0;
+        const rate = getDefaultRate(p.role, profileRate);
+        return s + (transportMinutes / 60) * rate;
+      }, 0);
   const totalOther = otherCosts.reduce((s: number, c: any) => s + Number(c.amount), 0);
   const totalInsumos = insumoCosts.totalMed + insumoCosts.totalMat;
   const totalPaid = payments.filter((p: any) => !p.cancelled).reduce((s: number, p: any) => s + Number(p.amount), 0);
@@ -290,7 +297,7 @@ export default function EventFinancial() {
       ['Receita', 'Descontos', String(-finance.discounts)],
       ['Receita', 'Adicionais', String(finance.additions)],
       ['Receita', 'Valor Final', String(finalValue)],
-      ...staffCosts.map((s: any) => { const r = Number(s.base_value) > 0 ? Number(s.base_value) : DEFAULT_RATE; return ['Equipe', s.profile?.full_name || 'N/A', String((transportMinutes / 60) * r + Number(s.extras) - Number(s.discounts))]; }),
+      ...staffCosts.map((s: any) => { const pt = participants.find((p: any) => p.profile_id === s.profile_id); const profileRate = Number(pt?.profile?.valor_hora) || 0; const r = Number(s.base_value) > 0 ? Number(s.base_value) : getDefaultRate(pt?.role || '', profileRate); return ['Equipe', s.profile?.full_name || 'N/A', String((transportMinutes / 60) * r + Number(s.extras) - Number(s.discounts))]; }),
       ...insumoCosts.medications.map((m: any) => ['Medicamento', `${m.name} (${m.qty}x)`, String(m.total)]),
       ...insumoCosts.materials.map((m: any) => ['Material', `${m.name} (${m.qty}x)`, String(m.total)]),
       ...otherCosts.map((c: any) => ['Outros', c.category, String(Number(c.amount))]),
@@ -410,7 +417,8 @@ export default function EventFinancial() {
                 {participants.map((p: any) => {
                   const existing = staffCosts.find((s: any) => s.profile_id === p.profile_id);
                   const d = existing || { payment_type: 'por_hora', base_value: 0, extras: 0, discounts: 0 };
-                  const rate = Number(d.base_value) > 0 ? Number(d.base_value) : DEFAULT_RATE;
+                  const profileRate = Number(p.profile?.valor_hora) || 0;
+                  const rate = Number(d.base_value) > 0 ? Number(d.base_value) : getDefaultRate(p.role, profileRate);
                   const personTotal = (transportMinutes / 60) * rate + Number(d.extras) - Number(d.discounts);
                   const hours = transportMinutes / 60;
                   return (
