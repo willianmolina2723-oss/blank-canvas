@@ -26,6 +26,7 @@ export function AppSidebar() {
   const allNavItems = [
     { label: 'Operações', icon: LayoutGrid, path: '/', adminOnly: false, module: null },
     { label: 'Oportunidades', icon: Briefcase, path: '/opportunities', adminOnly: false, module: 'oportunidades' as const },
+    { label: 'Previsão de Ganhos', icon: DollarSign, path: '/earnings-forecast', adminOnly: false, module: null },
     { label: 'Prontuários', icon: FileText, path: '/admin/patients', adminOnly: true, module: null },
     { label: 'Usuários', icon: Users, path: '/admin/users', adminOnly: true, module: null },
     { label: 'Viaturas', icon: Truck, path: '/admin/ambulances', adminOnly: true, module: null },

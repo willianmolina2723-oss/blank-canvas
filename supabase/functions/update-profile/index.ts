@@ -36,6 +36,7 @@ Deno.serve(async (req) => {
     if (updates.phone !== undefined) updateData.phone = updates.phone
     if (updates.professional_id !== undefined) updateData.professional_id = updates.professional_id
     if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url
+    if (updates.valor_hora !== undefined) updateData.valor_hora = updates.valor_hora
 
     // Handle PIN: hash it server-side instead of storing plain text
     if (updates.pin_code !== undefined) {

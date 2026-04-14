@@ -42,6 +42,7 @@ const EventReport = lazy(() => import("./pages/EventReport"));
 const DispatchReport = lazy(() => import("./pages/DispatchReport"));
 const PayrollPage = lazy(() => import("./pages/admin/Payroll"));
 const Opportunities = lazy(() => import("./pages/Opportunities"));
+const EarningsForecast = lazy(() => import("./pages/EarningsForecast"));
 const FinancialPage = lazy(() => import("./pages/admin/Financial"));
 const EventFinancialPage = lazy(() => import("./pages/admin/EventFinancial"));
 const FinancialPaymentsPage = lazy(() => import("./pages/admin/FinancialPayments"));
@@ -160,6 +161,7 @@ function AppRoutes() {
         <Route path="/medication-consumption/:eventId" element={<ProtectedRoute><MedicationConsumption /></ProtectedRoute>} />
         <Route path="/admin/payroll" element={<AdminRoute><PlanProtectedRoute module="pagamentos_freelancers"><FinancialPaymentsPage /></PlanProtectedRoute></AdminRoute>} />
         <Route path="/opportunities" element={<ProtectedRoute><PlanProtectedRoute module="oportunidades"><Opportunities /></PlanProtectedRoute></ProtectedRoute>} />
+        <Route path="/earnings-forecast" element={<ProtectedRoute><EarningsForecast /></ProtectedRoute>} />
         <Route path="/report/:eventId" element={<ProtectedRoute><EventReport /></ProtectedRoute>} />
         <Route path="/dispatch-report/:eventId" element={<ProtectedRoute><DispatchReport /></ProtectedRoute>} />
         <Route path="/admin/financial" element={<AdminRoute><PlanProtectedRoute module="dashboard_financeiro"><FinancialPage /></PlanProtectedRoute></AdminRoute>} />
