@@ -41,6 +41,7 @@ export function AppSidebar() {
     ? [{ label: 'Empresas', icon: Crown, path: '/super-admin', adminOnly: false, module: null }]
     : allNavItems.filter(item => {
         if (item.adminOnly && !isAdmin) return false;
+        if ('hideForAdmin' in item && item.hideForAdmin && isAdmin) return false;
         if (item.module && !canAccess(item.module)) return false;
         if ('hideOnPlan' in item && item.hideOnPlan && empresa?.plano === item.hideOnPlan) return false;
         return true;
