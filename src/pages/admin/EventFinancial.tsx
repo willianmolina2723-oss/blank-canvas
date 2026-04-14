@@ -15,7 +15,17 @@ import { Loader2, ArrowLeft, DollarSign, Users, Package, Plus, Save, Pill, Downl
 import { differenceInMinutes, parseISO } from 'date-fns';
 
 const db = supabase as any;
-const DEFAULT_RATE = 18.60;
+const DEFAULT_RATES: Record<string, number> = {
+  condutor: 18,
+  enfermeiro: 18,
+  tecnico: 18,
+  medico: 80,
+  admin: 0,
+};
+function getDefaultRate(role: string, profileValorHora?: number): number {
+  if (profileValorHora && profileValorHora > 0) return profileValorHora;
+  return DEFAULT_RATES[role] ?? 18;
+}
 
 export default function EventFinancial() {
   const { id } = useParams<{ id: string }>();
@@ -255,8 +265,11 @@ export default function EventFinancial() {
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-  const calcStaffTotal = (c: any) => {
-    const rate = Number(c.base_value) > 0 ? Number(c.base_value) : DEFAULT_RATE;
+  const calcStaffTotal = (c: any, participant?: any) => {
+    const profileRate = Number(participant?.profile?.valor_hora) || 0;
+    const role = participant?.role || '';
+    const fallbackRate = getDefaultRate(role, profileRate);
+    const rate = Number(c.base_value) > 0 ? Number(c.base_value) : fallbackRate;
     return (transportMinutes / 60) * rate + Number(c.extras) - Number(c.discounts);
   };
 

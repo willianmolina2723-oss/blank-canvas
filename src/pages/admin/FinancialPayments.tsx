@@ -19,7 +19,16 @@ import type { AppRole } from '@/types/database';
 
 const db = supabase as any;
 
-const DEFAULT_RATE = 18.60;
+const DEFAULT_RATES: Record<string, number> = {
+  condutor: 18,
+  enfermeiro: 18,
+  tecnico: 18,
+  medico: 80,
+  admin: 0,
+};
+function getDefaultRate(role: string): number {
+  return DEFAULT_RATES[role] ?? 18;
+}
 
 function formatHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -246,7 +255,8 @@ export default function FinancialPayments() {
 
         const sc = staffCostMap.get(`${event.id}_${pid}`);
         const role = p.role as string;
-        const hourlyRate = DEFAULT_RATE;
+        const profileValorHora = Number(prof.valor_hora) || 0;
+        const hourlyRate = profileValorHora > 0 ? profileValorHora : getDefaultRate(role);
         const hasStaffCost = !!sc;
         const effectiveRate = hasStaffCost && Number(sc.base_value) > 0
           ? Number(sc.base_value)
