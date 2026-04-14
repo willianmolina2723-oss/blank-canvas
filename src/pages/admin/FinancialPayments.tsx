@@ -16,19 +16,9 @@ import { formatBR } from '@/utils/dateFormat';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ROLE_LABELS } from '@/types/database';
 import type { AppRole } from '@/types/database';
+import { useDefaultRates } from '@/hooks/useDefaultRates';
 
 const db = supabase as any;
-
-const DEFAULT_RATES: Record<string, number> = {
-  condutor: 18,
-  enfermeiro: 18,
-  tecnico: 18,
-  medico: 80,
-  admin: 0,
-};
-function getDefaultRate(role: string): number {
-  return DEFAULT_RATES[role] ?? 18;
-}
 
 function formatHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -147,6 +137,7 @@ function getWeekFromOffset(offset: number): { displayStart: Date; displayEnd: Da
 
 export default function FinancialPayments() {
   const { isAdmin, isLoading: authLoading, profile, empresa } = useAuth();
+  const { getRate: getDefaultRate } = useDefaultRates();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
