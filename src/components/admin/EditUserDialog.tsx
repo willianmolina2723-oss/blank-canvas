@@ -35,6 +35,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
   const [phone, setPhone] = useState('');
   const [professionalId, setProfessionalId] = useState('');
   const [pinCode, setPinCode] = useState('');
+  const [valorHora, setValorHora] = useState('');
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
       setPhone(user.phone || '');
       setProfessionalId(user.professional_id || '');
       setPinCode(''); // Never load existing PIN - it's hashed
+      setValorHora(String((user as any).valor_hora || 0));
       setSelectedRoles(user.roles || []);
       setPhotoPreview(user.avatar_url || null);
       setPhotoFile(null);
@@ -105,8 +107,9 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
           full_name: fullName.trim(),
           phone: phone.trim() || null,
           professional_id: professionalId.trim() || null,
-          pin_code: pinCode.trim() || null, // Will be hashed server-side
+          pin_code: pinCode.trim() || null,
           avatar_url: avatarUrl,
+          valor_hora: parseFloat(valorHora) || 0,
         },
       });
       if (error) throw error;
@@ -204,6 +207,19 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
               placeholder="Definir novo PIN (deixe vazio para manter)"
             />
             <p className="text-xs text-muted-foreground">O PIN é criptografado. Deixe em branco para manter o atual.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-valor-hora">Valor/Hora (R$)</Label>
+            <Input
+              id="edit-valor-hora"
+              type="number"
+              step="0.01"
+              min="0"
+              value={valorHora}
+              onChange={(e) => setValorHora(e.target.value)}
+              placeholder="Ex: 50.00"
+            />
+            <p className="text-xs text-muted-foreground">Usado para calcular a previsão de ganhos do colaborador.</p>
           </div>
           <div className="space-y-2">
             <Label>Funções</Label>
