@@ -304,7 +304,24 @@ export default function NewEventPage() {
                   <Label htmlFor="arrival">Término do Evento <span className="text-destructive">*</span></Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="arrival" type="datetime-local" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} className="h-12 pl-10" />
+                    <Input id="arrival" type="datetime-local" value={arrivalTime} onChange={(e) => {
+                      let newEnd = e.target.value;
+                      if (departureTime && newEnd) {
+                        const startDate = departureTime.slice(0, 10);
+                        const endDate = newEnd.slice(0, 10);
+                        const startTime = departureTime.slice(11);
+                        const endTime = newEnd.slice(11);
+                        if (startDate === endDate && endTime < startTime) {
+                          const nextDay = new Date(startDate);
+                          nextDay.setDate(nextDay.getDate() + 1);
+                          const y = nextDay.getFullYear();
+                          const m = String(nextDay.getMonth() + 1).padStart(2, '0');
+                          const d = String(nextDay.getDate()).padStart(2, '0');
+                          newEnd = `${y}-${m}-${d}T${endTime}`;
+                        }
+                      }
+                      setArrivalTime(newEnd);
+                    }} className="h-12 pl-10" />
                   </div>
                 </div>
 
