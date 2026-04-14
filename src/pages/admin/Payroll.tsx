@@ -72,10 +72,10 @@ interface WeekInfo {
 }
 
 const DEFAULT_RATES: Record<AppRole, number> = {
-  admin: 100,
-  medico: 100,
-  enfermeiro: 35,
-  tecnico: 20,
+  admin: 0,
+  medico: 80,
+  enfermeiro: 18,
+  tecnico: 18,
   condutor: 18,
 };
 
@@ -276,7 +276,8 @@ export default function PayrollPage() {
         if (!participantMap.has(key)) {
           const role = p.role as AppRole;
           const savedRate = rates[key];
-          const hourlyRate = savedRate ?? DEFAULT_RATES[role] ?? 60;
+          const profileValorHora = Number(profile.valor_hora) || 0;
+          const hourlyRate = savedRate ?? (profileValorHora > 0 ? profileValorHora : (DEFAULT_RATES[role] ?? 18));
 
           participantMap.set(key, {
             profileId: profile.id,
