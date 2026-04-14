@@ -26,7 +26,7 @@ export function AppSidebar() {
   const allNavItems = [
     { label: 'Operações', icon: LayoutGrid, path: '/', adminOnly: false, module: null },
     { label: 'Oportunidades', icon: Briefcase, path: '/opportunities', adminOnly: false, module: 'oportunidades' as const },
-    { label: 'Previsão de Ganhos', icon: DollarSign, path: '/earnings-forecast', adminOnly: false, module: null },
+    { label: 'Previsão de Ganhos', icon: DollarSign, path: '/earnings-forecast', adminOnly: false, module: null, hideForAdmin: true },
     { label: 'Prontuários', icon: FileText, path: '/admin/patients', adminOnly: true, module: null },
     { label: 'Usuários', icon: Users, path: '/admin/users', adminOnly: true, module: null },
     { label: 'Viaturas', icon: Truck, path: '/admin/ambulances', adminOnly: true, module: null },
@@ -41,6 +41,7 @@ export function AppSidebar() {
     ? [{ label: 'Empresas', icon: Crown, path: '/super-admin', adminOnly: false, module: null }]
     : allNavItems.filter(item => {
         if (item.adminOnly && !isAdmin) return false;
+        if ('hideForAdmin' in item && item.hideForAdmin && isAdmin) return false;
         if (item.module && !canAccess(item.module)) return false;
         if ('hideOnPlan' in item && item.hideOnPlan && empresa?.plano === item.hideOnPlan) return false;
         return true;
