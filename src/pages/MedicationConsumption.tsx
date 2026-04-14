@@ -294,15 +294,13 @@ export default function MedicationConsumption() {
                   <SelectValue placeholder="Selecione o paciente..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="sem_ficha">Sem ficha (consumo geral)</SelectItem>
                   {patients.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            {patients.length === 0 && (
-              <p className="text-[10px] text-destructive mt-1">Nenhum paciente cadastrado neste evento.</p>
-            )}
           </CardContent>
         </Card>
 

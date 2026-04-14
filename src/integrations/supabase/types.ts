@@ -1086,6 +1086,7 @@ export type Database = {
         Row: {
           ambulance_id: string | null
           arrival_time: string | null
+          cobrar_materiais_medicamentos: boolean
           code: string
           contractor_id: string | null
           contractor_phone: string | null
@@ -1106,6 +1107,7 @@ export type Database = {
         Insert: {
           ambulance_id?: string | null
           arrival_time?: string | null
+          cobrar_materiais_medicamentos?: boolean
           code: string
           contractor_id?: string | null
           contractor_phone?: string | null
@@ -1126,6 +1128,7 @@ export type Database = {
         Update: {
           ambulance_id?: string | null
           arrival_time?: string | null
+          cobrar_materiais_medicamentos?: boolean
           code?: string
           contractor_id?: string | null
           contractor_phone?: string | null
