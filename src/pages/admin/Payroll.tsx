@@ -108,6 +108,7 @@ function getMonthWeeks(monthDate: Date): WeekInfo[] {
 }
 
 export default function PayrollPage() {
+  const { getRate: getDefaultRate } = useDefaultRates();
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
   const [activeWeekIndex, setActiveWeekIndex] = useState(0);
   const [participants, setParticipants] = useState<ParticipantHours[]>([]);
@@ -117,7 +118,7 @@ export default function PayrollPage() {
   const [editingRate, setEditingRate] = useState<string | null>(null);
   const [editRateValue, setEditRateValue] = useState('');
   const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
-  const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set()); // "profileId:eventId"
+  const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Compute actual weeks for the current month
@@ -270,7 +271,7 @@ export default function PayrollPage() {
           const role = p.role as AppRole;
           const savedRate = rates[key];
           const profileValorHora = Number(profile.valor_hora) || 0;
-          const hourlyRate = savedRate ?? (profileValorHora > 0 ? profileValorHora : (DEFAULT_RATES[role] ?? 18));
+          const hourlyRate = savedRate ?? getDefaultRate(role, profileValorHora);
 
           participantMap.set(key, {
             profileId: profile.id,
