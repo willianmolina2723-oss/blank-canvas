@@ -386,16 +386,32 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
                </div>
              </div>
  
-             <div className="space-y-2">
-               <Label htmlFor="description">Descrição <span className="text-destructive">*</span></Label>
-               <Textarea
-                 id="description"
-                 value={form.description}
-                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                 placeholder="Descreva o chamado..."
-                 rows={3}
-               />
-             </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="description"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Descreva o chamado..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
+                <Checkbox
+                  id="cobrar-materiais-edit"
+                  checked={form.cobrar_materiais_medicamentos}
+                  onCheckedChange={(checked) => setForm({ ...form, cobrar_materiais_medicamentos: checked === true })}
+                />
+                <div className="space-y-0.5">
+                  <Label htmlFor="cobrar-materiais-edit" className="cursor-pointer font-medium">
+                    Cobrar materiais e medicamentos
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Se ativado, os materiais e medicamentos utilizados serão adicionados ao custo do evento e cobrados do contratante.
+                  </p>
+                </div>
+              </div>
            </CardContent>
          </Card>
  
