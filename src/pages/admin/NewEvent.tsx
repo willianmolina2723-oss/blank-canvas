@@ -296,7 +296,25 @@ export default function NewEventPage() {
                   <Label htmlFor="departure">Início do Evento <span className="text-destructive">*</span></Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="departure" type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} className="h-12 pl-10" />
+                    <Input id="departure" type="datetime-local" value={departureTime} onChange={(e) => {
+                      const newStart = e.target.value;
+                      setDepartureTime(newStart);
+                      // Re-check arrival if it exists
+                      if (arrivalTime && newStart && arrivalTime.length >= 16 && newStart.length >= 16) {
+                        const startDate = newStart.slice(0, 10);
+                        const endDate = arrivalTime.slice(0, 10);
+                        const startTime = newStart.slice(11, 16);
+                        const endTime = arrivalTime.slice(11, 16);
+                        if (startDate === endDate && endTime < startTime) {
+                          const [yy, mm, dd] = startDate.split('-').map(Number);
+                          const d2 = new Date(yy, mm - 1, dd + 1);
+                          const ny = d2.getFullYear();
+                          const nm = String(d2.getMonth() + 1).padStart(2, '0');
+                          const nd = String(d2.getDate()).padStart(2, '0');
+                          setArrivalTime(`${ny}-${nm}-${nd}T${endTime}`);
+                        }
+                      }
+                    }} className="h-12 pl-10" />
                   </div>
                 </div>
 
@@ -306,18 +324,18 @@ export default function NewEventPage() {
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="arrival" type="datetime-local" value={arrivalTime} onChange={(e) => {
                       let newEnd = e.target.value;
-                      if (departureTime && newEnd) {
+                      if (departureTime && newEnd && newEnd.length >= 16 && departureTime.length >= 16) {
                         const startDate = departureTime.slice(0, 10);
                         const endDate = newEnd.slice(0, 10);
-                        const startTime = departureTime.slice(11);
-                        const endTime = newEnd.slice(11);
+                        const startTime = departureTime.slice(11, 16);
+                        const endTime = newEnd.slice(11, 16);
                         if (startDate === endDate && endTime < startTime) {
-                          const nextDay = new Date(startDate);
-                          nextDay.setDate(nextDay.getDate() + 1);
-                          const y = nextDay.getFullYear();
-                          const m = String(nextDay.getMonth() + 1).padStart(2, '0');
-                          const d = String(nextDay.getDate()).padStart(2, '0');
-                          newEnd = `${y}-${m}-${d}T${endTime}`;
+                          const [yy, mm, dd] = startDate.split('-').map(Number);
+                          const d2 = new Date(yy, mm - 1, dd + 1);
+                          const ny = d2.getFullYear();
+                          const nm = String(d2.getMonth() + 1).padStart(2, '0');
+                          const nd = String(d2.getDate()).padStart(2, '0');
+                          newEnd = `${ny}-${nm}-${nd}T${endTime}`;
                         }
                       }
                       setArrivalTime(newEnd);

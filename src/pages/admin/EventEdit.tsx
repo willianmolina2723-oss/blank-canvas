@@ -151,24 +151,40 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
      setForm({ ...form, ambulance_id: value });
    };
  
-   const handleDepartureChange = (value: string) => {
-     setForm({ ...form, departure_time: value });
-   };
+    const handleDepartureChange = (value: string) => {
+      const updated = { ...form, departure_time: value };
+      // Re-check arrival
+      if (form.arrival_time && value && form.arrival_time.length >= 16 && value.length >= 16) {
+        const startDate = value.slice(0, 10);
+        const endDate = form.arrival_time.slice(0, 10);
+        const startTime = value.slice(11, 16);
+        const endTime = form.arrival_time.slice(11, 16);
+        if (startDate === endDate && endTime < startTime) {
+          const [yy, mm, dd] = startDate.split('-').map(Number);
+          const d2 = new Date(yy, mm - 1, dd + 1);
+          const ny = d2.getFullYear();
+          const nm = String(d2.getMonth() + 1).padStart(2, '0');
+          const nd = String(d2.getDate()).padStart(2, '0');
+          updated.arrival_time = `${ny}-${nm}-${nd}T${endTime}`;
+        }
+      }
+      setForm(updated);
+    };
  
     const handleArrivalChange = (value: string) => {
       let newEnd = value;
-      if (form.departure_time && newEnd) {
+      if (form.departure_time && newEnd && newEnd.length >= 16 && form.departure_time.length >= 16) {
         const startDate = form.departure_time.slice(0, 10);
         const endDate = newEnd.slice(0, 10);
-        const startTime = form.departure_time.slice(11);
-        const endTime = newEnd.slice(11);
+        const startTime = form.departure_time.slice(11, 16);
+        const endTime = newEnd.slice(11, 16);
         if (startDate === endDate && endTime < startTime) {
-          const nextDay = new Date(startDate);
-          nextDay.setDate(nextDay.getDate() + 1);
-          const y = nextDay.getFullYear();
-          const m = String(nextDay.getMonth() + 1).padStart(2, '0');
-          const d = String(nextDay.getDate()).padStart(2, '0');
-          newEnd = `${y}-${m}-${d}T${endTime}`;
+          const [yy, mm, dd] = startDate.split('-').map(Number);
+          const d2 = new Date(yy, mm - 1, dd + 1);
+          const ny = d2.getFullYear();
+          const nm = String(d2.getMonth() + 1).padStart(2, '0');
+          const nd = String(d2.getDate()).padStart(2, '0');
+          newEnd = `${ny}-${nm}-${nd}T${endTime}`;
         }
       }
       setForm({ ...form, arrival_time: newEnd });
