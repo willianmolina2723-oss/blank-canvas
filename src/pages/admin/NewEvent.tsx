@@ -52,6 +52,7 @@ export default function NewEventPage() {
   const [contractorPhone, setContractorPhone] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
 
   useEffect(() => {
     if (!isReadOnly) {
