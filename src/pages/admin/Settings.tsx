@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LogoUpload } from '@/components/admin/LogoUpload';
 import { SettingsReviewSection } from '@/components/reviews/SettingsReviewSection';
+import { DefaultRatesSettings } from '@/components/admin/DefaultRatesSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Settings as SettingsIcon, CreditCard, CheckCircle, ArrowUpCircle, Loader2 } from 'lucide-react';
@@ -254,6 +255,9 @@ export default function Settings() {
 
         {/* Logo/Identity Section */}
         <LogoUpload />
+
+        {/* Default Rates Section */}
+        <DefaultRatesSettings />
 
         {/* Review Section */}
         <SettingsReviewSection />

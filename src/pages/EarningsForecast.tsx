@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, TrendingUp, Clock, Calendar, DollarSign } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import { Badge } from '@/components/ui/badge';
+import { useDefaultRates } from '@/hooks/useDefaultRates';
 
 interface ForecastEvent {
   id: string;
@@ -18,7 +19,8 @@ interface ForecastEvent {
 }
 
 export default function EarningsForecast() {
-  const { profile } = useAuth();
+  const { profile, roles } = useAuth();
+  const { getRate } = useDefaultRates();
   const [events, setEvents] = useState<ForecastEvent[]>([]);
   const [valorHora, setValorHora] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +40,9 @@ export default function EarningsForecast() {
         .eq('id', profile!.id)
         .single();
 
-      setValorHora((profileData as any)?.valor_hora || 0);
+      const profileValorHora = (profileData as any)?.valor_hora || 0;
+      const mainRole = roles.find(r => r !== 'admin') || roles[0] || 'condutor';
+      setValorHora(profileValorHora > 0 ? profileValorHora : getRate(mainRole));
 
       // Get next week's date range
       const now = new Date();

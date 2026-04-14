@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/database';
 import type { AppRole } from '@/types/database';
+import { useDefaultRates } from '@/hooks/useDefaultRates';
 
 interface EventEntry {
   eventId: string;
@@ -70,14 +71,6 @@ interface WeekInfo {
   paymentDate: Date;
   paymentLabel: string;
 }
-
-const DEFAULT_RATES: Record<AppRole, number> = {
-  admin: 0,
-  medico: 80,
-  enfermeiro: 18,
-  tecnico: 18,
-  condutor: 18,
-};
 
 function formatHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -115,6 +108,7 @@ function getMonthWeeks(monthDate: Date): WeekInfo[] {
 }
 
 export default function PayrollPage() {
+  const { getRate: getDefaultRate } = useDefaultRates();
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
   const [activeWeekIndex, setActiveWeekIndex] = useState(0);
   const [participants, setParticipants] = useState<ParticipantHours[]>([]);
@@ -124,7 +118,7 @@ export default function PayrollPage() {
   const [editingRate, setEditingRate] = useState<string | null>(null);
   const [editRateValue, setEditRateValue] = useState('');
   const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
-  const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set()); // "profileId:eventId"
+  const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Compute actual weeks for the current month
@@ -277,7 +271,7 @@ export default function PayrollPage() {
           const role = p.role as AppRole;
           const savedRate = rates[key];
           const profileValorHora = Number(profile.valor_hora) || 0;
-          const hourlyRate = savedRate ?? (profileValorHora > 0 ? profileValorHora : (DEFAULT_RATES[role] ?? 18));
+          const hourlyRate = savedRate ?? getDefaultRate(role, profileValorHora);
 
           participantMap.set(key, {
             profileId: profile.id,

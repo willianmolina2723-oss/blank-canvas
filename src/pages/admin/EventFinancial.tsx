@@ -13,25 +13,16 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowLeft, DollarSign, Users, Package, Plus, Save, Pill, Download, FileText, Clock, Fuel } from 'lucide-react';
 import { differenceInMinutes, parseISO } from 'date-fns';
+import { useDefaultRates } from '@/hooks/useDefaultRates';
 
 const db = supabase as any;
-const DEFAULT_RATES: Record<string, number> = {
-  condutor: 18,
-  enfermeiro: 18,
-  tecnico: 18,
-  medico: 80,
-  admin: 0,
-};
-function getDefaultRate(role: string, profileValorHora?: number): number {
-  if (profileValorHora && profileValorHora > 0) return profileValorHora;
-  return DEFAULT_RATES[role] ?? 18;
-}
 
 export default function EventFinancial() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAdmin, isLoading: authLoading, profile } = useAuth();
   const { toast } = useToast();
+  const { getRate: getDefaultRate } = useDefaultRates();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [event, setEvent] = useState<any>(null);
