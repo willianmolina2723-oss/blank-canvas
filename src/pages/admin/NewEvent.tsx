@@ -172,6 +172,7 @@ export default function NewEventPage() {
           created_by: profile?.id,
           empresa_id: profile?.empresa_id || null,
           status: 'ativo',
+          cobrar_materiais_medicamentos: cobrarMateriaisMedicamentos,
         };
 
       const { data: eventData, error: eventError } = await supabase
@@ -318,6 +319,22 @@ export default function NewEventPage() {
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="description">Descrição <span className="text-destructive">*</span></Label>
                   <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descreva brevemente a ocorrência..." rows={3} />
+                </div>
+
+                <div className="md:col-span-2 flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
+                  <Checkbox
+                    id="cobrar-materiais"
+                    checked={cobrarMateriaisMedicamentos}
+                    onCheckedChange={(checked) => setCobrarMateriaisMedicamentos(checked === true)}
+                  />
+                  <div className="space-y-0.5">
+                    <Label htmlFor="cobrar-materiais" className="cursor-pointer font-medium">
+                      Cobrar materiais e medicamentos
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Se ativado, os materiais e medicamentos utilizados serão adicionados ao custo do evento e cobrados do contratante.
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
