@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { explainError } from '@/utils/explainError';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +55,7 @@ export function ForcePasswordChange({ onComplete }: ForcePasswordChangeProps) {
       toast({ title: 'Senha alterada com sucesso!' });
       onComplete();
     } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro ao alterar senha', description: explainError(err, 'Não foi possível alterar a senha.'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
