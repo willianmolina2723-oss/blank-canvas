@@ -155,9 +155,24 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
      setForm({ ...form, departure_time: value });
    };
  
-   const handleArrivalChange = (value: string) => {
-     setForm({ ...form, arrival_time: value });
-   };
+    const handleArrivalChange = (value: string) => {
+      let newEnd = value;
+      if (form.departure_time && newEnd) {
+        const startDate = form.departure_time.slice(0, 10);
+        const endDate = newEnd.slice(0, 10);
+        const startTime = form.departure_time.slice(11);
+        const endTime = newEnd.slice(11);
+        if (startDate === endDate && endTime < startTime) {
+          const nextDay = new Date(startDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          const y = nextDay.getFullYear();
+          const m = String(nextDay.getMonth() + 1).padStart(2, '0');
+          const d = String(nextDay.getDate()).padStart(2, '0');
+          newEnd = `${y}-${m}-${d}T${endTime}`;
+        }
+      }
+      setForm({ ...form, arrival_time: newEnd });
+    };
  
    const handleParticipantToggle = (profileId: string, role: AppRole) => {
      setSelectedParticipants(prev => {
