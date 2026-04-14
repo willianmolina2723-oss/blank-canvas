@@ -1802,6 +1802,7 @@ export type Database = {
           professional_id: string | null
           updated_at: string
           user_id: string
+          valor_hora: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1819,6 +1820,7 @@ export type Database = {
           professional_id?: string | null
           updated_at?: string
           user_id: string
+          valor_hora?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -1836,6 +1838,7 @@ export type Database = {
           professional_id?: string | null
           updated_at?: string
           user_id?: string
+          valor_hora?: number | null
         }
         Relationships: [
           {
