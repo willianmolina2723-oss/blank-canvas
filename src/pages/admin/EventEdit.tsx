@@ -22,15 +22,16 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
    roles: AppRole[];
  }
  
- interface EventForm {
-   code: string;
-   ambulance_id: string;
-   location: string;
-   description: string;
-   status: EventStatus;
-   departure_time: string;
-   arrival_time: string;
- }
+  interface EventForm {
+    code: string;
+    ambulance_id: string;
+    location: string;
+    description: string;
+    status: EventStatus;
+    departure_time: string;
+    arrival_time: string;
+    cobrar_materiais_medicamentos: boolean;
+  }
  
  export default function EventEdit() {
    const { id } = useParams<{ id: string }>();
@@ -38,15 +39,16 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
    const { isAdmin, isLoading: authLoading } = useAuth();
    const { toast } = useToast();
  
-   const [form, setForm] = useState<EventForm>({
-     code: '',
-     ambulance_id: '',
-     location: '',
-     description: '',
-     status: 'ativo',
-     departure_time: '',
-     arrival_time: '',
-   });
+    const [form, setForm] = useState<EventForm>({
+      code: '',
+      ambulance_id: '',
+      location: '',
+      description: '',
+      status: 'ativo',
+      departure_time: '',
+      arrival_time: '',
+      cobrar_materiais_medicamentos: false,
+    });
   const [ambulances, setAmbulances] = useState<AmbulanceType[]>([]);
    const [profiles, setProfiles] = useState<ProfileWithRoles[]>([]);
    const [selectedParticipants, setSelectedParticipants] = useState<Record<string, AppRole | null>>({});
@@ -79,15 +81,16 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
  
        if (eventError) throw eventError;
  
-       setForm({
-         code: eventData.code || '',
-         ambulance_id: eventData.ambulance_id || '',
-         location: eventData.location || '',
-         description: eventData.description || '',
-         status: eventData.status as EventStatus,
-         departure_time: (eventData as any).departure_time ? (eventData as any).departure_time.slice(0, 16) : '',
-         arrival_time: (eventData as any).arrival_time ? (eventData as any).arrival_time.slice(0, 16) : '',
-       });
+        setForm({
+          code: eventData.code || '',
+          ambulance_id: eventData.ambulance_id || '',
+          location: eventData.location || '',
+          description: eventData.description || '',
+          status: eventData.status as EventStatus,
+          departure_time: (eventData as any).departure_time ? (eventData as any).departure_time.slice(0, 16) : '',
+          arrival_time: (eventData as any).arrival_time ? (eventData as any).arrival_time.slice(0, 16) : '',
+          cobrar_materiais_medicamentos: (eventData as any).cobrar_materiais_medicamentos ?? false,
+        });
        setOriginalAmbulanceId(eventData.ambulance_id || '');
  
        // Fetch current participants
@@ -185,18 +188,19 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
      setIsSaving(true);
      try {
        // Update event
-       const { error: eventError } = await supabase
-         .from('events')
-         .update({
-           code: form.code.trim(),
-           ambulance_id: form.ambulance_id || null,
-           location: form.location.trim() || null,
-           description: form.description.trim() || null,
-           status: form.status,
-           departure_time: form.departure_time || null,
-           arrival_time: form.arrival_time || null,
-         })
-         .eq('id', id);
+        const { error: eventError } = await supabase
+          .from('events')
+          .update({
+            code: form.code.trim(),
+            ambulance_id: form.ambulance_id || null,
+            location: form.location.trim() || null,
+            description: form.description.trim() || null,
+            status: form.status,
+            departure_time: form.departure_time || null,
+            arrival_time: form.arrival_time || null,
+            cobrar_materiais_medicamentos: form.cobrar_materiais_medicamentos,
+          } as any)
+          .eq('id', id);
  
        if (eventError) throw eventError;
  
@@ -382,16 +386,32 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
                </div>
              </div>
  
-             <div className="space-y-2">
-               <Label htmlFor="description">Descrição <span className="text-destructive">*</span></Label>
-               <Textarea
-                 id="description"
-                 value={form.description}
-                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                 placeholder="Descreva o chamado..."
-                 rows={3}
-               />
-             </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="description"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Descreva o chamado..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
+                <Checkbox
+                  id="cobrar-materiais-edit"
+                  checked={form.cobrar_materiais_medicamentos}
+                  onCheckedChange={(checked) => setForm({ ...form, cobrar_materiais_medicamentos: checked === true })}
+                />
+                <div className="space-y-0.5">
+                  <Label htmlFor="cobrar-materiais-edit" className="cursor-pointer font-medium">
+                    Cobrar materiais e medicamentos
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Se ativado, os materiais e medicamentos utilizados serão adicionados ao custo do evento e cobrados do contratante.
+                  </p>
+                </div>
+              </div>
            </CardContent>
          </Card>
  
