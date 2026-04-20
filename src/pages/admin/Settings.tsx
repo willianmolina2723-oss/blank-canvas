@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { formatDateBR } from '@/utils/dateFormat';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LogoUpload } from '@/components/admin/LogoUpload';
 import { SettingsReviewSection } from '@/components/reviews/SettingsReviewSection';
 import { DefaultRatesSettings } from '@/components/admin/DefaultRatesSettings';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Settings as SettingsIcon, CreditCard, CheckCircle, ArrowUpCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Settings as SettingsIcon, CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
 
