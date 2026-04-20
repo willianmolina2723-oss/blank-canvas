@@ -264,7 +264,11 @@ export default function EventFinancial() {
     return (transportMinutes / 60) * rate + Number(c.extras) - Number(c.discounts);
   };
 
-  const finalValue = finance.contract_value - finance.discounts + finance.additions;
+  const totalInsumos = insumoCosts.totalMed + insumoCosts.totalMat;
+  const cobrarInsumos = !!event?.cobrar_materiais_medicamentos;
+  const insumosRevenue = cobrarInsumos ? totalInsumos : 0;
+  const baseContractValue = finance.contract_value - finance.discounts + finance.additions;
+  const finalValue = baseContractValue + insumosRevenue;
   const totalStaff = staffCosts.length > 0
     ? staffCosts.reduce((s: number, c: any) => {
         const pt = participants.find((p: any) => p.profile_id === c.profile_id);
@@ -276,9 +280,9 @@ export default function EventFinancial() {
         return s + (transportMinutes / 60) * rate;
       }, 0);
   const totalOther = otherCosts.reduce((s: number, c: any) => s + Number(c.amount), 0);
-  const totalInsumos = insumoCosts.totalMed + insumoCosts.totalMat;
   const totalPaid = payments.filter((p: any) => !p.cancelled).reduce((s: number, p: any) => s + Number(p.amount), 0);
   const totalFuel = fuelCost.cost;
+  // Insumos sempre saem como custo; quando cobrados, entram também como receita (efeito líquido = 0 no lucro)
   const grossProfit = finalValue - totalStaff - totalOther - totalInsumos - totalFuel;
 
   const exportEventCSV = () => {
