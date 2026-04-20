@@ -13,13 +13,52 @@ import { Button } from '@/components/ui/button';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
 
+const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
+  {
+    plano: 'OPERACIONAL',
+    price: 397,
+    features: ['Eventos', 'Escalas', 'Fichas Clínicas', 'Relatórios', 'Checklist', 'Oportunidades'],
+  },
+  {
+    plano: 'GESTAO_EQUIPE',
+    price: 597,
+    features: ['Tudo do Operacional', 'Pagamento de Freelancers'],
+  },
+  {
+    plano: 'GESTAO_COMPLETA',
+    price: 897,
+    features: ['Tudo do Gestão de Equipe', 'Receita por Evento', 'Contas a Receber', 'Dashboard Financeiro', 'Exportação Contábil'],
+  },
+];
+
 const SUPPORT_WHATSAPP = '5548998331762'; // Número de suporte (DDI+DDD+número, sem símbolos)
 
 const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 'contratar' | 'regularizar') => {
   const msg = motivo === 'regularizar'
     ? `Olá! Sou *${nome}* da empresa *${empresa}*. Gostaria de regularizar minha assinatura do plano *${plano}*.`
     : `Olá! Sou *${nome}* da empresa *${empresa}*. Tenho interesse em contratar o plano *${plano}*.`;
-  return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+
+  const text = encodeURIComponent(msg);
+  const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  return isMobile
+    ? `https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`
+    : `https://web.whatsapp.com/send?phone=${SUPPORT_WHATSAPP}&text=${text}`;
+};
+
+const openWhatsAppLink = (url: string) => {
+  const popup = window.open(url, '_blank', 'noopener,noreferrer');
+
+  if (popup) {
+    popup.opener = null;
+    return;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).catch(() => undefined);
+  }
+
+  window.alert('Não foi possível abrir o WhatsApp automaticamente. Copiei o link para você abrir manualmente.');
 };
 
 const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
