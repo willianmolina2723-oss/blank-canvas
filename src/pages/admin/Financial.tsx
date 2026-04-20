@@ -72,7 +72,7 @@ export default function Financial() {
       // Fetch events by departure_time or created_at within month
       const { data: rawEvents } = await supabase
         .from('events')
-        .select('id, code, status, location, created_at, departure_time, arrival_time, ambulance_id')
+        .select('id, code, status, location, created_at, departure_time, arrival_time, ambulance_id, cobrar_materiais_medicamentos')
         .order('created_at', { ascending: false });
 
       // Filter events that belong to the selected month
