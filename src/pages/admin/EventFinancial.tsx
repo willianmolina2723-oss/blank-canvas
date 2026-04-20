@@ -343,9 +343,9 @@ export default function EventFinancial() {
             { label: 'Outros', value: totalOther, cls: 'text-red-600' },
             { label: 'Lucro', value: grossProfit, cls: grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600' },
           ].map(c => (
-            <Card key={c.label}><CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground">{c.label}</p>
-              <p className={`text-lg font-bold ${c.cls}`}>{fmt(c.value)}</p>
+            <Card key={c.label}><CardContent className="p-2 text-center">
+              <p className="text-[10px] text-muted-foreground truncate">{c.label}</p>
+              <p className={`text-sm font-bold ${c.cls} truncate`} title={fmt(c.value)}>{fmt(c.value)}</p>
             </CardContent></Card>
           ))}
         </div>
