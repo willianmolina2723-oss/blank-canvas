@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { formatDateBR } from '@/utils/dateFormat';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LogoUpload } from '@/components/admin/LogoUpload';
 import { SettingsReviewSection } from '@/components/reviews/SettingsReviewSection';
 import { DefaultRatesSettings } from '@/components/admin/DefaultRatesSettings';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Settings as SettingsIcon, CreditCard, CheckCircle, ArrowUpCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Settings as SettingsIcon, CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
 
@@ -36,92 +33,12 @@ const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
 export default function Settings() {
   const { isAdmin, isLoading, empresa, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
-  
-  const [subscriptionInfo, setSubscriptionInfo] = useState<{
-    subscribed: boolean;
-    plano: string | null;
-    subscription_end: string | null;
-  } | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
       navigate('/');
     }
   }, [isAdmin, isLoading, navigate]);
-
-  useEffect(() => {
-    const checkout = searchParams.get('checkout');
-    if (checkout === 'success') {
-      toast.success('Assinatura realizada com sucesso!');
-      checkSubscription().then(() => {
-        // Reload the page to refresh all available features
-        window.location.href = window.location.pathname;
-      });
-    } else if (checkout === 'cancel') {
-      toast.info('Checkout cancelado.');
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!isLoading && isAdmin) {
-      checkSubscription();
-    }
-  }, [isLoading, isAdmin]);
-
-  const checkSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('check-subscription');
-      if (error) throw error;
-      setSubscriptionInfo(data);
-      return data;
-    } catch (err) {
-      console.error('Error checking subscription:', err);
-      return null;
-    }
-  };
-
-  const handleRefreshSubscription = async () => {
-    const data = await checkSubscription();
-    if (data) {
-      // Reload to refresh all features based on new plan
-      window.location.reload();
-    }
-  };
-
-  const handleCheckout = async (plano: PlanoEmpresa) => {
-    setCheckoutLoading(plano);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plano },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
-    } catch (err: any) {
-      toast.error('Erro ao iniciar checkout: ' + (err.message || 'Erro desconhecido'));
-    } finally {
-      setCheckoutLoading(null);
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    setPortalLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('customer-portal');
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
-    } catch (err: any) {
-      toast.error('Erro ao abrir portal: ' + (err.message || 'Erro desconhecido'));
-    } finally {
-      setPortalLoading(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -135,7 +52,10 @@ export default function Settings() {
 
   if (!isAdmin) return null;
 
-  const isSubscribed = subscriptionInfo?.subscribed;
+  const planoAtual = empresa?.plano as PlanoEmpresa | undefined;
+  const status = empresa?.status_assinatura;
+  const vencimento = empresa?.data_vencimento;
+  const isVencido = status === 'SUSPENSA' || status === 'CANCELADA';
 
   return (
     <MainLayout>
@@ -160,34 +80,38 @@ export default function Settings() {
               Assinatura
             </h2>
 
-            {isSubscribed && (
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="pt-6 flex items-center justify-between flex-wrap gap-4">
-                  <div>
+            {planoAtual && (
+              <Card className={isVencido ? 'border-destructive/40 bg-destructive/5' : 'border-primary/30 bg-primary/5'}>
+                <CardContent className="pt-6 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <p className="font-semibold">
-                      Plano ativo: {PLANO_LABELS[subscriptionInfo?.plano as PlanoEmpresa] || subscriptionInfo?.plano}
+                      Plano ativo: {PLANO_LABELS[planoAtual]}
                     </p>
-                    {subscriptionInfo?.subscription_end && (
-                      <p className="text-sm text-muted-foreground">
-                        Próxima renovação: {formatDateBR(subscriptionInfo.subscription_end)}
-                      </p>
-                    )}
+                    <Badge variant={isVencido ? 'destructive' : 'default'}>
+                      {status}
+                    </Badge>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleManageSubscription}
-                    disabled={portalLoading}
-                  >
-                    {portalLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Gerenciar Assinatura
-                  </Button>
+                  {vencimento && (
+                    <p className="text-sm text-muted-foreground">
+                      {isVencido ? 'Vencido em: ' : 'Vencimento: '}
+                      {formatDateBR(vencimento)}
+                    </p>
+                  )}
+                  {isVencido && (
+                    <div className="flex items-start gap-2 mt-3 p-3 rounded-md bg-destructive/10 text-sm">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <span>
+                        Sua assinatura está suspensa. Entre em contato com o suporte para regularizar o pagamento e reativar o acesso completo.
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {PLANS.map(({ plano, price, features }) => {
-                const isActive = isSubscribed && subscriptionInfo?.plano === plano;
+                const isActive = planoAtual === plano;
 
                 return (
                   <Card
@@ -217,39 +141,15 @@ export default function Settings() {
                           </li>
                         ))}
                       </ul>
-
-                      {isActive ? (
-                        <Button variant="outline" className="w-full" disabled>
-                          Plano Atual
-                        </Button>
-                      ) : (
-                        <Button
-                          className="w-full gap-2"
-                          onClick={() => handleCheckout(plano)}
-                          disabled={!!checkoutLoading}
-                        >
-                          {checkoutLoading === plano ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <ArrowUpCircle className="h-4 w-4" />
-                          )}
-                          {isSubscribed ? 'Trocar Plano' : 'Assinar'}
-                        </Button>
-                      )}
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefreshSubscription}
-              className="text-muted-foreground"
-            >
-              Atualizar status da assinatura
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              Para alterar de plano ou regularizar pagamentos, entre em contato com o suporte.
+            </p>
           </div>
         )}
 
