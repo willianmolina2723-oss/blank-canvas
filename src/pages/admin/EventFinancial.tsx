@@ -365,7 +365,10 @@ export default function EventFinancial() {
               <div><Label>Valor do Contrato</Label><Input type="number" step="0.01" value={finance.contract_value} onChange={e => setFinance(p => ({ ...p, contract_value: Number(e.target.value) }))} /></div>
               <div><Label>Descontos</Label><Input type="number" step="0.01" value={finance.discounts} onChange={e => setFinance(p => ({ ...p, discounts: Number(e.target.value) }))} /></div>
               <div><Label>Adicionais</Label><Input type="number" step="0.01" value={finance.additions} onChange={e => setFinance(p => ({ ...p, additions: Number(e.target.value) }))} /></div>
-              <div><Label>Valor Final</Label><Input readOnly value={fmt(finalValue)} className="bg-muted" /></div>
+              <div>
+                <Label>Valor Final {cobrarInsumos && insumosRevenue > 0 && <span className="text-xs text-emerald-600 font-normal">(+ {fmt(insumosRevenue)} insumos)</span>}</Label>
+                <Input readOnly value={fmt(finalValue)} className="bg-muted font-semibold" />
+              </div>
               <div>
                 <Label>Forma de Pagamento</Label>
                 <Select value={finance.payment_method} onValueChange={(v) => setFinance(p => ({ ...p, payment_method: v }))}>
