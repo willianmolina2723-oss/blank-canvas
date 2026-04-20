@@ -6,11 +6,21 @@ import { LogoUpload } from '@/components/admin/LogoUpload';
 import { SettingsReviewSection } from '@/components/reviews/SettingsReviewSection';
 import { DefaultRatesSettings } from '@/components/admin/DefaultRatesSettings';
 import { useAuth } from '@/contexts/AuthContext';
-import { Settings as SettingsIcon, CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
+import { Settings as SettingsIcon, CreditCard, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
+
+const SUPPORT_WHATSAPP = '5511999999999'; // Número de suporte (DDI+DDD+número, sem símbolos)
+
+const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 'contratar' | 'regularizar') => {
+  const msg = motivo === 'regularizar'
+    ? `Olá! Sou *${nome}* da empresa *${empresa}*. Gostaria de regularizar minha assinatura do plano *${plano}*.`
+    : `Olá! Sou *${nome}* da empresa *${empresa}*. Tenho interesse em contratar o plano *${plano}*.`;
+  return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+};
 
 const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
   {
@@ -31,8 +41,10 @@ const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
 ];
 
 export default function Settings() {
-  const { isAdmin, isLoading, empresa, isSuperAdmin } = useAuth();
+  const { isAdmin, isLoading, empresa, isSuperAdmin, profile } = useAuth();
   const navigate = useNavigate();
+  const userName = profile?.full_name || 'Administrador';
+  const empresaName = empresa?.nome_fantasia || 'minha empresa';
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
@@ -98,11 +110,26 @@ export default function Settings() {
                     </p>
                   )}
                   {isVencido && (
-                    <div className="flex items-start gap-2 mt-3 p-3 rounded-md bg-destructive/10 text-sm">
-                      <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                      <span>
-                        Sua assinatura está suspensa. Entre em contato com o suporte para regularizar o pagamento e reativar o acesso completo.
-                      </span>
+                    <div className="mt-3 space-y-3">
+                      <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 text-sm">
+                        <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                        <span>
+                          Sua assinatura está suspensa. Entre em contato com o suporte para regularizar o pagamento e reativar o acesso completo.
+                        </span>
+                      </div>
+                      <Button
+                        asChild
+                        className="bg-[#25D366] hover:bg-[#20BA5A] text-white w-full sm:w-auto"
+                      >
+                        <a
+                          href={buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[planoAtual], 'regularizar')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Falar com suporte no WhatsApp
+                        </a>
+                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -141,6 +168,20 @@ export default function Settings() {
                           </li>
                         ))}
                       </ul>
+                      <Button
+                        asChild
+                        variant={isActive ? 'outline' : 'default'}
+                        className={!isActive ? 'bg-[#25D366] hover:bg-[#20BA5A] text-white w-full' : 'w-full'}
+                      >
+                        <a
+                          href={buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[plano], isActive ? 'regularizar' : 'contratar')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          {isActive ? 'Falar sobre meu plano' : 'Quero este plano'}
+                        </a>
+                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -148,7 +189,7 @@ export default function Settings() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Para alterar de plano ou regularizar pagamentos, entre em contato com o suporte.
+              Ao clicar em "Quero este plano", abriremos uma conversa no WhatsApp com o suporte já com seu nome, empresa e plano selecionado.
             </p>
           </div>
         )}
