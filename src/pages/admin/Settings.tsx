@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
 
+const SUPPORT_WHATSAPP = '5548998331762';
+
 const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
   {
     plano: 'OPERACIONAL',
@@ -30,8 +32,6 @@ const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
     features: ['Tudo do Gestão de Equipe', 'Receita por Evento', 'Contas a Receber', 'Dashboard Financeiro', 'Exportação Contábil'],
   },
 ];
-
-const SUPPORT_WHATSAPP = '5548998331762'; // Número de suporte (DDI+DDD+número, sem símbolos)
 
 const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 'contratar' | 'regularizar') => {
   const msg = motivo === 'regularizar'
@@ -46,7 +46,7 @@ const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 
     : `https://web.whatsapp.com/send?phone=${SUPPORT_WHATSAPP}&text=${text}`;
 };
 
-const openWhatsAppLink = (url: string) => {
+const openWhatsAppLink = async (url: string) => {
   const popup = window.open(url, '_blank', 'noopener,noreferrer');
 
   if (popup) {
@@ -54,36 +54,17 @@ const openWhatsAppLink = (url: string) => {
     return;
   }
 
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(url).catch(() => undefined);
+  try {
+    await navigator.clipboard.writeText(url);
+    window.alert('Não foi possível abrir o WhatsApp automaticamente. O link foi copiado para você abrir manualmente.');
+  } catch {
+    window.alert('Não foi possível abrir o WhatsApp automaticamente.');
   }
-
-  window.alert('Não foi possível abrir o WhatsApp automaticamente. Copiei o link para você abrir manualmente.');
 };
-
-const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
-  {
-    plano: 'OPERACIONAL',
-    price: 397,
-    features: ['Eventos', 'Escalas', 'Fichas Clínicas', 'Relatórios', 'Checklist', 'Oportunidades'],
-  },
-  {
-    plano: 'GESTAO_EQUIPE',
-    price: 597,
-    features: ['Tudo do Operacional', 'Pagamento de Freelancers'],
-  },
-  {
-    plano: 'GESTAO_COMPLETA',
-    price: 897,
-    features: ['Tudo do Gestão de Equipe', 'Receita por Evento', 'Contas a Receber', 'Dashboard Financeiro', 'Exportação Contábil'],
-  },
-];
 
 export default function Settings() {
   const { isAdmin, isLoading, empresa, isSuperAdmin, profile } = useAuth();
   const navigate = useNavigate();
-  const userName = profile?.full_name || 'Administrador';
-  const empresaName = empresa?.nome_fantasia || 'minha empresa';
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
@@ -107,6 +88,8 @@ export default function Settings() {
   const status = empresa?.status_assinatura;
   const vencimento = empresa?.data_vencimento;
   const isVencido = status === 'SUSPENSA' || status === 'CANCELADA';
+  const userName = profile?.full_name || 'Administrador';
+  const empresaName = empresa?.nome_fantasia || 'minha empresa';
 
   return (
     <MainLayout>
@@ -123,7 +106,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Subscription Section */}
         {!isSuperAdmin && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -157,17 +139,12 @@ export default function Settings() {
                         </span>
                       </div>
                       <Button
-                        asChild
-                        className="bg-[#25D366] hover:bg-[#20BA5A] text-white w-full sm:w-auto"
+                        type="button"
+                        className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                        onClick={() => openWhatsAppLink(buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[planoAtual], 'regularizar'))}
                       >
-                        <a
-                          href={buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[planoAtual], 'regularizar')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          Falar com suporte no WhatsApp
-                        </a>
+                        <MessageCircle className="h-4 w-4" />
+                        Falar com suporte no WhatsApp
                       </Button>
                     </div>
                   )}
@@ -208,18 +185,13 @@ export default function Settings() {
                         ))}
                       </ul>
                       <Button
-                        asChild
+                        type="button"
                         variant={isActive ? 'outline' : 'default'}
-                        className={!isActive ? 'bg-[#25D366] hover:bg-[#20BA5A] text-white w-full' : 'w-full'}
+                        className="w-full"
+                        onClick={() => openWhatsAppLink(buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[plano], isActive ? 'regularizar' : 'contratar'))}
                       >
-                        <a
-                          href={buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[plano], isActive ? 'regularizar' : 'contratar')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          {isActive ? 'Falar sobre meu plano' : 'Quero este plano'}
-                        </a>
+                        <MessageCircle className="h-4 w-4" />
+                        {isActive ? 'Falar sobre meu plano' : 'Quero este plano'}
                       </Button>
                     </CardContent>
                   </Card>
@@ -228,18 +200,13 @@ export default function Settings() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Ao clicar em "Quero este plano", abriremos uma conversa no WhatsApp com o suporte já com seu nome, empresa e plano selecionado.
+              Ao clicar, abriremos uma conversa no WhatsApp com seu nome, empresa e plano selecionado.
             </p>
           </div>
         )}
 
-        {/* Logo/Identity Section */}
         <LogoUpload />
-
-        {/* Default Rates Section */}
         <DefaultRatesSettings />
-
-        {/* Review Section */}
         <SettingsReviewSection />
       </div>
     </MainLayout>
