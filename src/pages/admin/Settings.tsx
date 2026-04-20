@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
 
-const SUPPORT_WHATSAPP = '5511999999999'; // Número de suporte (DDI+DDD+número, sem símbolos)
+const SUPPORT_WHATSAPP = '5548998331762'; // Número de suporte (DDI+DDD+número, sem símbolos)
 
 const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 'contratar' | 'regularizar') => {
   const msg = motivo === 'regularizar'
