@@ -72,7 +72,7 @@ export default function Financial() {
       // Fetch events by departure_time or created_at within month
       const { data: rawEvents } = await supabase
         .from('events')
-        .select('id, code, status, location, created_at, departure_time, arrival_time, ambulance_id')
+        .select('id, code, status, location, created_at, departure_time, arrival_time, ambulance_id, cobrar_materiais_medicamentos')
         .order('created_at', { ascending: false });
 
       // Filter events that belong to the selected month
@@ -205,7 +205,26 @@ export default function Financial() {
         payments = p || [];
       }
 
-      const totalRevenue = (finances || []).reduce((sum: number, f: any) => sum + Number(f.contract_value) - Number(f.discounts) + Number(f.additions), 0);
+      // Map of event_id -> insumos cobrados (med + mat) when cobrar_materiais_medicamentos = true
+      const insumosByEvent = new Map<string, number>();
+      (checklistItems || []).forEach((ci: any) => {
+        if (ci.item_type !== 'consumo_medicamentos' && ci.item_type !== 'materiais') return;
+        const q = parseInt(ci.notes || '0') || 0;
+        if (q <= 0) return;
+        const uc: number = ci.cost_item_id
+          ? Number(costItemIdMap.get(ci.cost_item_id) ?? 0)
+          : Number(costItemNameMap.get(String(ci.item_name || '').toLowerCase()) ?? 0);
+        insumosByEvent.set(ci.event_id, (insumosByEvent.get(ci.event_id) || 0) + uc * q);
+      });
+      const eventChargeMap = new Map((eventsData || []).map((e: any) => [e.id, !!e.cobrar_materiais_medicamentos]));
+      let insumosRevenueTotal = 0;
+      (finances || []).forEach((f: any) => {
+        if (eventChargeMap.get(f.event_id)) {
+          insumosRevenueTotal += insumosByEvent.get(f.event_id) || 0;
+        }
+      });
+
+      const totalRevenue = (finances || []).reduce((sum: number, f: any) => sum + Number(f.contract_value) - Number(f.discounts) + Number(f.additions), 0) + insumosRevenueTotal;
       const totalOtherCosts = (otherCosts || []).reduce((sum: number, o: any) => sum + Number(o.amount), 0);
 
       // Calculate paid: from payment records + auto-paid events (status='pago' without records)
