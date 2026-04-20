@@ -13,14 +13,7 @@ import { Button } from '@/components/ui/button';
 import type { PlanoEmpresa } from '@/types/database';
 import { PLANO_LABELS } from '@/types/database';
 
-const SUPPORT_WHATSAPP = '5548998331762'; // Número de suporte (DDI+DDD+número, sem símbolos)
-
-const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 'contratar' | 'regularizar') => {
-  const msg = motivo === 'regularizar'
-    ? `Olá! Sou *${nome}* da empresa *${empresa}*. Gostaria de regularizar minha assinatura do plano *${plano}*.`
-    : `Olá! Sou *${nome}* da empresa *${empresa}*. Tenho interesse em contratar o plano *${plano}*.`;
-  return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
-};
+const SUPPORT_WHATSAPP = '5548998331762';
 
 const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
   {
@@ -40,11 +33,38 @@ const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
   },
 ];
 
+const buildWhatsAppUrl = (nome: string, empresa: string, plano: string, motivo: 'contratar' | 'regularizar') => {
+  const msg = motivo === 'regularizar'
+    ? `Olá! Sou *${nome}* da empresa *${empresa}*. Gostaria de regularizar minha assinatura do plano *${plano}*.`
+    : `Olá! Sou *${nome}* da empresa *${empresa}*. Tenho interesse em contratar o plano *${plano}*.`;
+
+  const text = encodeURIComponent(msg);
+  const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  return isMobile
+    ? `https://wa.me/${SUPPORT_WHATSAPP}?text=${text}`
+    : `https://web.whatsapp.com/send?phone=${SUPPORT_WHATSAPP}&text=${text}`;
+};
+
+const openWhatsAppLink = async (url: string) => {
+  const popup = window.open(url, '_blank', 'noopener,noreferrer');
+
+  if (popup) {
+    popup.opener = null;
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    window.alert('Não foi possível abrir o WhatsApp automaticamente. O link foi copiado para você abrir manualmente.');
+  } catch {
+    window.alert('Não foi possível abrir o WhatsApp automaticamente.');
+  }
+};
+
 export default function Settings() {
   const { isAdmin, isLoading, empresa, isSuperAdmin, profile } = useAuth();
   const navigate = useNavigate();
-  const userName = profile?.full_name || 'Administrador';
-  const empresaName = empresa?.nome_fantasia || 'minha empresa';
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
@@ -68,6 +88,8 @@ export default function Settings() {
   const status = empresa?.status_assinatura;
   const vencimento = empresa?.data_vencimento;
   const isVencido = status === 'SUSPENSA' || status === 'CANCELADA';
+  const userName = profile?.full_name || 'Administrador';
+  const empresaName = empresa?.nome_fantasia || 'minha empresa';
 
   return (
     <MainLayout>
@@ -84,7 +106,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Subscription Section */}
         {!isSuperAdmin && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -118,17 +139,12 @@ export default function Settings() {
                         </span>
                       </div>
                       <Button
-                        asChild
-                        className="bg-[#25D366] hover:bg-[#20BA5A] text-white w-full sm:w-auto"
+                        type="button"
+                        className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                        onClick={() => openWhatsAppLink(buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[planoAtual], 'regularizar'))}
                       >
-                        <a
-                          href={buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[planoAtual], 'regularizar')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          Falar com suporte no WhatsApp
-                        </a>
+                        <MessageCircle className="h-4 w-4" />
+                        Falar com suporte no WhatsApp
                       </Button>
                     </div>
                   )}
@@ -169,18 +185,13 @@ export default function Settings() {
                         ))}
                       </ul>
                       <Button
-                        asChild
+                        type="button"
                         variant={isActive ? 'outline' : 'default'}
-                        className={!isActive ? 'bg-[#25D366] hover:bg-[#20BA5A] text-white w-full' : 'w-full'}
+                        className="w-full"
+                        onClick={() => openWhatsAppLink(buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[plano], isActive ? 'regularizar' : 'contratar'))}
                       >
-                        <a
-                          href={buildWhatsAppUrl(userName, empresaName, PLANO_LABELS[plano], isActive ? 'regularizar' : 'contratar')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          {isActive ? 'Falar sobre meu plano' : 'Quero este plano'}
-                        </a>
+                        <MessageCircle className="h-4 w-4" />
+                        {isActive ? 'Falar sobre meu plano' : 'Quero este plano'}
                       </Button>
                     </CardContent>
                   </Card>
@@ -189,18 +200,13 @@ export default function Settings() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Ao clicar em "Quero este plano", abriremos uma conversa no WhatsApp com o suporte já com seu nome, empresa e plano selecionado.
+              Ao clicar, abriremos uma conversa no WhatsApp com seu nome, empresa e plano selecionado.
             </p>
           </div>
         )}
 
-        {/* Logo/Identity Section */}
         <LogoUpload />
-
-        {/* Default Rates Section */}
         <DefaultRatesSettings />
-
-        {/* Review Section */}
         <SettingsReviewSection />
       </div>
     </MainLayout>
