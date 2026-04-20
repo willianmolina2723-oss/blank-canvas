@@ -33,92 +33,12 @@ const PLANS: { plano: PlanoEmpresa; price: number; features: string[] }[] = [
 export default function Settings() {
   const { isAdmin, isLoading, empresa, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
-  
-  const [subscriptionInfo, setSubscriptionInfo] = useState<{
-    subscribed: boolean;
-    plano: string | null;
-    subscription_end: string | null;
-  } | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
       navigate('/');
     }
   }, [isAdmin, isLoading, navigate]);
-
-  useEffect(() => {
-    const checkout = searchParams.get('checkout');
-    if (checkout === 'success') {
-      toast.success('Assinatura realizada com sucesso!');
-      checkSubscription().then(() => {
-        // Reload the page to refresh all available features
-        window.location.href = window.location.pathname;
-      });
-    } else if (checkout === 'cancel') {
-      toast.info('Checkout cancelado.');
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!isLoading && isAdmin) {
-      checkSubscription();
-    }
-  }, [isLoading, isAdmin]);
-
-  const checkSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('check-subscription');
-      if (error) throw error;
-      setSubscriptionInfo(data);
-      return data;
-    } catch (err) {
-      console.error('Error checking subscription:', err);
-      return null;
-    }
-  };
-
-  const handleRefreshSubscription = async () => {
-    const data = await checkSubscription();
-    if (data) {
-      // Reload to refresh all features based on new plan
-      window.location.reload();
-    }
-  };
-
-  const handleCheckout = async (plano: PlanoEmpresa) => {
-    setCheckoutLoading(plano);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plano },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
-    } catch (err: any) {
-      toast.error('Erro ao iniciar checkout: ' + (err.message || 'Erro desconhecido'));
-    } finally {
-      setCheckoutLoading(null);
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    setPortalLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('customer-portal');
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, '_blank');
-      }
-    } catch (err: any) {
-      toast.error('Erro ao abrir portal: ' + (err.message || 'Erro desconhecido'));
-    } finally {
-      setPortalLoading(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -132,7 +52,10 @@ export default function Settings() {
 
   if (!isAdmin) return null;
 
-  const isSubscribed = subscriptionInfo?.subscribed;
+  const planoAtual = empresa?.plano as PlanoEmpresa | undefined;
+  const status = empresa?.status_assinatura;
+  const vencimento = empresa?.data_vencimento;
+  const isVencido = status === 'SUSPENSA' || status === 'CANCELADA';
 
   return (
     <MainLayout>
