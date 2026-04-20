@@ -9,6 +9,17 @@ import { Loader2, TrendingUp, Clock, Calendar, DollarSign, ChevronLeft, ChevronR
 import { formatBR } from '@/utils/dateFormat';
 import { Badge } from '@/components/ui/badge';
 import { useDefaultRates } from '@/hooks/useDefaultRates';
+import {
+  startOfMonth,
+  endOfMonth,
+  endOfWeek,
+  eachWeekOfInterval,
+  addDays,
+  addMonths,
+  subMonths,
+  max,
+  min,
+} from 'date-fns';
 
 interface ForecastEvent {
   id: string;
@@ -20,14 +31,35 @@ interface ForecastEvent {
   status: string;
 }
 
-// Returns Monday of the week containing a given date
-function startOfWeekMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // 0 Sun .. 6 Sat
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+interface WeekInfo {
+  weekStart: Date;
+  weekEnd: Date;
+  clampedStart: Date;
+  clampedEnd: Date;
+  label: string;
+  paymentDate: Date;
+  paymentLabel: string;
+}
+
+function getMonthWeeks(monthDate: Date): WeekInfo[] {
+  const mStart = startOfMonth(monthDate);
+  const mEnd = endOfMonth(monthDate);
+  const weekStarts = eachWeekOfInterval({ start: mStart, end: mEnd }, { weekStartsOn: 1 });
+  return weekStarts.map((ws) => {
+    const we = endOfWeek(ws, { weekStartsOn: 1 });
+    const clampedStart = max([ws, mStart]);
+    const clampedEnd = min([we, mEnd]);
+    const paymentDate = addDays(we, 3);
+    return {
+      weekStart: ws,
+      weekEnd: we,
+      clampedStart,
+      clampedEnd,
+      label: `${formatBR(clampedStart, 'dd/MM')} - ${formatBR(clampedEnd, 'dd/MM')}`,
+      paymentDate,
+      paymentLabel: formatBR(paymentDate, 'EEEE dd/MM/yyyy'),
+    };
+  });
 }
 
 export default function EarningsForecast() {
@@ -38,13 +70,54 @@ export default function EarningsForecast() {
   const [valorHora, setValorHora] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Default to next week's Monday
-  const initialMonday = useMemo(() => {
-    const m = startOfWeekMonday(new Date());
-    m.setDate(m.getDate() + 7);
-    return m;
-  }, []);
-  const [weekStart, setWeekStart] = useState<Date>(initialMonday);
+  const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => new Date());
+  const [activeWeekIndex, setActiveWeekIndex] = useState(0);
+
+  const weeks = useMemo(() => getMonthWeeks(currentMonthDate), [currentMonthDate]);
+
+  useEffect(() => {
+    if (activeWeekIndex >= weeks.length) {
+      setActiveWeekIndex(Math.max(0, weeks.length - 1));
+    }
+  }, [weeks, activeWeekIndex]);
+
+  useEffect(() => {
+    const now = new Date();
+    const mStart = startOfMonth(currentMonthDate);
+    const mEnd = endOfMonth(currentMonthDate);
+    if (now >= mStart && now <= mEnd) {
+      const idx = weeks.findIndex((w) => now >= w.clampedStart && now <= w.clampedEnd);
+      setActiveWeekIndex(idx >= 0 ? idx : 0);
+    } else {
+      setActiveWeekIndex(0);
+    }
+  }, [currentMonthDate]);
+
+  const currentWeek = weeks[activeWeekIndex] || weeks[0];
+
+  const goToPrevWeek = () => {
+    if (activeWeekIndex > 0) {
+      setActiveWeekIndex((i) => i - 1);
+    } else {
+      setCurrentMonthDate((d) => {
+        const prev = subMonths(d, 1);
+        const prevWeeks = getMonthWeeks(prev);
+        setActiveWeekIndex(prevWeeks.length - 1);
+        return prev;
+      });
+    }
+  };
+
+  const goToNextWeek = () => {
+    if (activeWeekIndex < weeks.length - 1) {
+      setActiveWeekIndex((i) => i + 1);
+    } else {
+      setCurrentMonthDate((d) => {
+        setActiveWeekIndex(0);
+        return addMonths(d, 1);
+      });
+    }
+  };
 
   // Month filter (yyyy-MM)
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -52,22 +125,15 @@ export default function EarningsForecast() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  const weekEnd = useMemo(() => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 6);
-    d.setHours(23, 59, 59, 999);
-    return d;
-  }, [weekStart]);
-
   useEffect(() => {
     if (!profile) return;
     loadValorHora();
   }, [profile]);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || !currentWeek) return;
     loadWeek();
-  }, [profile, weekStart]);
+  }, [profile, currentMonthDate, activeWeekIndex]);
 
   useEffect(() => {
     if (!profile) return;
@@ -81,7 +147,7 @@ export default function EarningsForecast() {
       .eq('id', profile!.id)
       .single();
     const profileValorHora = (profileData as any)?.valor_hora || 0;
-    const mainRole = roles.find(r => r !== 'admin') || roles[0] || 'condutor';
+    const mainRole = roles.find((r) => r !== 'admin') || roles[0] || 'condutor';
     setValorHora(profileValorHora > 0 ? profileValorHora : getRate(mainRole));
   };
 
@@ -92,7 +158,7 @@ export default function EarningsForecast() {
       .eq('profile_id', profile!.id);
 
     if (!participations || participations.length === 0) return [];
-    const eventIds = participations.map(p => p.event_id);
+    const eventIds = participations.map((p) => p.event_id);
 
     const { data: eventsData } = await supabase
       .from('events')
@@ -109,7 +175,11 @@ export default function EarningsForecast() {
   const loadWeek = async () => {
     setIsLoading(true);
     try {
-      const data = await loadEventsInRange(weekStart, weekEnd);
+      const start = new Date(currentWeek.clampedStart);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(currentWeek.clampedEnd);
+      end.setHours(23, 59, 59, 999);
+      const data = await loadEventsInRange(start, end);
       setWeekEvents(data);
     } catch (err) {
       console.error('Error loading week:', err);
@@ -138,7 +208,7 @@ export default function EarningsForecast() {
 
   const { totalHours, totalEarnings, eventDetails } = useMemo(() => {
     let totalH = 0;
-    const details = weekEvents.map(ev => {
+    const details = weekEvents.map((ev) => {
       const hours = calcHours(ev.departure_time, ev.arrival_time);
       totalH += hours;
       return { ...ev, hours, earnings: hours * valorHora };
@@ -148,7 +218,9 @@ export default function EarningsForecast() {
 
   const monthSummary = useMemo(() => {
     let hours = 0;
-    monthEvents.forEach(ev => { hours += calcHours(ev.departure_time, ev.arrival_time); });
+    monthEvents.forEach((ev) => {
+      hours += calcHours(ev.departure_time, ev.arrival_time);
+    });
     return { hours, earnings: hours * valorHora, count: monthEvents.length };
   }, [monthEvents, valorHora]);
 
@@ -163,19 +235,7 @@ export default function EarningsForecast() {
     return opts;
   }, []);
 
-  const goPrevWeek = () => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() - 7);
-    setWeekStart(d);
-  };
-  const goNextWeek = () => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    setWeekStart(d);
-  };
-  const goCurrentWeek = () => {
-    setWeekStart(startOfWeekMonday(new Date()));
-  };
+  const monthLabel = formatBR(currentMonthDate, "MMMM 'de' yyyy");
 
   if (isLoading && weekEvents.length === 0) {
     return (
@@ -187,33 +247,67 @@ export default function EarningsForecast() {
     );
   }
 
+  if (!currentWeek) return null;
+
   return (
     <MainLayout>
       <div className="space-y-4 animate-fade-in">
-        <div className="flex items-center gap-3">
-          <TrendingUp className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-lg font-bold text-foreground">Previsão de Ganhos</h1>
-            <p className="text-sm text-muted-foreground">
-              Semana de {formatBR(weekStart, 'dd/MM')} a {formatBR(weekEnd, 'dd/MM/yyyy')}
-            </p>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <TrendingUp className="h-6 w-6 text-primary" />
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Previsão de Ganhos</h1>
+              <p className="text-sm text-muted-foreground capitalize">{monthLabel}</p>
+            </div>
           </div>
-        </div>
-
-        {/* Week navigation */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goPrevWeek}>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button variant="outline" size="sm" onClick={() => setCurrentMonthDate((d) => subMonths(d, 1))} className="gap-1">
               <ChevronLeft className="h-4 w-4" />
+              Mês
             </Button>
-            <Button variant="outline" size="sm" onClick={goCurrentWeek}>
-              Semana atual
-            </Button>
-            <Button variant="outline" size="sm" onClick={goNextWeek}>
+            <Button variant="outline" size="sm" onClick={() => setCurrentMonthDate((d) => addMonths(d, 1))} className="gap-1">
+              Mês
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
+
+        {/* Week Navigation - Carousel Style (mesma da Folha de Pagamento) */}
+        <Card>
+          <CardContent className="py-5">
+            <div className="flex items-center justify-between gap-4">
+              <Button variant="ghost" size="icon" onClick={goToPrevWeek}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="text-center flex-1">
+                <p className="font-bold text-foreground text-lg">
+                  Semana {activeWeekIndex + 1}: {currentWeek.label}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Pagamento: <span className="text-primary font-medium capitalize">{currentWeek.paymentLabel}</span>
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={goToNextWeek}>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex justify-center gap-2 mt-4">
+              {weeks.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveWeekIndex(i)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    i === activeWeekIndex
+                      ? 'bg-primary scale-125'
+                      : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                  }`}
+                  aria-label={`Semana ${i + 1}`}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
@@ -279,7 +373,7 @@ export default function EarningsForecast() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {monthOptions.map(opt => (
+                  {monthOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -317,7 +411,7 @@ export default function EarningsForecast() {
               </p>
             ) : (
               <div className="space-y-3">
-                {eventDetails.map(ev => (
+                {eventDetails.map((ev) => (
                   <div
                     key={ev.id}
                     className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
@@ -334,10 +428,10 @@ export default function EarningsForecast() {
                       )}
                       <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
                         {ev.departure_time && (
-                          <span>Saída: {formatBR(new Date(ev.departure_time), "dd/MM HH:mm")}</span>
+                          <span>Saída: {formatBR(new Date(ev.departure_time), 'dd/MM HH:mm')}</span>
                         )}
                         {ev.arrival_time && (
-                          <span>Chegada: {formatBR(new Date(ev.arrival_time), "dd/MM HH:mm")}</span>
+                          <span>Chegada: {formatBR(new Date(ev.arrival_time), 'dd/MM HH:mm')}</span>
                         )}
                       </div>
                     </div>
