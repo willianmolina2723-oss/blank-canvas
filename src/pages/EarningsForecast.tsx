@@ -1,24 +1,23 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, TrendingUp, Clock, Calendar, DollarSign, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { Loader2, TrendingUp, Calendar, ChevronLeft, ChevronRight, Filter, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import { Badge } from '@/components/ui/badge';
 import { useDefaultRates } from '@/hooks/useDefaultRates';
 import {
+  parseISO,
+  differenceInMinutes,
   startOfMonth,
   endOfMonth,
-  endOfWeek,
-  eachWeekOfInterval,
+  endOfDay,
   addDays,
-  addMonths,
-  subMonths,
-  max,
-  min,
+  subDays,
+  getDay,
 } from 'date-fns';
 
 interface ForecastEvent {
@@ -29,101 +28,59 @@ interface ForecastEvent {
   departure_time: string | null;
   arrival_time: string | null;
   status: string;
+  event_date: string;
+  minutes: number;
+  earnings: number;
 }
 
-interface WeekInfo {
-  weekStart: Date;
-  weekEnd: Date;
-  clampedStart: Date;
-  clampedEnd: Date;
-  label: string;
-  paymentDate: Date;
-  paymentLabel: string;
+function formatHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}min`;
 }
 
-function getMonthWeeks(monthDate: Date): WeekInfo[] {
-  const mStart = startOfMonth(monthDate);
-  const mEnd = endOfMonth(monthDate);
-  const weekStarts = eachWeekOfInterval({ start: mStart, end: mEnd }, { weekStartsOn: 1 });
-  return weekStarts.map((ws) => {
-    const we = endOfWeek(ws, { weekStartsOn: 1 });
-    const clampedStart = max([ws, mStart]);
-    const clampedEnd = min([we, mEnd]);
-    const paymentDate = addDays(we, 3);
-    return {
-      weekStart: ws,
-      weekEnd: we,
-      clampedStart,
-      clampedEnd,
-      label: `${formatBR(clampedStart, 'dd/MM')} - ${formatBR(clampedEnd, 'dd/MM')}`,
-      paymentDate,
-      paymentLabel: formatBR(paymentDate, 'EEEE dd/MM/yyyy'),
-    };
-  });
+function calcMinutes(departure: string | null, arrival: string | null): number {
+  if (!departure || !arrival) return 0;
+  try {
+    const dep = parseISO(departure);
+    let arr = parseISO(arrival);
+    if (arr < dep) arr = new Date(arr.getTime() + 24 * 60 * 60 * 1000);
+    const mins = differenceInMinutes(arr, dep);
+    return mins > 0 ? mins : 0;
+  } catch { return 0; }
 }
+
+function getCurrentWedWeekStart(): Date {
+  const now = new Date();
+  const day = getDay(now);
+  const daysBack = (day + 4) % 7;
+  const wed = subDays(now, daysBack);
+  wed.setHours(0, 0, 0, 0);
+  return wed;
+}
+
+function getWeekFromOffset(offset: number): { displayStart: Date; displayEnd: Date; payDate: Date } {
+  const currentWed = getCurrentWedWeekStart();
+  const displayStart = addDays(currentWed, offset * 7);
+  const displayEnd = addDays(displayStart, 6);
+  const payDate = addDays(displayStart, 7);
+  return { displayStart, displayEnd, payDate };
+}
+
+const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 export default function EarningsForecast() {
   const { profile, roles } = useAuth();
   const { getRate } = useDefaultRates();
-  const [weekEvents, setWeekEvents] = useState<ForecastEvent[]>([]);
-  const [monthEvents, setMonthEvents] = useState<ForecastEvent[]>([]);
+  const [allEvents, setAllEvents] = useState<ForecastEvent[]>([]);
   const [valorHora, setValorHora] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => new Date());
-  const [activeWeekIndex, setActiveWeekIndex] = useState(0);
-
-  const weeks = useMemo(() => getMonthWeeks(currentMonthDate), [currentMonthDate]);
-
-  useEffect(() => {
-    if (activeWeekIndex >= weeks.length) {
-      setActiveWeekIndex(Math.max(0, weeks.length - 1));
-    }
-  }, [weeks, activeWeekIndex]);
-
-  useEffect(() => {
-    const now = new Date();
-    const mStart = startOfMonth(currentMonthDate);
-    const mEnd = endOfMonth(currentMonthDate);
-    if (now >= mStart && now <= mEnd) {
-      const idx = weeks.findIndex((w) => now >= w.clampedStart && now <= w.clampedEnd);
-      setActiveWeekIndex(idx >= 0 ? idx : 0);
-    } else {
-      setActiveWeekIndex(0);
-    }
-  }, [currentMonthDate]);
-
-  const currentWeek = weeks[activeWeekIndex] || weeks[0];
-
-  const goToPrevWeek = () => {
-    if (activeWeekIndex > 0) {
-      setActiveWeekIndex((i) => i - 1);
-    } else {
-      setCurrentMonthDate((d) => {
-        const prev = subMonths(d, 1);
-        const prevWeeks = getMonthWeeks(prev);
-        setActiveWeekIndex(prevWeeks.length - 1);
-        return prev;
-      });
-    }
-  };
-
-  const goToNextWeek = () => {
-    if (activeWeekIndex < weeks.length - 1) {
-      setActiveWeekIndex((i) => i + 1);
-    } else {
-      setCurrentMonthDate((d) => {
-        setActiveWeekIndex(0);
-        return addMonths(d, 1);
-      });
-    }
-  };
-
-  // Month filter (yyyy-MM)
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => formatBR(new Date(), 'yyyy-MM'));
+  const [viewMode, setViewMode] = useState<'semana' | 'mes'>('semana');
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -131,14 +88,12 @@ export default function EarningsForecast() {
   }, [profile]);
 
   useEffect(() => {
-    if (!profile || !currentWeek) return;
-    loadWeek();
-  }, [profile, currentMonthDate, activeWeekIndex]);
-
-  useEffect(() => {
+    if (!profile || valorHora === 0) {
+      // still load events even when valorHora=0 so list shows
+    }
     if (!profile) return;
-    loadMonth();
-  }, [profile, selectedMonth]);
+    loadData();
+  }, [profile, selectedMonth, weekOffset, viewMode, valorHora]);
 
   const loadValorHora = async () => {
     const { data: profileData } = await supabase
@@ -151,93 +106,97 @@ export default function EarningsForecast() {
     setValorHora(profileValorHora > 0 ? profileValorHora : getRate(mainRole));
   };
 
-  const loadEventsInRange = async (start: Date, end: Date): Promise<ForecastEvent[]> => {
-    const { data: participations } = await supabase
-      .from('event_participants')
-      .select('event_id')
-      .eq('profile_id', profile!.id);
-
-    if (!participations || participations.length === 0) return [];
-    const eventIds = participations.map((p) => p.event_id);
-
-    const { data: eventsData } = await supabase
-      .from('events')
-      .select('id, code, description, location, departure_time, arrival_time, status')
-      .in('id', eventIds)
-      .in('status', ['ativo', 'em_andamento', 'finalizado'])
-      .gte('departure_time', start.toISOString())
-      .lte('departure_time', end.toISOString())
-      .order('departure_time', { ascending: true });
-
-    return (eventsData as ForecastEvent[]) || [];
-  };
-
-  const loadWeek = async () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
-      const start = new Date(currentWeek.clampedStart);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(currentWeek.clampedEnd);
-      end.setHours(23, 59, 59, 999);
-      const data = await loadEventsInRange(start, end);
-      setWeekEvents(data);
+      let rangeStart: Date;
+      let rangeEnd: Date;
+
+      if (viewMode === 'semana') {
+        const w = getWeekFromOffset(weekOffset);
+        rangeStart = addDays(w.displayStart, -28);
+        rangeEnd = endOfDay(addDays(w.displayEnd, 28));
+      } else {
+        rangeStart = startOfMonth(parseISO(`${selectedMonth}-01`));
+        rangeEnd = endOfMonth(rangeStart);
+      }
+
+      const { data: participations } = await supabase
+        .from('event_participants')
+        .select('event_id')
+        .eq('profile_id', profile!.id);
+
+      if (!participations || participations.length === 0) {
+        setAllEvents([]);
+        return;
+      }
+      const eventIds = participations.map((p: any) => p.event_id);
+
+      const { data: rawEvents } = await supabase
+        .from('events')
+        .select('id, code, description, location, departure_time, arrival_time, status, created_at')
+        .in('id', eventIds)
+        .in('status', ['ativo', 'em_andamento', 'finalizado'])
+        .order('departure_time', { ascending: true });
+
+      const events: ForecastEvent[] = (rawEvents || [])
+        .filter((ev: any) => {
+          const refDate = ev.departure_time || ev.created_at;
+          const d = new Date(refDate);
+          return d >= rangeStart && d <= rangeEnd;
+        })
+        .map((ev: any) => {
+          const minutes = calcMinutes(ev.departure_time, ev.arrival_time);
+          return {
+            id: ev.id,
+            code: ev.code,
+            description: ev.description,
+            location: ev.location,
+            departure_time: ev.departure_time,
+            arrival_time: ev.arrival_time,
+            status: ev.status,
+            event_date: ev.departure_time || ev.created_at,
+            minutes,
+            earnings: (minutes / 60) * valorHora,
+          };
+        });
+
+      setAllEvents(events);
     } catch (err) {
-      console.error('Error loading week:', err);
+      console.error('Error loading earnings:', err);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const loadMonth = async () => {
-    try {
-      const [y, m] = selectedMonth.split('-').map(Number);
-      const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
-      const end = new Date(y, m, 0, 23, 59, 59, 999);
-      const data = await loadEventsInRange(start, end);
-      setMonthEvents(data);
-    } catch (err) {
-      console.error('Error loading month:', err);
-    }
-  };
-
-  const calcHours = (departure: string | null, arrival: string | null): number => {
-    if (!departure || !arrival) return 0;
-    const diff = new Date(arrival).getTime() - new Date(departure).getTime();
-    return Math.max(0, diff / (1000 * 60 * 60));
-  };
-
-  const { totalHours, totalEarnings, eventDetails } = useMemo(() => {
-    let totalH = 0;
-    const details = weekEvents.map((ev) => {
-      const hours = calcHours(ev.departure_time, ev.arrival_time);
-      totalH += hours;
-      return { ...ev, hours, earnings: hours * valorHora };
-    });
-    return { totalHours: totalH, totalEarnings: totalH * valorHora, eventDetails: details };
-  }, [weekEvents, valorHora]);
-
-  const monthSummary = useMemo(() => {
-    let hours = 0;
-    monthEvents.forEach((ev) => {
-      hours += calcHours(ev.departure_time, ev.arrival_time);
-    });
-    return { hours, earnings: hours * valorHora, count: monthEvents.length };
-  }, [monthEvents, valorHora]);
 
   const monthOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
     const now = new Date();
     for (let i = 0; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      opts.push({ value, label: formatBR(d, 'MMMM yyyy') });
+      opts.push({ value: formatBR(d, 'yyyy-MM'), label: formatBR(d, 'MMMM yyyy') });
+    }
+    for (let i = 1; i <= (11 - now.getMonth()); i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      opts.unshift({ value: formatBR(d, 'yyyy-MM'), label: formatBR(d, 'MMMM yyyy') });
     }
     return opts;
   }, []);
 
-  const monthLabel = formatBR(currentMonthDate, "MMMM 'de' yyyy");
+  // Month totals (always based on selectedMonth filter)
+  const monthTotals = useMemo(() => {
+    const mStart = startOfMonth(parseISO(`${selectedMonth}-01`));
+    const mEnd = endOfMonth(mStart);
+    const inMonth = allEvents.filter((ev) => {
+      const d = new Date(ev.event_date);
+      return d >= mStart && d <= mEnd;
+    });
+    const minutes = inMonth.reduce((s, e) => s + e.minutes, 0);
+    const total = inMonth.reduce((s, e) => s + e.earnings, 0);
+    return { count: inMonth.length, minutes, total };
+  }, [allEvents, selectedMonth]);
 
-  if (isLoading && weekEvents.length === 0) {
+  if (isLoading && allEvents.length === 0) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -247,204 +206,184 @@ export default function EarningsForecast() {
     );
   }
 
-  if (!currentWeek) return null;
+  const renderEventCard = (ev: ForecastEvent) => {
+    const isExpanded = expandedEventId === ev.id;
+    return (
+      <Card key={ev.id}>
+        <CardContent className="p-4">
+          <button className="w-full text-left" onClick={() => setExpandedEventId(isExpanded ? null : ev.id)}>
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-sm">{ev.code}</p>
+                  <Badge variant="outline" className="text-[10px]">
+                    {ev.status === 'ativo' ? 'Ativo' : ev.status === 'em_andamento' ? 'Em Andamento' : 'Finalizado'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    {ev.minutes > 0 ? formatHours(ev.minutes) : '--'} • {formatBR(new Date(ev.event_date), 'dd/MM')}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-2">
+                <p className="font-bold text-base text-primary whitespace-nowrap">{fmt(ev.earnings)}</p>
+                {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </div>
+          </button>
+
+          {isExpanded && (
+            <div className="mt-3 pt-3 border-t space-y-2 text-xs">
+              {ev.location && <p className="text-muted-foreground">📍 {ev.location}</p>}
+              <div className="flex flex-wrap gap-3">
+                {ev.departure_time && <span>Saída: <strong>{formatBR(new Date(ev.departure_time), 'dd/MM HH:mm')}</strong></span>}
+                {ev.arrival_time && <span>Chegada: <strong>{formatBR(new Date(ev.arrival_time), 'dd/MM HH:mm')}</strong></span>}
+              </div>
+              {ev.minutes > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  {fmt(valorHora)}/h × {formatHours(ev.minutes)} = {fmt(ev.earnings)}
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <MainLayout>
-      <div className="space-y-4 animate-fade-in">
+      <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-3 flex-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <TrendingUp className="h-6 w-6 text-primary" />
             <div>
-              <h1 className="text-lg font-bold text-foreground">Previsão de Ganhos</h1>
-              <p className="text-sm text-muted-foreground capitalize">{monthLabel}</p>
+              <h1 className="text-xl font-bold">Previsão de Ganhos</h1>
+              <p className="text-sm text-muted-foreground">Projeção semanal dos seus eventos</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <Button variant="outline" size="sm" onClick={() => setCurrentMonthDate((d) => subMonths(d, 1))} className="gap-1">
-              <ChevronLeft className="h-4 w-4" />
-              Mês
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCurrentMonthDate((d) => addMonths(d, 1))} className="gap-1">
-              Mês
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
-        {/* Week Navigation - Carousel Style (mesma da Folha de Pagamento) */}
-        <Card>
-          <CardContent className="py-5">
-            <div className="flex items-center justify-between gap-4">
-              <Button variant="ghost" size="icon" onClick={goToPrevWeek}>
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <div className="text-center flex-1">
-                <p className="font-bold text-foreground text-lg">
-                  Semana {activeWeekIndex + 1}: {currentWeek.label}
-                </p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Pagamento: <span className="text-primary font-medium capitalize">{currentWeek.paymentLabel}</span>
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={goToNextWeek}>
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-            <div className="flex justify-center gap-2 mt-4">
-              {weeks.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveWeekIndex(i)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
-                    i === activeWeekIndex
-                      ? 'bg-primary scale-125'
-                      : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                  }`}
-                  aria-label={`Semana ${i + 1}`}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filters - same pattern as FinancialPayments */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[200px]"><Filter className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
+            <SelectContent>{monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
+          </Select>
 
-        {/* Summary Cards */}
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Valor/Hora</p>
-                  <p className="text-lg font-bold">
-                    {valorHora > 0 ? `R$ ${valorHora.toFixed(2)}` : 'Não definido'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Horas Previstas</p>
-                  <p className="text-lg font-bold">{totalHours.toFixed(1)}h</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Previsão da Semana</p>
-                  <p className="text-xl font-bold text-primary">
-                    R$ {totalEarnings.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex rounded-2xl border bg-muted/30 p-1.5 gap-1">
+            <button
+              onClick={() => { setViewMode('semana'); setWeekOffset(0); }}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === 'semana' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Calendar className="h-4 w-4" />
+              Semanal
+            </button>
+            <button
+              onClick={() => setViewMode('mes')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === 'mes' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Calendar className="h-4 w-4" />
+              Mensal
+            </button>
+          </div>
         </div>
 
-        {/* Month filter */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-5 w-5" />
-              Ganhos no Mês
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="grid grid-cols-3 gap-3 flex-1">
-                <div>
-                  <p className="text-xs text-muted-foreground">Eventos</p>
-                  <p className="text-lg font-bold">{monthSummary.count}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Horas</p>
-                  <p className="text-lg font-bold">{monthSummary.hours.toFixed(1)}h</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                  <p className="text-lg font-bold text-primary">R$ {monthSummary.earnings.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Month Summary */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Card><CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground">Total Mês</p>
+            <p className="text-lg font-bold text-primary">{fmt(monthTotals.total)}</p>
+          </CardContent></Card>
+          <Card><CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground">Eventos</p>
+            <p className="text-lg font-bold text-foreground">{monthTotals.count}</p>
+          </CardContent></Card>
+          <Card><CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground">Horas Totais</p>
+            <p className="text-lg font-bold text-foreground">{formatHours(monthTotals.minutes)}</p>
+          </CardContent></Card>
+          <Card><CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground">Valor/Hora</p>
+            <p className="text-lg font-bold text-foreground">{valorHora > 0 ? fmt(valorHora) : '--'}</p>
+          </CardContent></Card>
+        </div>
 
-        {/* Events List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Eventos da Semana ({weekEvents.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {weekEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhum evento nesta semana.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {eventDetails.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm">{ev.code}</span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {ev.status === 'ativo' ? 'Ativo' : ev.status === 'em_andamento' ? 'Em Andamento' : 'Finalizado'}
-                        </Badge>
-                      </div>
-                      {ev.location && (
-                        <p className="text-xs text-muted-foreground truncate">{ev.location}</p>
-                      )}
-                      <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                        {ev.departure_time && (
-                          <span>Saída: {formatBR(new Date(ev.departure_time), 'dd/MM HH:mm')}</span>
-                        )}
-                        {ev.arrival_time && (
-                          <span>Chegada: {formatBR(new Date(ev.arrival_time), 'dd/MM HH:mm')}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right ml-3 flex-shrink-0">
-                      <p className="text-xs text-muted-foreground">{ev.hours.toFixed(1)}h</p>
-                      <p className="font-bold text-sm text-primary">R$ {ev.earnings.toFixed(2)}</p>
-                    </div>
+        {viewMode === 'semana' ? (
+          (() => {
+            const w = getWeekFromOffset(weekOffset);
+            const weekStart = w.displayStart;
+            const weekEnd = endOfDay(w.displayEnd);
+            const weekEvents = allEvents.filter((ev) => {
+              const d = new Date(ev.event_date);
+              return d >= weekStart && d <= weekEnd;
+            });
+            const weekMinutes = weekEvents.reduce((s, e) => s + e.minutes, 0);
+            const weekTotal = weekEvents.reduce((s, e) => s + e.earnings, 0);
+
+            return (
+              <div className="space-y-4">
+                {/* Week navigation */}
+                <div className="flex items-center justify-between py-2">
+                  <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setWeekOffset(o => o - 1)}>
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="text-center">
+                    <p className="font-bold text-lg">
+                      {formatBR(w.displayStart, "dd 'de' MMM")} - {formatBR(w.displayEnd, "dd 'de' MMM")}
+                    </p>
+                    {weekOffset === 0 && <p className="text-sm text-muted-foreground">Semana atual</p>}
                   </div>
-                ))}
+                  <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setWeekOffset(o => o + 1)}>
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Week summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Card><CardContent className="p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Eventos</p>
+                    <p className="text-lg font-bold">{weekEvents.length}</p>
+                  </CardContent></Card>
+                  <Card><CardContent className="p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Horas</p>
+                    <p className="text-lg font-bold">{formatHours(weekMinutes)}</p>
+                  </CardContent></Card>
+                  <Card className="border-primary/20 bg-primary/5"><CardContent className="p-3 text-center">
+                    <p className="text-xs text-primary/80">Total Semana</p>
+                    <p className="text-lg font-bold text-primary">{fmt(weekTotal)}</p>
+                  </CardContent></Card>
+                </div>
+
+                {weekEvents.length > 0 ? (
+                  <div className="space-y-3">
+                    {weekEvents.map(renderEventCard)}
+                  </div>
+                ) : (
+                  <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum evento nesta semana</CardContent></Card>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            );
+          })()
+        ) : (
+          <div className="space-y-3">
+            {(() => {
+              const mStart = startOfMonth(parseISO(`${selectedMonth}-01`));
+              const mEnd = endOfMonth(mStart);
+              const monthEvents = allEvents.filter((ev) => {
+                const d = new Date(ev.event_date);
+                return d >= mStart && d <= mEnd;
+              });
+              if (monthEvents.length === 0) {
+                return <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum evento neste mês</CardContent></Card>;
+              }
+              return monthEvents.map(renderEventCard);
+            })()}
+          </div>
+        )}
 
         {valorHora === 0 && (
           <Card className="border-destructive/30 bg-destructive/5">
