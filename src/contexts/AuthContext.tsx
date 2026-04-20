@@ -107,7 +107,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (!error && data) {
-      setEmpresa(data as Empresa);
+      let empresaData = data as Empresa;
+
+      // Auto-suspend if past due date and still in active status
+      if (
+        empresaData.data_vencimento &&
+        ['ATIVA', 'TRIAL', 'PENDENTE'].includes(empresaData.status_assinatura)
+      ) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const vencimento = new Date(empresaData.data_vencimento + 'T00:00:00');
+        if (vencimento < today) {
+          // Update DB to SUSPENSA (best-effort, don't block on errors)
+          const { error: updateError } = await (supabase.from as any)('empresas')
+            .update({ status_assinatura: 'SUSPENSA' })
+            .eq('id', empresaId);
+          if (!updateError) {
+            empresaData = { ...empresaData, status_assinatura: 'SUSPENSA' as any };
+          }
+        }
+      }
+
+      setEmpresa(empresaData);
     }
   };
 
