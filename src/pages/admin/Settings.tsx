@@ -80,34 +80,38 @@ export default function Settings() {
               Assinatura
             </h2>
 
-            {isSubscribed && (
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="pt-6 flex items-center justify-between flex-wrap gap-4">
-                  <div>
+            {planoAtual && (
+              <Card className={isVencido ? 'border-destructive/40 bg-destructive/5' : 'border-primary/30 bg-primary/5'}>
+                <CardContent className="pt-6 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <p className="font-semibold">
-                      Plano ativo: {PLANO_LABELS[subscriptionInfo?.plano as PlanoEmpresa] || subscriptionInfo?.plano}
+                      Plano ativo: {PLANO_LABELS[planoAtual]}
                     </p>
-                    {subscriptionInfo?.subscription_end && (
-                      <p className="text-sm text-muted-foreground">
-                        Próxima renovação: {formatDateBR(subscriptionInfo.subscription_end)}
-                      </p>
-                    )}
+                    <Badge variant={isVencido ? 'destructive' : 'default'}>
+                      {status}
+                    </Badge>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleManageSubscription}
-                    disabled={portalLoading}
-                  >
-                    {portalLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Gerenciar Assinatura
-                  </Button>
+                  {vencimento && (
+                    <p className="text-sm text-muted-foreground">
+                      {isVencido ? 'Vencido em: ' : 'Vencimento: '}
+                      {formatDateBR(vencimento)}
+                    </p>
+                  )}
+                  {isVencido && (
+                    <div className="flex items-start gap-2 mt-3 p-3 rounded-md bg-destructive/10 text-sm">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <span>
+                        Sua assinatura está suspensa. Entre em contato com o suporte para regularizar o pagamento e reativar o acesso completo.
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {PLANS.map(({ plano, price, features }) => {
-                const isActive = isSubscribed && subscriptionInfo?.plano === plano;
+                const isActive = planoAtual === plano;
 
                 return (
                   <Card
@@ -137,39 +141,15 @@ export default function Settings() {
                           </li>
                         ))}
                       </ul>
-
-                      {isActive ? (
-                        <Button variant="outline" className="w-full" disabled>
-                          Plano Atual
-                        </Button>
-                      ) : (
-                        <Button
-                          className="w-full gap-2"
-                          onClick={() => handleCheckout(plano)}
-                          disabled={!!checkoutLoading}
-                        >
-                          {checkoutLoading === plano ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <ArrowUpCircle className="h-4 w-4" />
-                          )}
-                          {isSubscribed ? 'Trocar Plano' : 'Assinar'}
-                        </Button>
-                      )}
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefreshSubscription}
-              className="text-muted-foreground"
-            >
-              Atualizar status da assinatura
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              Para alterar de plano ou regularizar pagamentos, entre em contato com o suporte.
+            </p>
           </div>
         )}
 
