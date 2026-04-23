@@ -17,6 +17,9 @@ import { explainError } from '@/utils/explainError';
  import { ArrowLeft, Save, Loader2, Clock, AlertCircle } from 'lucide-react';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
  import { STATUS_LABELS, ROLE_LABELS } from '@/types/database';
+import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
+import { useAuth as useAuthCtx } from '@/contexts/AuthContext';
  
  interface ProfileWithRoles extends Profile {
    roles: AppRole[];
