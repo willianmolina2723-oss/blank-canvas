@@ -1839,8 +1839,6 @@ export type Database = {
           id: string
           must_change_password: boolean | null
           phone: string | null
-          pin_code: string | null
-          pin_hash: string | null
           professional_id: string | null
           updated_at: string
           user_id: string
@@ -1857,8 +1855,6 @@ export type Database = {
           id?: string
           must_change_password?: boolean | null
           phone?: string | null
-          pin_code?: string | null
-          pin_hash?: string | null
           professional_id?: string | null
           updated_at?: string
           user_id: string
@@ -1875,8 +1871,6 @@ export type Database = {
           id?: string
           must_change_password?: boolean | null
           phone?: string | null
-          pin_code?: string | null
-          pin_hash?: string | null
           professional_id?: string | null
           updated_at?: string
           user_id?: string
@@ -2071,6 +2065,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_pins: {
+        Row: {
+          pin_hash: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          pin_hash: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          pin_hash?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
