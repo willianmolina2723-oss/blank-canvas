@@ -17,6 +17,8 @@ import type { Ambulance as AmbulanceType, Profile, AppRole } from '@/types/datab
 import { ROLE_LABELS } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 
 interface ParticipantSelection {
   profile: Profile;
@@ -53,6 +55,7 @@ export default function NewEventPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
+  const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
 
   useEffect(() => {
     if (!isReadOnly) {
@@ -71,6 +74,15 @@ export default function NewEventPage() {
       }
     }
   }, [selectedContractor]);
+
+  // Sync role schedules with selected participants
+  useEffect(() => {
+    const sel = participants.filter(p => p.selected);
+    const rolesInUse = Array.from(new Set(sel.map(p => p.role))) as AppRole[];
+    const counts: Partial<Record<AppRole, number>> = {};
+    for (const p of sel) counts[p.role] = (counts[p.role] ?? 0) + 1;
+    setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
+  }, [participants]);
 
   // Redirect if read-only (after all hooks)
   if (isReadOnly) {
@@ -195,6 +207,30 @@ export default function NewEventPage() {
         if (participantsError) throw participantsError;
       }
 
+      // Persist event_role_schedules
+      const rolesInUse = Array.from(new Set(selectedParticipants.map(p => p.role)));
+      const scheduleRows = rolesInUse.map(role => {
+        const entry = roleSchedules[role];
+        const useDefault = entry?.use_event_default ?? true;
+        const qty = selectedParticipants.filter(p => p.role === role).length;
+        return {
+          event_id: eventData.id,
+          role,
+          quantity: qty,
+          use_event_default: useDefault,
+          start_time: useDefault ? null : (entry?.start_time || null),
+          end_time: useDefault ? null : (entry?.end_time || null),
+          empresa_id: profile?.empresa_id || null,
+        };
+      });
+      if (scheduleRows.length > 0) {
+        const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
+        if (schedErr) console.error('event_role_schedules insert error:', schedErr);
+      }
+
+      // Recompute assignments
+      try { await recomputeAllAssignmentsForEvent(eventData.id); } catch (e) { console.error(e); }
+
       toast({ title: 'Evento criado', description: `O evento ${code} foi criado com sucesso.` });
       navigate('/');
     } catch (err: any) {
@@ -221,6 +257,11 @@ export default function NewEventPage() {
     tecnico: participants.filter(p => p.role === 'tecnico'),
     medico: participants.filter(p => p.role === 'medico'),
   };
+
+  const selectedParticipantsList = participants.filter(p => p.selected);
+  const rolesInUse = Array.from(new Set(selectedParticipantsList.map(p => p.role))) as AppRole[];
+  const roleCounts: Partial<Record<AppRole, number>> = {};
+  for (const p of selectedParticipantsList) roleCounts[p.role] = (roleCounts[p.role] ?? 0) + 1;
 
   return (
     <MainLayout>
@@ -517,6 +558,16 @@ export default function NewEventPage() {
                 )}
               </CardContent>
             </Card>
+
+            <div className="mt-6">
+              <RoleScheduleEditor
+                rolesInUse={rolesInUse}
+                value={roleSchedules}
+                onChange={setRoleSchedules}
+                eventDefaultStart={departureTime}
+                eventDefaultEnd={arrivalTime}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

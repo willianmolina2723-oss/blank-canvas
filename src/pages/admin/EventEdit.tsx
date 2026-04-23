@@ -17,6 +17,8 @@ import { explainError } from '@/utils/explainError';
  import { ArrowLeft, Save, Loader2, Clock, AlertCircle } from 'lucide-react';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
  import { STATUS_LABELS, ROLE_LABELS } from '@/types/database';
+import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
  
  interface ProfileWithRoles extends Profile {
    roles: AppRole[];
@@ -36,7 +38,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
  export default function EventEdit() {
    const { id } = useParams<{ id: string }>();
    const navigate = useNavigate();
-   const { isAdmin, isLoading: authLoading } = useAuth();
+   const { isAdmin, isLoading: authLoading, profile: currentProfile } = useAuth();
    const { toast } = useToast();
  
     const [form, setForm] = useState<EventForm>({
@@ -56,6 +58,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
    const [isLoading, setIsLoading] = useState(true);
    const [isSaving, setIsSaving] = useState(false);
    const [originalAmbulanceId, setOriginalAmbulanceId] = useState<string>('');
+   const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
  
    useEffect(() => {
      if (!authLoading && !isAdmin) {
@@ -68,6 +71,14 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
        fetchData();
      }
    }, [id]);
+
+   // Sync role schedules with selected participants
+   useEffect(() => {
+     const rolesInUse = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
+     const counts: Partial<Record<AppRole, number>> = {};
+     for (const r of Object.values(selectedParticipants)) if (r) counts[r] = (counts[r] ?? 0) + 1;
+     setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
+   }, [selectedParticipants]);
  
    const fetchData = async () => {
      setIsLoading(true);
@@ -106,6 +117,25 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
            participantMap[p.profile_id] = p.role as AppRole;
          });
          setSelectedParticipants(participantMap);
+       }
+
+       // Fetch role schedules
+       const { data: schedData } = await (supabase as any)
+         .from('event_role_schedules')
+         .select('*')
+         .eq('event_id', id);
+       if (schedData && schedData.length > 0) {
+         const map: Record<string, RoleScheduleEntry> = {};
+         for (const s of schedData) {
+           map[s.role] = {
+             role: s.role,
+             quantity: s.quantity || 1,
+             use_event_default: s.use_event_default,
+             start_time: s.start_time ? String(s.start_time).slice(0, 16) : '',
+             end_time: s.end_time ? String(s.end_time).slice(0, 16) : '',
+           };
+         }
+         setRoleSchedules(map as any);
        }
  
        // Fetch ambulances
@@ -268,13 +298,38 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
            .insert(toAdd);
  
          if (addError) throw addError;
+        }
+
+       // Save event_role_schedules: upsert by (event_id, role) - delete-then-insert pattern
+       const rolesInUseSave = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
+       await (supabase as any).from('event_role_schedules').delete().eq('event_id', id);
+       const scheduleRows = rolesInUseSave.map(role => {
+         const entry = roleSchedules[role];
+         const useDefault = entry?.use_event_default ?? true;
+         const qty = Object.values(selectedParticipants).filter(r => r === role).length;
+         return {
+           event_id: id,
+           role,
+           quantity: qty,
+           use_event_default: useDefault,
+           start_time: useDefault ? null : (entry?.start_time || null),
+           end_time: useDefault ? null : (entry?.end_time || null),
+           empresa_id: currentProfile?.empresa_id || null,
+         };
+       });
+       if (scheduleRows.length > 0) {
+         const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
+         if (schedErr) console.error('event_role_schedules insert error:', schedErr);
        }
- 
+
+       // Recompute assignments
+       try { await recomputeAllAssignmentsForEvent(id!); } catch (e) { console.error(e); }
+
        toast({
          title: 'Evento atualizado',
          description: 'As alterações foram salvas com sucesso.',
        });
- 
+
        navigate(`/admin/events`);
      } catch (error: any) {
        console.error('Error saving event:', error);
@@ -476,6 +531,14 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
              ))}
            </CardContent>
          </Card>
+
+         <RoleScheduleEditor
+           rolesInUse={Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]))}
+           value={roleSchedules}
+           onChange={setRoleSchedules}
+           eventDefaultStart={form.departure_time}
+           eventDefaultEnd={form.arrival_time}
+         />
  
          {/* Actions */}
          <div className="flex justify-end gap-2">

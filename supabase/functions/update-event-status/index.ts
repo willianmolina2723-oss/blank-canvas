@@ -150,9 +150,63 @@ Deno.serve(async (req) => {
         updated_at: now,
       }).eq('id', event_id)
 
-      const { data: transportFinal } = await supabaseAdmin.from('transport_records').select('id').eq('event_id', event_id).maybeSingle()
+      const { data: transportFinal } = await supabaseAdmin.from('transport_records').select('id, departure_time, arrival_time').eq('event_id', event_id).maybeSingle()
       if (transportFinal) {
         await supabaseAdmin.from('transport_records').update({ arrival_time: now, updated_at: now }).eq('id', transportFinal.id)
+      }
+
+      // --- Recompute event_assignments paid hours for all participants ---
+      try {
+        const { data: eventRow } = await supabaseAdmin
+          .from('events')
+          .select('id, departure_time, arrival_time, empresa_id')
+          .eq('id', event_id).maybeSingle()
+        const { data: parts } = await supabaseAdmin
+          .from('event_participants').select('profile_id, role').eq('event_id', event_id)
+        const { data: roleScheds } = await supabaseAdmin
+          .from('event_role_schedules').select('*').eq('event_id', event_id)
+
+        for (const part of parts || []) {
+          const roleSched = (roleScheds || []).find(r => r.role === part.role)
+          let scheduled_start = eventRow?.departure_time ?? null
+          let scheduled_end = eventRow?.arrival_time ?? null
+          let schedule_source: 'event_default' | 'role_schedule' = 'event_default'
+          if (roleSched && roleSched.use_event_default === false) {
+            scheduled_start = roleSched.start_time
+            scheduled_end = roleSched.end_time
+            schedule_source = 'role_schedule'
+          }
+
+          const { data: existing } = await supabaseAdmin
+            .from('event_assignments').select('id, schedule_source')
+            .eq('event_id', event_id).eq('profile_id', part.profile_id).eq('role', part.role).maybeSingle()
+
+          const { data: recebe } = await supabaseAdmin.rpc('resolve_recebe_deslocamento', {
+            _profile_id: part.profile_id, _role: part.role,
+          })
+
+          const baseStart = (existing?.schedule_source === 'manual') ? null : scheduled_start
+          const baseEnd = (existing?.schedule_source === 'manual') ? null : scheduled_end
+
+          const paid_start = recebe ? (transportFinal?.departure_time ?? baseStart ?? scheduled_start) : (baseStart ?? scheduled_start)
+          const paid_end = recebe ? (now ?? baseEnd ?? scheduled_end) : (baseEnd ?? scheduled_end)
+
+          if (existing) {
+            await supabaseAdmin.from('event_assignments').update({
+              paid_start, paid_end, recebe_deslocamento_resolvido: !!recebe,
+              ...(existing.schedule_source === 'manual' ? {} : { scheduled_start, scheduled_end, schedule_source }),
+            }).eq('id', existing.id)
+          } else {
+            await supabaseAdmin.from('event_assignments').insert({
+              event_id, profile_id: part.profile_id, role: part.role,
+              scheduled_start, scheduled_end, schedule_source,
+              paid_start, paid_end, recebe_deslocamento_resolvido: !!recebe,
+              empresa_id: eventRow?.empresa_id ?? null,
+            })
+          }
+        }
+      } catch (e) {
+        console.error('[update-event-status] recompute assignments failed:', e)
       }
 
       return new Response(JSON.stringify({ success: true }), {
