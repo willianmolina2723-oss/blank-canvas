@@ -198,6 +198,30 @@ export default function NewEventPage() {
         if (participantsError) throw participantsError;
       }
 
+      // Persist event_role_schedules
+      const rolesInUse = Array.from(new Set(selectedParticipants.map(p => p.role)));
+      const scheduleRows = rolesInUse.map(role => {
+        const entry = roleSchedules[role];
+        const useDefault = entry?.use_event_default ?? true;
+        const qty = selectedParticipants.filter(p => p.role === role).length;
+        return {
+          event_id: eventData.id,
+          role,
+          quantity: qty,
+          use_event_default: useDefault,
+          start_time: useDefault ? null : (entry?.start_time || null),
+          end_time: useDefault ? null : (entry?.end_time || null),
+          empresa_id: profile?.empresa_id || null,
+        };
+      });
+      if (scheduleRows.length > 0) {
+        const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
+        if (schedErr) console.error('event_role_schedules insert error:', schedErr);
+      }
+
+      // Recompute assignments
+      try { await recomputeAllAssignmentsForEvent(eventData.id); } catch (e) { console.error(e); }
+
       toast({ title: 'Evento criado', description: `O evento ${code} foi criado com sucesso.` });
       navigate('/');
     } catch (err: any) {
