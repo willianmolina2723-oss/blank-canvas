@@ -138,7 +138,7 @@ export default function EarningsForecast() {
             departure_time: ev.departure_time,
             arrival_time: ev.arrival_time,
             status: ev.status,
-            event_date: ev.departure_time || ev.created_at,
+            event_date: ev.created_at,
             minutes,
             earnings: (minutes / 60) * valorHora,
           };
