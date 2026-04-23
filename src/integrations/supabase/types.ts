@@ -16,45 +16,66 @@ export type Database = {
     Tables: {
       ambulances: {
         Row: {
+          brand: string | null
           code: string
           created_at: string
+          current_km: number | null
           deleted_at: string | null
           deleted_by: string | null
           empresa_id: string | null
+          extinguisher_expiry: string | null
           id: string
+          insurance_expiry: string | null
           km_per_liter: number | null
+          licensing_expiry: string | null
           model: string | null
+          notes: string | null
           plate: string | null
           status: string | null
           updated_at: string
+          vehicle_type: string | null
           year: number | null
         }
         Insert: {
+          brand?: string | null
           code: string
           created_at?: string
+          current_km?: number | null
           deleted_at?: string | null
           deleted_by?: string | null
           empresa_id?: string | null
+          extinguisher_expiry?: string | null
           id?: string
+          insurance_expiry?: string | null
           km_per_liter?: number | null
+          licensing_expiry?: string | null
           model?: string | null
+          notes?: string | null
           plate?: string | null
           status?: string | null
           updated_at?: string
+          vehicle_type?: string | null
           year?: number | null
         }
         Update: {
+          brand?: string | null
           code?: string
           created_at?: string
+          current_km?: number | null
           deleted_at?: string | null
           deleted_by?: string | null
           empresa_id?: string | null
+          extinguisher_expiry?: string | null
           id?: string
+          insurance_expiry?: string | null
           km_per_liter?: number | null
+          licensing_expiry?: string | null
           model?: string | null
+          notes?: string | null
           plate?: string | null
           status?: string | null
           updated_at?: string
+          vehicle_type?: string | null
           year?: number | null
         }
         Relationships: [
@@ -1266,40 +1287,61 @@ export type Database = {
       maintenance_logs: {
         Row: {
           ambulance_id: string
+          attachment_url: string | null
+          category: string | null
           cost: number | null
           created_at: string | null
           created_by: string | null
           description: string
           empresa_id: string | null
           id: string
+          km_at_service: number | null
           maintenance_date: string
+          maintenance_type: string | null
+          next_service_date: string | null
+          next_service_km: number | null
           notes: string | null
+          parts_replaced: string | null
           performed_by: string | null
           updated_at: string | null
         }
         Insert: {
           ambulance_id: string
+          attachment_url?: string | null
+          category?: string | null
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
           description: string
           empresa_id?: string | null
           id?: string
+          km_at_service?: number | null
           maintenance_date?: string
+          maintenance_type?: string | null
+          next_service_date?: string | null
+          next_service_km?: number | null
           notes?: string | null
+          parts_replaced?: string | null
           performed_by?: string | null
           updated_at?: string | null
         }
         Update: {
           ambulance_id?: string
+          attachment_url?: string | null
+          category?: string | null
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
           description?: string
           empresa_id?: string | null
           id?: string
+          km_at_service?: number | null
           maintenance_date?: string
+          maintenance_type?: string | null
+          next_service_date?: string | null
+          next_service_km?: number | null
           notes?: string | null
+          parts_replaced?: string | null
           performed_by?: string | null
           updated_at?: string | null
         }
