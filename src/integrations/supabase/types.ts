@@ -698,6 +698,56 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          created_at: string
+          empresa_id: string | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          provider_id: string | null
+          recipient_email: string
+          status: string
+          subject: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          provider_id?: string | null
+          recipient_email: string
+          status?: string
+          subject?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          provider_id?: string | null
+          recipient_email?: string
+          status?: string
+          subject?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           cnpj: string | null
@@ -1738,6 +1788,27 @@ export type Database = {
           },
         ]
       }
+      password_reset_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip?: string | null
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           age: number | null
@@ -2062,6 +2133,47 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          empresa_id: string | null
+          id: string
+          invite_status: string
+          last_sent_at: string | null
+          sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          invite_status?: string
+          last_sent_at?: string | null
+          sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          invite_status?: string
+          last_sent_at?: string | null
+          sent_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_invites_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
         ]
