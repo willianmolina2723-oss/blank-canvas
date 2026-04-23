@@ -290,13 +290,38 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
            .insert(toAdd);
  
          if (addError) throw addError;
+        }
+
+       // Save event_role_schedules: upsert by (event_id, role) - delete-then-insert pattern
+       const rolesInUseSave = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
+       await (supabase as any).from('event_role_schedules').delete().eq('event_id', id);
+       const scheduleRows = rolesInUseSave.map(role => {
+         const entry = roleSchedules[role];
+         const useDefault = entry?.use_event_default ?? true;
+         const qty = Object.values(selectedParticipants).filter(r => r === role).length;
+         return {
+           event_id: id,
+           role,
+           quantity: qty,
+           use_event_default: useDefault,
+           start_time: useDefault ? null : (entry?.start_time || null),
+           end_time: useDefault ? null : (entry?.end_time || null),
+           empresa_id: currentProfile?.empresa_id || null,
+         };
+       });
+       if (scheduleRows.length > 0) {
+         const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
+         if (schedErr) console.error('event_role_schedules insert error:', schedErr);
        }
- 
+
+       // Recompute assignments
+       try { await recomputeAllAssignmentsForEvent(id!); } catch (e) { console.error(e); }
+
        toast({
          title: 'Evento atualizado',
          description: 'As alterações foram salvas com sucesso.',
        });
- 
+
        navigate(`/admin/events`);
      } catch (error: any) {
        console.error('Error saving event:', error);
