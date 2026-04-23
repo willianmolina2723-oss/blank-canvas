@@ -120,6 +120,22 @@ export default function EarningsForecast() {
       }
       const eventIds = participations.map((p: any) => p.event_id);
 
+      // Load assignments (paid_duration_minutes is the source of truth when present)
+      const { data: assignmentsData } = await (supabase as any)
+        .from('event_assignments')
+        .select('event_id, paid_duration_minutes, paid_start, paid_end')
+        .eq('profile_id', profile!.id)
+        .in('event_id', eventIds);
+
+      const assignmentMap = new Map<string, { minutes: number | null; paidStart: string | null; paidEnd: string | null }>();
+      (assignmentsData || []).forEach((a: any) => {
+        assignmentMap.set(a.event_id, {
+          minutes: a.paid_duration_minutes,
+          paidStart: a.paid_start,
+          paidEnd: a.paid_end,
+        });
+      });
+
       const { data: rawEvents } = await supabase
         .from('events')
         .select('id, code, description, location, departure_time, arrival_time, status, created_at')
@@ -129,14 +145,18 @@ export default function EarningsForecast() {
 
       const events: ForecastEvent[] = (rawEvents || [])
         .map((ev: any) => {
-          const minutes = calcMinutes(ev.departure_time, ev.arrival_time);
+          const assignment = assignmentMap.get(ev.id);
+          // Prefer assignment.paid_duration_minutes; fallback to legacy calc
+          const minutes = assignment?.minutes != null
+            ? assignment.minutes
+            : calcMinutes(ev.departure_time, ev.arrival_time);
           return {
             id: ev.id,
             code: ev.code,
             description: ev.description,
             location: ev.location,
-            departure_time: ev.departure_time,
-            arrival_time: ev.arrival_time,
+            departure_time: assignment?.paidStart || ev.departure_time,
+            arrival_time: assignment?.paidEnd || ev.arrival_time,
             status: ev.status,
             event_date: ev.created_at,
             minutes,

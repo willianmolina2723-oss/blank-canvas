@@ -37,6 +37,13 @@ Deno.serve(async (req) => {
     if (updates.professional_id !== undefined) updateData.professional_id = updates.professional_id
     if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url
     if (updates.valor_hora !== undefined) updateData.valor_hora = updates.valor_hora
+    if (updates.recebe_deslocamento_override !== undefined) {
+      const v = updates.recebe_deslocamento_override
+      if (!['inherit', 'true', 'false'].includes(v)) {
+        throw new Error('recebe_deslocamento_override inválido')
+      }
+      updateData.recebe_deslocamento_override = v
+    }
 
     // Handle PIN: hash it server-side instead of storing plain text
     if (updates.pin_code !== undefined) {
