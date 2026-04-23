@@ -55,6 +55,7 @@ export default function NewEventPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
+  const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
 
   useEffect(() => {
     if (!isReadOnly) {
