@@ -39,6 +39,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
   const [roleQuantities, setRoleQuantities] = useState<Record<string, number>>(
     Object.fromEntries(ALL_ROLES.map(r => [r, 0]))
   );
+  const [notifyByEmail, setNotifyByEmail] = useState(true);
 
   const adjustRole = (role: string, delta: number) => {
     setRoleQuantities(prev => ({
@@ -98,6 +99,12 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
         supabase.functions.invoke('send-notifications', {
           body: { type: 'nova_oportunidade', opportunity_id: inserted.id },
         }).catch(() => {});
+
+        if (notifyByEmail) {
+          supabase.functions.invoke('notify-opportunity', {
+            body: { opportunity_id: inserted.id },
+          }).catch(() => {});
+        }
       }
 
       toast({ title: 'Oportunidade criada com sucesso!' });

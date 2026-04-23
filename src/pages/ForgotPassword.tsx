@@ -26,24 +26,19 @@ export default function ForgotPassword() {
     if (!email || cooldown > 0) return;
 
     setIsLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setIsLoading(false);
-
-    // Log password reset request (fire-and-forget)
-    supabase.functions.invoke('log-auth-event', {
-      body: { event_type: 'password_reset_request', email, success: !error },
-    }).catch(() => {});
-
-    if (error) {
-      toast({
-        title: 'Erro',
-        description: error.message,
-        variant: 'destructive',
+    try {
+      await supabase.functions.invoke('send-password-reset', {
+        body: { email: email.trim().toLowerCase() },
       });
-      return;
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
+
+    supabase.functions.invoke('log-auth-event', {
+      body: { event_type: 'password_reset_request', email, success: true },
+    }).catch(() => {});
 
     setCooldown(60);
     setSent(true);
