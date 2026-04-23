@@ -51,6 +51,7 @@ const FinancialReceivablesPage = lazy(() => import("./pages/admin/FinancialRecei
 const FinancialCostsPage = lazy(() => import("./pages/admin/FinancialCosts"));
 const SuperAdminPage = lazy(() => import("./pages/admin/SuperAdmin"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/Settings"));
+const EmailLogsPage = lazy(() => import("./pages/admin/EmailLogs"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -172,6 +173,7 @@ function AppRoutes() {
         <Route path="/admin/financial/receivables" element={<AdminRoute><PlanProtectedRoute module="financeiro_contas_receber"><FinancialReceivablesPage /></PlanProtectedRoute></AdminRoute>} />
         <Route path="/admin/financial/costs" element={<AdminRoute><PlanProtectedRoute module="dashboard_financeiro"><FinancialCostsPage /></PlanProtectedRoute></AdminRoute>} />
         <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+        <Route path="/admin/email-logs" element={<AdminRoute><EmailLogsPage /></AdminRoute>} />
         <Route path="/super-admin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
 
         <Route path="*" element={<NotFound />} />
