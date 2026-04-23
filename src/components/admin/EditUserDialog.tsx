@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Camera, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { explainError } from '@/utils/explainError';
-import type { Profile, AppRole } from '@/types/database';
+import type { Profile, AppRole, DeslocamentoOverride } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
 
 interface ProfileWithRoles extends Profile {
@@ -36,6 +37,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
   const [professionalId, setProfessionalId] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [valorHora, setValorHora] = useState('');
+  const [deslocOverride, setDeslocOverride] = useState<DeslocamentoOverride>('inherit');
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
       setProfessionalId(user.professional_id || '');
       setPinCode(''); // Never load existing PIN - it's hashed
       setValorHora(String((user as any).valor_hora || 0));
+      setDeslocOverride(((user as any).recebe_deslocamento_override || 'inherit') as DeslocamentoOverride);
       setSelectedRoles(user.roles || []);
       setPhotoPreview(user.avatar_url || null);
       setPhotoFile(null);
@@ -110,6 +113,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
           pin_code: pinCode.trim() || null,
           avatar_url: avatarUrl,
           valor_hora: parseFloat(valorHora) || 0,
+          recebe_deslocamento_override: deslocOverride,
         },
       });
       if (error) throw error;
@@ -220,6 +224,20 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
               placeholder="Ex: 50.00"
             />
             <p className="text-xs text-muted-foreground">Usado para calcular a previsão de ganhos do colaborador.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-desloc">Recebe deslocamento</Label>
+            <Select value={deslocOverride} onValueChange={(v) => setDeslocOverride(v as DeslocamentoOverride)}>
+              <SelectTrigger id="edit-desloc">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Herdar da função (padrão)</SelectItem>
+                <SelectItem value="true">Sempre sim</SelectItem>
+                <SelectItem value="false">Nunca</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Define se este colaborador recebe deslocamento, sobrepondo a regra da função.</p>
           </div>
           <div className="space-y-2">
             <Label>Funções</Label>
