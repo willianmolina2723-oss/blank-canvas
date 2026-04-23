@@ -2174,6 +2174,54 @@ export type Database = {
           },
         ]
       }
+      reviews_public: {
+        Row: {
+          author_name: string | null
+          author_role: string | null
+          content: string | null
+          created_at: string | null
+          id: string | null
+          profile_id: string | null
+          rating: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          author_role?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string | null
+          profile_id?: string | null
+          rating?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          author_role?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string | null
+          profile_id?: string | null
+          rating?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       check_plan_access: { Args: { modulo: string }; Returns: boolean }
