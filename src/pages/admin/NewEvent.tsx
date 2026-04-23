@@ -17,6 +17,8 @@ import type { Ambulance as AmbulanceType, Profile, AppRole } from '@/types/datab
 import { ROLE_LABELS } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 
 interface ParticipantSelection {
   profile: Profile;
