@@ -1,229 +1,118 @@
 
 
-# Sistema de E-mails Transacionais SAPH (Resend + Supabase + Hostinger)
+# Regras de Deslocamento e Horários por Função
 
-## Visão geral
+Implementar duas regras grandes que se combinam para mudar como horas pagas são calculadas: (1) controle de quem recebe deslocamento e (2) horários diferentes por função dentro do mesmo evento.
 
-Implementar envio de e-mails server-side via **Resend**, com domínio próprio configurado na **Hostinger**, cobrindo: convite de acesso, recuperação de senha, notificação de oportunidades e reenvio de convite. Logs completos no banco e painel admin para acompanhamento.
+## Etapa 1 — Banco de dados
 
-## Pré-requisitos do usuário
+Migrações idempotentes:
 
-Antes de começar, você precisa:
+1. `app_config` — adicionar chaves por função:
+   - `deslocamento_default_condutor`, `..._enfermeiro`, `..._tecnico`, `..._medico` (valor `'true'`/`'false'`)
 
-1. **Criar conta no Resend** em https://resend.com (gratuito até 3.000 e-mails/mês)
-2. **Gerar API Key** em Resend → API Keys (será adicionada como secret `RESEND_API_KEY`)
-3. **Definir o domínio remetente** (ex: `notify.sistemasaph.com.br` ou `sistemasaph.com.br`)
-4. **Acesso ao painel DNS da Hostinger** para adicionar registros SPF/DKIM/DMARC
+2. `profiles` — nova coluna:
+   - `recebe_deslocamento_override text` (valores: `'inherit'` | `'true'` | `'false'`, default `'inherit'`)
 
-A configuração DNS será documentada em um arquivo dentro do projeto.
+3. Nova tabela `event_role_schedules`:
+   - `id uuid PK`, `event_id uuid`, `role app_role`, `quantity int`
+   - `use_event_default boolean default true`
+   - `start_time timestamptz`, `end_time timestamptz`
+   - `empresa_id uuid`, timestamps
+   - RLS: admin gerencia (mesma empresa); participantes do evento podem ver
+   - Índice em `(event_id, role)`
 
-## Arquitetura
+4. Nova tabela `event_assignments`:
+   - `id`, `event_id`, `profile_id`, `role app_role`
+   - `scheduled_start timestamptz`, `scheduled_end timestamptz`
+   - `schedule_source text` (`event_default` | `role_schedule` | `manual`)
+   - `paid_start timestamptz`, `paid_end timestamptz`
+   - `paid_duration_minutes int`
+   - `recebe_deslocamento_resolvido boolean`
+   - `empresa_id uuid`, timestamps
+   - RLS: admin gerencia; participante vê próprio registro
 
-```text
-[Frontend React]
-      │ (invoca via supabase.functions.invoke)
-      ▼
-[Edge Function: send-email]  ──► [Resend API]
-      │  (sempre registra)
-      ▼
-[Tabela: email_logs]              [Tabela: user_invites]
-      ▲                                   ▲
-      │                                   │
-[Triggers de negócio]:
- - create-user (já existe) → envia convite
- - reset-password (novo)   → envia link de reset
- - CreateOpportunityDialog → envia notificação aos elegíveis
- - resend-invite (novo)    → reenvia convite
-```
+5. Função SQL `resolve_recebe_deslocamento(_profile_id uuid, _role app_role) returns boolean` — aplica regra inherit → app_config; true/false → override.
 
-## 1. Banco de dados (migration)
+## Etapa 2 — Configurações (Admin → Settings)
 
-### Tabela `email_logs`
-```text
-id uuid PK
-user_id uuid (nullable, FK lógica para profiles.user_id)
-empresa_id uuid (nullable)
-recipient_email text NOT NULL
-type text NOT NULL  -- 'invite' | 'password_reset' | 'opportunity' | 'resend_invite'
-subject text
-status text NOT NULL  -- 'pending' | 'sent' | 'failed'
-provider_id text  -- ID retornado pelo Resend
-error_message text
-metadata jsonb
-created_at timestamptz default now()
-```
-RLS: super_admin vê tudo; admin vê da sua empresa; usuário vê só os próprios.
+Em `DefaultRatesSettings.tsx` (ou novo componente `DeslocamentoSettings.tsx`): adicionar bloco "Recebimento de deslocamento por função" com 4 toggles (condutor, enfermeiro, técnico, médico) salvando em `app_config`.
 
-### Tabela `user_invites`
-```text
-id uuid PK
-user_id uuid NOT NULL
-empresa_id uuid
-invite_status text  -- 'pending' | 'accepted' | 'expired'
-sent_at timestamptz
-last_sent_at timestamptz
-accepted_at timestamptz
-created_at timestamptz default now()
-```
+## Etapa 3 — Perfil do colaborador (EditUserDialog / Profile)
 
-### Tabela `password_reset_attempts` (rate limit)
-```text
-email text
-ip text
-created_at timestamptz
-```
-Índice por `(email, created_at)` — máximo 3 tentativas/hora.
+Adicionar select "Recebe deslocamento":
+- Herdar da função (padrão)
+- Sempre sim
+- Nunca
+Salva em `profiles.recebe_deslocamento_override` via Edge Function `update-profile` (campo whitelisted).
 
-### Coluna nova em `profiles`
-- `invite_status text default 'pending'` (preenche `accepted` no primeiro login bem-sucedido após `must_change_password = false`)
+## Etapa 4 — Cadastro/Edição de Evento (NewEvent / EventEdit)
 
-## 2. Secrets necessários
-
-- `RESEND_API_KEY` — solicitarei via add_secret
-- `EMAIL_FROM` — ex: `SAPH <no-reply@sistemasaph.com.br>` (configurável via secret)
-- `APP_URL` — ex: `https://sistemasaph.com.br` (para montar links nos e-mails)
-
-## 3. Edge Functions
-
-### Nova: `send-email` (núcleo reutilizável)
-- Recebe: `{ type, to, subject, html, user_id?, empresa_id?, metadata? }`
-- Valida JWT do chamador (admin/super_admin para envios manuais; service-role para chamadas internas)
-- Insere `email_logs` com `status='pending'`
-- Chama Resend API
-- Atualiza log para `sent` (com `provider_id`) ou `failed` (com `error_message`)
-- Retorna `{ success, log_id }`
-
-### Modificar: `create-user`
-- Após criar usuário, chamar `send-email` com template **Convite**
-- Inserir em `user_invites` com `sent_at = now()`
-- Resposta inclui `email_sent: true|false`
-
-### Nova: `send-password-reset`
-- Recebe `{ email }` (público, sem auth)
-- Aplica rate limit via `password_reset_attempts`
-- Sempre retorna sucesso genérico (não revela se e-mail existe)
-- Se existir, usa `supabaseAdmin.auth.admin.generateLink({ type: 'recovery' })` para gerar link seguro
-- Envia e-mail via `send-email` com template **Recuperação**
-
-### Nova: `resend-invite`
-- Recebe `{ user_id }` (apenas admin/super_admin)
-- Gera nova senha temporária OU link de definição via `generateLink({ type: 'invite' })`
-- Atualiza `must_change_password = true`
-- Atualiza `user_invites.last_sent_at`
-- Envia e-mail via `send-email`
-
-### Nova: `notify-opportunity`
-- Recebe `{ opportunity_id }` (admin/super_admin)
-- Busca usuários elegíveis (mesma `empresa_id`, `deleted_at IS NULL`, não suspensos, com role compatível)
-- Para cada destinatário, chama `send-email` com template **Oportunidade**
-- Pode ser chamada automaticamente após `INSERT` em `opportunities` (toggle no dialog)
-
-## 4. Templates HTML (em `supabase/functions/_shared/email-templates/`)
-
-Arquivos `.ts` exportando funções que retornam HTML inline-styled, responsivo, com:
-- Cabeçalho com logo da empresa (busca `app-assets` bucket) ou nome SAPH
-- Cores do design system (azul/verde SAPH)
-- Botão CTA destacado
-- Rodapé com aviso "este é um e-mail automático" + link de suporte
-
-Templates:
-1. `invite.ts` — saudação, e-mail de login, **link "Definir senha"** (preferido) + senha provisória de fallback, instrução de alterar no 1º login
-2. `password-reset.ts` — link de redefinição com expiração (1h)
-3. `opportunity.ts` — título, local, data, horário, resumo, botão "Ver oportunidade"
-4. `resend-invite.ts` — variação do convite com aviso "reenvio"
-
-## 5. Frontend
-
-### `src/pages/ForgotPassword.tsx` (já existe — reformular)
-- Form simples com campo e-mail
-- Chama `send-password-reset` edge function
-- Exibe mensagem genérica de sucesso sempre
-
-### `src/pages/ResetPassword.tsx` (já existe)
-- Verificar fluxo com link gerado pelo Supabase Auth (já compatível)
-
-### `src/components/admin/CreateUserDialog.tsx`
-- Após criar, exibir toast: "Usuário criado e e-mail enviado" ou erro com botão "Reenviar"
-
-### `src/components/admin/UserAccessActions.tsx` (estender)
-- Adicionar botão **"Reenviar convite"** (ícone Mail)
-- Mostrar badge de status do convite: `Pendente` / `Ativo` / `Erro no envio`
-
-### `src/components/opportunities/CreateOpportunityDialog.tsx`
-- Adicionar checkbox **"Notificar usuários elegíveis por e-mail"** (default: ligado)
-- Após criar, chama `notify-opportunity`
-
-### Nova página: `src/pages/admin/EmailLogs.tsx`
-- Tabela com filtros: tipo, status, data, destinatário
-- Colunas: data, destinatário, tipo, assunto, status (badge colorido), erro
-- Ação "Reenviar" para logs com status `failed`
-- Acessível via aba "E-mails" no painel admin
-
-### Nova aba em `src/pages/admin/Settings.tsx`
-- Seção "Configuração de E-mail"
-- Mostra: domínio configurado, status (verificado/pendente), instruções DNS
-- Inclui link para o doc
-
-## 6. Documentação DNS (Hostinger)
-
-Arquivo `docs/EMAIL_SETUP.md` (e link na tela de configurações) com:
+Nova seção "Horários por função":
 
 ```text
-Domínio: sistemasaph.com.br (ou subdomínio notify.sistemasaph.com.br)
-
-Registros a adicionar no painel DNS da Hostinger:
-
-1. SPF (TXT @)
-   v=spf1 include:_spf.resend.com ~all
-
-2. DKIM (3 registros CNAME — fornecidos pelo Resend ao adicionar domínio)
-   resend._domainkey  →  resend._domainkey.resend.com
-   (etc)
-
-3. DMARC (TXT _dmarc)
-   v=DMARC1; p=none; rua=mailto:dmarc@sistemasaph.com.br
-
-4. MX (opcional, apenas se quiser receber respostas)
-   feedback-smtp.resend.com  prioridade 10
-
-Após configurar:
-- Acesse Resend → Domains → "Verify"
-- Aguarde propagação (até 24h, geralmente 15min)
+┌─────────────────────────────────────────────┐
+│ Função     Qtd  Usar horário do evento  ☑   │
+│ Condutor   2    [Início] [Fim]              │
+│ Médico     1    ☐  [08:00] [18:00]          │
+└─────────────────────────────────────────────┘
 ```
 
-## 7. Segurança
+Para cada função vinculada: toggle `use_event_default`. Se desligado, exibir inputs de início/fim (auto-advance se fim < início, conforme padrão). Validações: `end_time > start_time`; se `use_event_default = false`, exigir horários. Persiste em `event_role_schedules`.
 
-- `RESEND_API_KEY` apenas em secrets (nunca no client)
-- Todas as chamadas a Resend partem de Edge Functions
-- Validação de role (admin/super_admin) antes de envios manuais
-- Rate limit em `send-password-reset` (3/hora por e-mail+IP)
-- Mensagens genéricas no fluxo de recuperação
-- RLS estrito em `email_logs` por empresa
-- Sanitização de variáveis nos templates (escape HTML)
+## Etapa 5 — Escala (vinculação de colaborador ao evento)
 
-## 8. Multiempresa
+Ao adicionar participante via `event_participants`:
+1. Lookup em `event_role_schedules` pela função → se existir e `use_event_default=false`, usar esses horários (`source = role_schedule`).
+2. Senão, usar `events.departure_time / arrival_time` (`source = event_default`).
+3. Inserir/atualizar `event_assignments` com `scheduled_start/end` + `schedule_source`.
+4. UI mostra horário aplicado, badge da origem, botão "Ajustar manualmente" (vira `source = manual`).
 
-- `empresa_id` propagado em todos os logs e filtros
-- `notify-opportunity` busca apenas usuários da `empresa_id` da oportunidade
-- Templates podem futuramente buscar logo/nome da empresa via `empresas` table
+## Etapa 6 — Cálculo de horas pagas
+
+Função utilitária `computePaidHours(assignment, event, transport)`:
+
+```text
+1) base_start/end:
+   manual         → scheduled_*
+   role_schedule  → scheduled_*
+   event_default  → event.departure_time / arrival_time
+
+2) recebe_desloc = resolve_recebe_deslocamento(profile, role)
+
+3) Se recebe_desloc:
+     paid_start = checklist.started_at (real)
+     paid_end   = transport.arrival_time (real / base)
+     se faltar real → fallback para base + warning
+   Senão:
+     paid_start = base_start
+     paid_end   = base_end
+
+4) paid_duration_minutes = diff(paid_end - paid_start)
+```
+
+Disparar recálculo: ao escalar, ao finalizar checklist, ao finalizar transporte, ao editar manualmente. Salvar em `event_assignments.paid_*` + `recebe_deslocamento_resolvido`.
+
+## Etapa 7 — Aplicação no financeiro/relatórios
+
+- `EarningsForecast.tsx`: substituir `calcMinutes(departure, arrival)` por leitura de `event_assignments.paid_duration_minutes` do colaborador logado. Fallback ao cálculo atual se assignment não existir.
+- `event_staff_costs` / `Payroll`: usar `paid_duration_minutes` × `valor_hora` resolvido.
+- Card de evento expandido exibe: "Horário previsto", "Horário pago", "Com/sem deslocamento", "Total de horas".
+
+## Etapa 8 — Validações & avisos
+
+- Bloquear `end_time < start_time` (form + DB trigger opcional).
+- Aviso amarelo no card quando deslocamento ativo mas faltam horários reais ("Horários reais insuficientes para calcular deslocamento — usando horário previsto").
 
 ## Detalhes técnicos
 
-**Stack:** Edge Functions (Deno) + `npm:resend@4` + Supabase service role para queries e geração de links auth.
+- Atualizar `src/types/database.ts` com tipos `EventRoleSchedule`, `EventAssignment`, enum `ScheduleSource`.
+- Tudo respeitar `empresa_id` + RLS (admin manage, participante ver o próprio).
+- Migrações com `IF NOT EXISTS` e `NOTIFY pgrst, 'reload schema'`.
+- Atualizar memória `mem://finance/hourly-rate-logic` e `mem://features/earnings-forecast` para refletir nova fonte (paid_duration_minutes) ao final.
 
-**Idempotência:** `send-email` aceita `idempotency_key` opcional para evitar duplicatas em retries.
+## Escopo fora desta entrega
 
-**Tratamento de erros:** Todo envio falho é registrado em `email_logs` com `error_message`. Frontend usa `explainError.ts` para tradução PT-BR.
-
-**Performance:** `notify-opportunity` envia em paralelo (`Promise.allSettled`) com limite de 50 destinatários por batch.
-
-**Compatibilidade:** Não interfere com `notify.sistemasaph.com.br` (auth emails Supabase) já configurado — Resend usa domínio/subdomínio próprio que você definir.
-
-## Ações requeridas após aprovação
-
-1. Você fornece a `RESEND_API_KEY` (vou solicitar via secret)
-2. Você define o domínio remetente (ex: `no-reply@sistemasaph.com.br`)
-3. Você adiciona os registros DNS na Hostinger (vou fornecer os valores exatos)
-4. Você verifica o domínio no painel do Resend
-5. Sistema fica operacional
+- Recalculo retroativo de eventos antigos finalizados (só aplica a eventos novos / em andamento).
+- Edição em massa de horários por função em vários eventos.
 
