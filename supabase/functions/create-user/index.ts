@@ -81,11 +81,64 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from('user_roles').insert(roleInserts)
     }
 
+    // Registrar convite
+    await supabaseAdmin.from('user_invites').upsert({
+      user_id: userId,
+      empresa_id: empresaId,
+      invite_status: 'pending',
+      sent_at: new Date().toISOString(),
+      last_sent_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+
+    // Enviar e-mail de convite via send-email
+    let emailSent = false
+    try {
+      const APP_URL = Deno.env.get('APP_URL') || 'https://sistemasaph.com.br'
+
+      // Gerar link de definição de senha (recovery)
+      let setupUrl: string | undefined
+      try {
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: { redirectTo: `${APP_URL}/reset-password` },
+        })
+        setupUrl = linkData?.properties?.action_link
+      } catch (_e) {
+        // ignore — vai cair no fallback de senha provisória
+      }
+
+      // Importação dinâmica do template (no diretório _shared)
+      const { renderInviteEmail } = await import('../_shared/email-templates/invite.ts')
+      const { subject, html } = renderInviteEmail({
+        fullName: full_name,
+        email,
+        setupUrl,
+        tempPassword: setupUrl ? undefined : tempPassword,
+        appUrl: APP_URL,
+      })
+
+      const { data: sendRes, error: sendErr } = await supabaseAdmin.functions.invoke('send-email', {
+        body: {
+          type: 'invite',
+          to: email,
+          subject,
+          html,
+          user_id: userId,
+          empresa_id: empresaId,
+        },
+      })
+      emailSent = Boolean(sendRes?.success) && !sendErr
+    } catch (e) {
+      console.error('Falha ao enviar e-mail de convite:', e)
+    }
+
     return new Response(JSON.stringify({
       success: true,
       user_id: userId,
       temp_password: tempPassword,
-      email_queued: false,
+      email_queued: emailSent,
+      email_sent: emailSent,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

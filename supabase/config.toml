@@ -1,1 +1,13 @@
 project_id = "dscvovvtjcopzsdjjenj"
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.send-password-reset]
+verify_jwt = false
+
+[functions.resend-invite]
+verify_jwt = true
+
+[functions.notify-opportunity]
+verify_jwt = true
