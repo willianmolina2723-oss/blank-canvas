@@ -249,6 +249,17 @@ export default function NewEventPage() {
     medico: participants.filter(p => p.role === 'medico'),
   };
 
+  const selectedParticipantsList = participants.filter(p => p.selected);
+  const rolesInUse = Array.from(new Set(selectedParticipantsList.map(p => p.role))) as AppRole[];
+  const roleCounts: Partial<Record<AppRole, number>> = {};
+  for (const p of selectedParticipantsList) roleCounts[p.role] = (roleCounts[p.role] ?? 0) + 1;
+
+  // Sync schedules when participants change
+  useEffect(() => {
+    setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, roleCounts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(rolesInUse), JSON.stringify(roleCounts)]);
+
   return (
     <MainLayout>
       <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
