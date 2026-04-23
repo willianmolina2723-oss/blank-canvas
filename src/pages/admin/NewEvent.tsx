@@ -75,6 +75,15 @@ export default function NewEventPage() {
     }
   }, [selectedContractor]);
 
+  // Sync role schedules with selected participants
+  useEffect(() => {
+    const sel = participants.filter(p => p.selected);
+    const rolesInUse = Array.from(new Set(sel.map(p => p.role))) as AppRole[];
+    const counts: Partial<Record<AppRole, number>> = {};
+    for (const p of sel) counts[p.role] = (counts[p.role] ?? 0) + 1;
+    setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
+  }, [participants]);
+
   // Redirect if read-only (after all hooks)
   if (isReadOnly) {
     return (
@@ -253,12 +262,6 @@ export default function NewEventPage() {
   const rolesInUse = Array.from(new Set(selectedParticipantsList.map(p => p.role))) as AppRole[];
   const roleCounts: Partial<Record<AppRole, number>> = {};
   for (const p of selectedParticipantsList) roleCounts[p.role] = (roleCounts[p.role] ?? 0) + 1;
-
-  // Sync schedules when participants change
-  useEffect(() => {
-    setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, roleCounts));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(rolesInUse), JSON.stringify(roleCounts)]);
 
   return (
     <MainLayout>
