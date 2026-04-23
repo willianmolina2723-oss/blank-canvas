@@ -38,7 +38,7 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
  export default function EventEdit() {
    const { id } = useParams<{ id: string }>();
    const navigate = useNavigate();
-   const { isAdmin, isLoading: authLoading } = useAuth();
+   const { isAdmin, isLoading: authLoading, profile: currentProfile } = useAuth();
    const { toast } = useToast();
  
     const [form, setForm] = useState<EventForm>({
@@ -58,6 +58,7 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
    const [isLoading, setIsLoading] = useState(true);
    const [isSaving, setIsSaving] = useState(false);
    const [originalAmbulanceId, setOriginalAmbulanceId] = useState<string>('');
+   const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
  
    useEffect(() => {
      if (!authLoading && !isAdmin) {
