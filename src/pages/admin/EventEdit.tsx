@@ -110,6 +110,25 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
          });
          setSelectedParticipants(participantMap);
        }
+
+       // Fetch role schedules
+       const { data: schedData } = await (supabase as any)
+         .from('event_role_schedules')
+         .select('*')
+         .eq('event_id', id);
+       if (schedData && schedData.length > 0) {
+         const map: Record<string, RoleScheduleEntry> = {};
+         for (const s of schedData) {
+           map[s.role] = {
+             role: s.role,
+             quantity: s.quantity || 1,
+             use_event_default: s.use_event_default,
+             start_time: s.start_time ? String(s.start_time).slice(0, 16) : '',
+             end_time: s.end_time ? String(s.end_time).slice(0, 16) : '',
+           };
+         }
+         setRoleSchedules(map as any);
+       }
  
        // Fetch ambulances
        const { data: ambulancesData } = await supabase
