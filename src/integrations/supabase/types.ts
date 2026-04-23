@@ -805,6 +805,57 @@ export type Database = {
         }
         Relationships: []
       }
+      event_assignments: {
+        Row: {
+          created_at: string
+          empresa_id: string | null
+          event_id: string
+          id: string
+          paid_duration_minutes: number | null
+          paid_end: string | null
+          paid_start: string | null
+          profile_id: string
+          recebe_deslocamento_resolvido: boolean | null
+          role: Database["public"]["Enums"]["app_role"]
+          schedule_source: string
+          scheduled_end: string | null
+          scheduled_start: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string | null
+          event_id: string
+          id?: string
+          paid_duration_minutes?: number | null
+          paid_end?: string | null
+          paid_start?: string | null
+          profile_id: string
+          recebe_deslocamento_resolvido?: boolean | null
+          role: Database["public"]["Enums"]["app_role"]
+          schedule_source?: string
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string | null
+          event_id?: string
+          id?: string
+          paid_duration_minutes?: number | null
+          paid_end?: string | null
+          paid_start?: string | null
+          profile_id?: string
+          recebe_deslocamento_resolvido?: boolean | null
+          role?: Database["public"]["Enums"]["app_role"]
+          schedule_source?: string
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_finance_payments: {
         Row: {
           amount: number
@@ -1079,6 +1130,45 @@ export type Database = {
           user_id?: string
           video_type?: string
           video_url?: string | null
+        }
+        Relationships: []
+      }
+      event_role_schedules: {
+        Row: {
+          created_at: string
+          empresa_id: string | null
+          end_time: string | null
+          event_id: string
+          id: string
+          quantity: number
+          role: Database["public"]["Enums"]["app_role"]
+          start_time: string | null
+          updated_at: string
+          use_event_default: boolean
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string | null
+          end_time?: string | null
+          event_id: string
+          id?: string
+          quantity?: number
+          role: Database["public"]["Enums"]["app_role"]
+          start_time?: string | null
+          updated_at?: string
+          use_event_default?: boolean
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string | null
+          end_time?: string | null
+          event_id?: string
+          id?: string
+          quantity?: number
+          role?: Database["public"]["Enums"]["app_role"]
+          start_time?: string | null
+          updated_at?: string
+          use_event_default?: boolean
         }
         Relationships: []
       }
@@ -1911,6 +2001,7 @@ export type Database = {
           must_change_password: boolean | null
           phone: string | null
           professional_id: string | null
+          recebe_deslocamento_override: string
           updated_at: string
           user_id: string
           valor_hora: number | null
@@ -1927,6 +2018,7 @@ export type Database = {
           must_change_password?: boolean | null
           phone?: string | null
           professional_id?: string | null
+          recebe_deslocamento_override?: string
           updated_at?: string
           user_id: string
           valor_hora?: number | null
@@ -1943,6 +2035,7 @@ export type Database = {
           must_change_password?: boolean | null
           phone?: string | null
           professional_id?: string | null
+          recebe_deslocamento_override?: string
           updated_at?: string
           user_id?: string
           valor_hora?: number | null
@@ -2363,6 +2456,13 @@ export type Database = {
       is_event_signed: { Args: { _event_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_super_admin_by_id: { Args: { _user_id: string }; Returns: boolean }
+      resolve_recebe_deslocamento: {
+        Args: {
+          _profile_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
       same_empresa: { Args: { _empresa_id: string }; Returns: boolean }
       same_empresa_user: { Args: { _user_id: string }; Returns: boolean }
       set_pin: { Args: { _pin: string; _user_id: string }; Returns: undefined }
