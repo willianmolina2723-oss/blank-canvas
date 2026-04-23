@@ -109,18 +109,6 @@ export default function EarningsForecast() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      let rangeStart: Date;
-      let rangeEnd: Date;
-
-      if (viewMode === 'semana') {
-        const w = getWeekFromOffset(weekOffset);
-        rangeStart = addDays(w.displayStart, -28);
-        rangeEnd = endOfDay(addDays(w.displayEnd, 28));
-      } else {
-        rangeStart = startOfMonth(parseISO(`${selectedMonth}-01`));
-        rangeEnd = endOfMonth(rangeStart);
-      }
-
       const { data: participations } = await supabase
         .from('event_participants')
         .select('event_id')
@@ -137,14 +125,9 @@ export default function EarningsForecast() {
         .select('id, code, description, location, departure_time, arrival_time, status, created_at')
         .in('id', eventIds)
         .in('status', ['ativo', 'em_andamento', 'finalizado'])
-        .order('departure_time', { ascending: true });
+        .order('departure_time', { ascending: true, nullsFirst: false });
 
       const events: ForecastEvent[] = (rawEvents || [])
-        .filter((ev: any) => {
-          const refDate = ev.departure_time || ev.created_at;
-          const d = new Date(refDate);
-          return d >= rangeStart && d <= rangeEnd;
-        })
         .map((ev: any) => {
           const minutes = calcMinutes(ev.departure_time, ev.arrival_time);
           return {
