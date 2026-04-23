@@ -53,6 +53,7 @@ export interface Profile {
   avatar_url: string | null;
   empresa_id: string | null;
   must_change_password: boolean;
+  recebe_deslocamento_override?: DeslocamentoOverride;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +104,39 @@ export interface EventParticipant {
   profile_id: string;
   role: AppRole;
   joined_at: string;
+}
+
+export type ScheduleSource = 'event_default' | 'role_schedule' | 'manual';
+export type DeslocamentoOverride = 'inherit' | 'true' | 'false';
+
+export interface EventRoleSchedule {
+  id: string;
+  event_id: string;
+  role: AppRole;
+  quantity: number;
+  use_event_default: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  empresa_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventAssignment {
+  id: string;
+  event_id: string;
+  profile_id: string;
+  role: AppRole;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  schedule_source: ScheduleSource;
+  paid_start: string | null;
+  paid_end: string | null;
+  paid_duration_minutes: number | null;
+  recebe_deslocamento_resolvido: boolean | null;
+  empresa_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Patient {
