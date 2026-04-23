@@ -249,13 +249,15 @@ export default function Dashboard() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button
-                            className="rounded-full h-10 w-10 flex-shrink-0"
-                            size="icon"
-                            onClick={() => navigate(`/event/${event.id}`)}
-                          >
-                            <ChevronRight className="h-5 w-5" />
-                          </Button>
+                          {event.status !== 'ativo' && (
+                            <Button
+                              className="rounded-full h-10 w-10 flex-shrink-0"
+                              size="icon"
+                              onClick={() => navigate(`/event/${event.id}`)}
+                            >
+                              <ChevronRight className="h-5 w-5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
