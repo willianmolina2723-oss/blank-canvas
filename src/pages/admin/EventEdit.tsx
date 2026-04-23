@@ -531,6 +531,14 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
              ))}
            </CardContent>
          </Card>
+
+         <RoleScheduleEditor
+           rolesInUse={Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]))}
+           value={roleSchedules}
+           onChange={setRoleSchedules}
+           eventDefaultStart={form.departure_time}
+           eventDefaultEnd={form.arrival_time}
+         />
  
          {/* Actions */}
          <div className="flex justify-end gap-2">
