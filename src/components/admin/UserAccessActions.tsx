@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { ShieldCheck, ShieldX, Trash2, Loader2 } from 'lucide-react';
+import { ShieldCheck, ShieldX, Trash2, Loader2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -54,6 +54,7 @@ export function UserAccessActions({ user, isSuspended, isLoading: isLoadingAcces
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [wasDeleted, setWasDeleted] = useState(false);
 
   const isSelf = currentUser?.id === user.user_id;
@@ -100,12 +101,43 @@ export function UserAccessActions({ user, isSuspended, isLoading: isLoadingAcces
     }
   };
 
+  const handleResendInvite = async () => {
+    setIsResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('resend-invite', {
+        body: { user_id: user.user_id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: 'Convite reenviado', description: `Um novo e-mail foi enviado para ${user.email || user.full_name}.` });
+    } catch (error) {
+      toast({
+        title: 'Erro ao reenviar',
+        description: await getActionErrorMessage(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   if (isSelf || wasDeleted) {
     return null;
   }
 
   return (
     <>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={isResending || isLoadingAccess}
+        onClick={handleResendInvite}
+        className="rounded-xl text-xs font-bold flex-1 sm:flex-initial"
+      >
+        {isResending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+        Reenviar
+      </Button>
+
       <Button
         variant="outline"
         size="sm"

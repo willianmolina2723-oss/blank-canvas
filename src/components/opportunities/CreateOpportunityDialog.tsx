@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -39,6 +40,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
   const [roleQuantities, setRoleQuantities] = useState<Record<string, number>>(
     Object.fromEntries(ALL_ROLES.map(r => [r, 0]))
   );
+  const [notifyByEmail, setNotifyByEmail] = useState(true);
 
   const adjustRole = (role: string, delta: number) => {
     setRoleQuantities(prev => ({
@@ -98,6 +100,12 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
         supabase.functions.invoke('send-notifications', {
           body: { type: 'nova_oportunidade', opportunity_id: inserted.id },
         }).catch(() => {});
+
+        if (notifyByEmail) {
+          supabase.functions.invoke('notify-opportunity', {
+            body: { opportunity_id: inserted.id },
+          }).catch(() => {});
+        }
       }
 
       toast({ title: 'Oportunidade criada com sucesso!' });
@@ -219,8 +227,24 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
-                    </div>
-                  </div>
+          </div>
+
+          <div className="flex items-start gap-2 p-3 rounded-xl border bg-muted/30">
+            <Checkbox
+              id="notify-email"
+              checked={notifyByEmail}
+              onCheckedChange={(c) => setNotifyByEmail(c === true)}
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="notify-email" className="text-sm font-medium cursor-pointer">
+                Notificar usuários elegíveis por e-mail
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Envia um e-mail aos colaboradores ativos da empresa.
+              </p>
+            </div>
+          </div>
+        </div>
                 );
               })}
             </div>
