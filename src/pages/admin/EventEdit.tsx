@@ -71,6 +71,14 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
        fetchData();
      }
    }, [id]);
+
+   // Sync role schedules with selected participants
+   useEffect(() => {
+     const rolesInUse = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
+     const counts: Partial<Record<AppRole, number>> = {};
+     for (const r of Object.values(selectedParticipants)) if (r) counts[r] = (counts[r] ?? 0) + 1;
+     setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
+   }, [selectedParticipants]);
  
    const fetchData = async () => {
      setIsLoading(true);
