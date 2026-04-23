@@ -558,6 +558,16 @@ export default function NewEventPage() {
                 )}
               </CardContent>
             </Card>
+
+            <div className="mt-6">
+              <RoleScheduleEditor
+                rolesInUse={rolesInUse}
+                value={roleSchedules}
+                onChange={setRoleSchedules}
+                eventDefaultStart={departureTime}
+                eventDefaultEnd={arrivalTime}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
