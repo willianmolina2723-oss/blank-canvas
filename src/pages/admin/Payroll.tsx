@@ -255,8 +255,8 @@ export default function PayrollPage() {
           minutes = assignment.paid_duration_minutes;
           departure = assignment.paid_start || transport?.departure || event.departure_time;
           arrival = assignment.paid_end || transport?.arrival || event.arrival_time;
-        } else if (transport?.departure && transport?.arrival) {
-          // Legacy fallback: transport real times
+        } else if (event.status === 'finalizado' && transport?.departure && transport?.arrival) {
+          // Legacy fallback: transport real times (apenas se evento finalizado)
           const depDate = parseISO(transport.departure);
           let arrDate = parseISO(transport.arrival);
           if (arrDate < depDate) {
@@ -272,10 +272,14 @@ export default function PayrollPage() {
 
         if (minutes === 0 && event.departure_time && event.arrival_time) {
           departure = event.departure_time;
-          arrival = event.arrival_time;
+          // Se evento ainda não finalizado, usa término previsto + 1h
+          const baseArrival = event.status === 'finalizado'
+            ? event.arrival_time
+            : new Date(parseISO(event.arrival_time).getTime() + 60 * 60 * 1000).toISOString();
+          arrival = baseArrival;
           try {
             let depDate = parseISO(event.departure_time);
-            let arrDate = parseISO(event.arrival_time);
+            let arrDate = parseISO(baseArrival);
             if (arrDate < depDate) {
               arrDate = new Date(arrDate.getTime() + 24 * 60 * 60 * 1000);
             }

@@ -115,9 +115,13 @@ export default function Financial() {
       ]);
 
       // Build transport minutes per event
+      // Regra: só usar arrival_time real (transport_records) se evento finalizado.
+      // Para eventos não finalizados, fallback = término previsto + 1h, evitando dados errados no financeiro.
       const transportByEvent = new Map<string, number>();
+      const eventStatusMap = new Map<string, string>((eventsData || []).map((e: any) => [e.id, e.status]));
       (transports || []).forEach((t: any) => {
         if (!t.departure_time || !t.arrival_time) return;
+        if (eventStatusMap.get(t.event_id) !== 'finalizado') return;
         try {
           const dep = parseISO(t.departure_time);
           let arr = parseISO(t.arrival_time);
@@ -126,17 +130,19 @@ export default function Financial() {
           if (mins > 0) transportByEvent.set(t.event_id, mins);
         } catch {}
       });
-      // Fallback to event times
+      // Fallback: para eventos NÃO finalizados, usar previsto + 1h
       (eventsData || []).forEach((ev: any) => {
-        if (!transportByEvent.has(ev.id) && ev.departure_time && ev.arrival_time) {
-          try {
-            const dep = parseISO(ev.departure_time);
-            let arr = parseISO(ev.arrival_time);
-            if (arr < dep) arr = new Date(arr.getTime() + 24 * 60 * 60 * 1000);
-            const mins = differenceInMinutes(arr, dep);
-            if (mins > 0) transportByEvent.set(ev.id, mins);
-          } catch {}
-        }
+        if (transportByEvent.has(ev.id)) return;
+        if (!ev.departure_time || !ev.arrival_time) return;
+        try {
+          const dep = parseISO(ev.departure_time);
+          let arr = parseISO(ev.arrival_time);
+          if (arr < dep) arr = new Date(arr.getTime() + 24 * 60 * 60 * 1000);
+          // Se evento ainda não finalizado, adiciona 1 hora ao término previsto
+          if (ev.status !== 'finalizado') arr = new Date(arr.getTime() + 60 * 60 * 1000);
+          const mins = differenceInMinutes(arr, dep);
+          if (mins > 0) transportByEvent.set(ev.id, mins);
+        } catch {}
       });
 
       // Staff cost map by event+profile

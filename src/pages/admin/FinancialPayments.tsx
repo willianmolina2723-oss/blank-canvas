@@ -241,7 +241,17 @@ export default function FinancialPayments() {
 
         const transport = transportByEvent.get(event.id);
         const departure = transport?.departure || event.departure_time;
-        const arrival = transport?.arrival || event.arrival_time;
+        // Regra: só usar arrival real do transporte se evento finalizado.
+        // Caso contrário, usar término previsto + 1h para não distorcer o financeiro.
+        let arrival: string | null;
+        if (event.status === 'finalizado') {
+          arrival = transport?.arrival || event.arrival_time;
+        } else if (event.arrival_time) {
+          const arr = parseISO(event.arrival_time);
+          arrival = new Date(arr.getTime() + 60 * 60 * 1000).toISOString();
+        } else {
+          arrival = null;
+        }
         const minutes = calcMinutes(departure, arrival);
 
         const sc = staffCostMap.get(`${event.id}_${pid}`);
