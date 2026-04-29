@@ -44,7 +44,25 @@ export default function FinancialReceivables() {
       const { data: contractorsData } = await db.from('contractors').select('*').order('name');
       setContractors(contractorsData || []);
 
-      const { data: finances } = await db.from('event_finances').select('*, event:events(code, location, created_at)');
+      const { data: finances } = await db.from('event_finances').select('*, event:events(id, code, location, created_at, cobrar_materiais_medicamentos)');
+
+      // Build insumos cobrados por evento (medicamentos + materiais) para eventos com cobrança ativa
+      const eventIds = Array.from(new Set((finances || []).map((f: any) => f.event?.id).filter(Boolean)));
+      const insumosByEvent = new Map<string, number>();
+      if (eventIds.length > 0) {
+        const [{ data: checklistItems }, { data: costItems }] = await Promise.all([
+          supabase.from('checklist_items').select('item_name, item_type, notes, cost_item_id, event_id').in('event_id', eventIds).in('item_type', ['consumo_medicamentos', 'materiais']),
+          db.from('cost_items').select('id, name, unit_cost').eq('is_active', true),
+        ]);
+        const idMap = new Map((costItems || []).map((c: any) => [c.id, Number(c.unit_cost)]));
+        const nameMap = new Map((costItems || []).map((c: any) => [String(c.name).toLowerCase(), Number(c.unit_cost)]));
+        (checklistItems || []).forEach((ci: any) => {
+          const q = parseInt(ci.notes || '0') || 0;
+          if (q <= 0) return;
+          const uc = ci.cost_item_id ? Number(idMap.get(ci.cost_item_id) ?? 0) : Number(nameMap.get(String(ci.item_name || '').toLowerCase()) ?? 0);
+          insumosByEvent.set(ci.event_id, (insumosByEvent.get(ci.event_id) || 0) + uc * q);
+        });
+      }
 
       // Get payments for each finance
       const financeIds = (finances || []).map((f: any) => f.id);
@@ -63,7 +81,9 @@ export default function FinancialReceivables() {
       (finances || []).forEach((f: any) => {
         if (!f.contractor_id) return;
         if (!grouped[f.contractor_id]) grouped[f.contractor_id] = { events: [], totalBilled: 0, totalReceived: 0, lastPayment: null };
-        const finalVal = Number(f.contract_value) - Number(f.discounts) + Number(f.additions);
+        const contractVal = Number(f.contract_value) - Number(f.discounts) + Number(f.additions);
+        const insumos = f.event?.cobrar_materiais_medicamentos ? (insumosByEvent.get(f.event?.id) || 0) : 0;
+        const finalVal = contractVal + insumos;
         const eventPayments = paymentsByFinance[f.id] || [];
         const eventPaidFromPayments = eventPayments.reduce((s: number, p: any) => s + Number(p.amount), 0);
         // If status is 'pago' but no payments registered, consider full value as paid
