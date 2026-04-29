@@ -18,7 +18,8 @@ import { explainError } from '@/utils/explainError';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
  import { STATUS_LABELS, ROLE_LABELS } from '@/types/database';
 import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
- import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
+import { AssignmentSummary } from '@/components/events/AssignmentSummary';
+import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
  
  interface ProfileWithRoles extends Profile {
    roles: AppRole[];
@@ -539,6 +540,8 @@ import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry }
            eventDefaultStart={form.departure_time}
            eventDefaultEnd={form.arrival_time}
          />
+
+         {id && <AssignmentSummary eventId={id} empresaId={currentProfile?.empresa_id || null} />}
  
          {/* Actions */}
          <div className="flex justify-end gap-2">
