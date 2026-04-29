@@ -369,16 +369,17 @@ export default function FinancialPayments() {
     const amountToPay = payingEvent ? payingEvent.total : payingPerson.total;
     const notesPrefix = payingEvent ? `[Evento ${payingEvent.event_code}] ` : '';
     try {
-      const existing = freelancerPayments[payingPerson.profile_id];
-      if (existing && !payingEvent) {
-        // Full payment update
+      const fpData = freelancerPayments[payingPerson.profile_id];
+      const existingFull = fpData?.fullPayment;
+      if (existingFull && !payingEvent) {
+        // Update existing full payment
         await db.from('freelancer_payments').update({
           status: 'pago', total_amount: amountToPay,
           payment_date: paymentForm.payment_date, payment_method: paymentForm.payment_method,
           notes: paymentForm.notes || null,
-        }).eq('id', existing.id);
+        }).eq('id', existingFull.id);
       } else {
-        // Insert new payment record (for individual event or new full payment)
+        // Insert new payment record (per-event or full)
         await db.from('freelancer_payments').insert({
           profile_id: payingPerson.profile_id, reference_month: `${selectedMonth}-01`,
           total_amount: amountToPay, status: 'pago',
