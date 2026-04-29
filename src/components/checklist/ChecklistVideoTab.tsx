@@ -535,11 +535,12 @@ export const ChecklistVideoTab = forwardRef<ChecklistVideoTabHandle, Props>(func
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (): Promise<boolean> => {
+    if (isConfirmed) return true;
     const allRecorded = VIDEO_TYPES.every(v => getRecordingForType(v.key));
     if (!allRecorded) {
       toast({ title: 'Atenção', description: 'Todos os 3 vídeos devem ser gravados antes de confirmar.', variant: 'destructive' });
-      return;
+      return false;
     }
     try {
       const now = new Date().toISOString();
@@ -563,11 +564,19 @@ export const ChecklistVideoTab = forwardRef<ChecklistVideoTabHandle, Props>(func
       }
       setIsConfirmed(true);
       toast({ title: 'Sucesso', description: 'Vídeos confirmados com sucesso.' });
+      return true;
     } catch (err) {
       console.error('Confirm error:', err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar.'), variant: 'destructive' });
+      return false;
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    confirm: handleConfirm,
+    isComplete: () => VIDEO_TYPES.every(v => getRecordingForType(v.key)),
+    isConfirmed: () => isConfirmed,
+  }), [recordings, isConfirmed]);
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
