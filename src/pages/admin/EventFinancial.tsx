@@ -310,7 +310,7 @@ export default function EventFinancial() {
       ['Receita', 'Descontos', String(-finance.discounts)],
       ['Receita', 'Adicionais', String(finance.additions)],
       ['Receita', 'Valor Final', String(finalValue)],
-      ...staffCosts.map((s: any) => { const pt = participants.find((p: any) => p.profile_id === s.profile_id); const profileRate = Number(pt?.profile?.valor_hora) || 0; const r = Number(s.base_value) > 0 ? Number(s.base_value) : getDefaultRate(pt?.role || '', profileRate); return ['Equipe', s.profile?.full_name || 'N/A', String((transportMinutes / 60) * r + Number(s.extras) - Number(s.discounts))]; }),
+      ...staffCosts.map((s: any) => { const pt = participants.find((p: any) => p.profile_id === s.profile_id); const profileRate = Number(pt?.profile?.valor_hora) || 0; const r = Number(s.base_value) > 0 ? Number(s.base_value) : getDefaultRate(pt?.role || '', profileRate); const min = (pt && getAssignmentMinutes(pt.profile_id, pt.role)) ?? transportMinutes; return ['Equipe', s.profile?.full_name || 'N/A', String((min / 60) * r + Number(s.extras) - Number(s.discounts))]; }),
       ...insumoCosts.medications.map((m: any) => ['Medicamento', `${m.name} (${m.qty}x)`, String(m.total)]),
       ...insumoCosts.materials.map((m: any) => ['Material', `${m.name} (${m.qty}x)`, String(m.total)]),
       ...otherCosts.map((c: any) => ['Outros', c.category, String(Number(c.amount))]),
