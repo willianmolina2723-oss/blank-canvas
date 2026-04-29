@@ -502,7 +502,7 @@ export const ChecklistFuelTab = forwardRef<ChecklistFuelTabHandle, Props>(functi
                 className="border-red-300 focus:border-red-500" />
             </div>
           )}
-          {canCheck && !isStartConfirmed && (
+          {!hideStartConfirmButton && canCheck && !isStartConfirmed && (
             <Button onClick={saveStart} disabled={isSaving || !data.km_inicial.trim()} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
               Confirmar Início
