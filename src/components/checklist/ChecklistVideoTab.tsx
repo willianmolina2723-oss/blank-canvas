@@ -114,7 +114,10 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   }
 }
 
-export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: Props) {
+export const ChecklistVideoTab = forwardRef<ChecklistVideoTabHandle, Props>(function ChecklistVideoTab(
+  { eventId, canCheck, profileId, empresaId, hideConfirmButton = false }: Props,
+  ref
+) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
