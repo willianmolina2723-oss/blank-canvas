@@ -224,6 +224,16 @@ export default function PayrollPage() {
 
       if (participantsError) throw participantsError;
 
+      // Load assignments for all events in window
+      const { data: assignmentsData } = await (supabase as any)
+        .from('event_assignments')
+        .select('event_id, profile_id, role, paid_duration_minutes, paid_start, paid_end')
+        .in('event_id', eventIds);
+      const assignmentMap = new Map<string, any>();
+      for (const a of assignmentsData || []) {
+        assignmentMap.set(`${a.event_id}:${a.profile_id}:${a.role}`, a);
+      }
+
       const participantMap = new Map<string, ParticipantHours>();
 
       for (const p of participantsData || []) {
@@ -234,12 +244,19 @@ export default function PayrollPage() {
         if (!event) continue;
 
         const transport = transportByEvent.get(event.id);
+        const assignment = assignmentMap.get(`${event.id}:${profile.id}:${p.role}`);
 
         let departure: string | null = null;
         let arrival: string | null = null;
         let minutes = 0;
 
-        if (transport?.departure && transport?.arrival) {
+        // Priority 1: paid_duration_minutes from event_assignments (canonical)
+        if (assignment?.paid_duration_minutes != null && assignment.paid_duration_minutes > 0) {
+          minutes = assignment.paid_duration_minutes;
+          departure = assignment.paid_start || transport?.departure || event.departure_time;
+          arrival = assignment.paid_end || transport?.arrival || event.arrival_time;
+        } else if (transport?.departure && transport?.arrival) {
+          // Legacy fallback: transport real times
           const depDate = parseISO(transport.departure);
           let arrDate = parseISO(transport.arrival);
           if (arrDate < depDate) {

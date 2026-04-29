@@ -11,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, DollarSign, Users, Package, Plus, Save, Pill, Download, FileText, Clock, Fuel } from 'lucide-react';
+import { Loader2, ArrowLeft, DollarSign, Users, Package, Plus, Save, Pill, Download, FileText, Clock, Fuel, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { differenceInMinutes, parseISO } from 'date-fns';
 import { useDefaultRates } from '@/hooks/useDefaultRates';
+import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
+import { formatBR } from '@/utils/dateFormat';
 
 const db = supabase as any;
 
@@ -28,6 +31,8 @@ export default function EventFinancial() {
   const [event, setEvent] = useState<any>(null);
   const [contractors, setContractors] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [hasFullTransport, setHasFullTransport] = useState(false);
   const [insumoCosts, setInsumoCosts] = useState<{ medications: any[], materials: any[], totalMed: number, totalMat: number }>({ medications: [], materials: [], totalMed: 0, totalMat: 0 });
   const [transportMinutes, setTransportMinutes] = useState(0);
   const [fuelCost, setFuelCost] = useState({ kmDriven: 0, liters: 0, cost: 0, kmPerLiter: 0 });
@@ -63,6 +68,7 @@ export default function EventFinancial() {
         { data: otherData },
         { data: costItems },
         { data: transportData },
+        { data: assignmentsData },
       ] = await Promise.all([
         supabase.from('events').select('*, ambulance:ambulances(*)').eq('id', id!).single(),
         db.from('contractors').select('*').eq('is_active', true).order('name'),
@@ -72,7 +78,10 @@ export default function EventFinancial() {
         db.from('event_other_costs').select('*').eq('event_id', id!),
         db.from('cost_items').select('*').eq('is_active', true),
         supabase.from('transport_records').select('departure_time, arrival_time').eq('event_id', id!).maybeSingle(),
+        db.from('event_assignments').select('*').eq('event_id', id!),
       ]);
+      setAssignments(assignmentsData || []);
+      setHasFullTransport(!!(transportData?.departure_time && transportData?.arrival_time));
 
       // Calculate transport duration for staff cost
       let minutes = 0;
@@ -256,12 +265,19 @@ export default function EventFinancial() {
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  const getAssignmentMinutes = (profileId: string, role: string) => {
+    const a = assignments.find((x: any) => x.profile_id === profileId && x.role === role);
+    return a?.paid_duration_minutes ?? null;
+  };
+
   const calcStaffTotal = (c: any, participant?: any) => {
     const profileRate = Number(participant?.profile?.valor_hora) || 0;
     const role = participant?.role || '';
     const fallbackRate = getDefaultRate(role, profileRate);
     const rate = Number(c.base_value) > 0 ? Number(c.base_value) : fallbackRate;
-    return (transportMinutes / 60) * rate + Number(c.extras) - Number(c.discounts);
+    const assignedMin = participant ? getAssignmentMinutes(participant.profile_id, role) : null;
+    const minutes = assignedMin != null ? assignedMin : transportMinutes;
+    return (minutes / 60) * rate + Number(c.extras) - Number(c.discounts);
   };
 
   const totalInsumos = insumoCosts.totalMed + insumoCosts.totalMat;
@@ -277,7 +293,9 @@ export default function EventFinancial() {
     : participants.reduce((s: number, p: any) => {
         const profileRate = Number(p.profile?.valor_hora) || 0;
         const rate = getDefaultRate(p.role, profileRate);
-        return s + (transportMinutes / 60) * rate;
+        const assignedMin = getAssignmentMinutes(p.profile_id, p.role);
+        const minutes = assignedMin != null ? assignedMin : transportMinutes;
+        return s + (minutes / 60) * rate;
       }, 0);
   const totalOther = otherCosts.reduce((s: number, c: any) => s + Number(c.amount), 0);
   const totalPaid = payments.filter((p: any) => !p.cancelled).reduce((s: number, p: any) => s + Number(p.amount), 0);
@@ -292,7 +310,7 @@ export default function EventFinancial() {
       ['Receita', 'Descontos', String(-finance.discounts)],
       ['Receita', 'Adicionais', String(finance.additions)],
       ['Receita', 'Valor Final', String(finalValue)],
-      ...staffCosts.map((s: any) => { const pt = participants.find((p: any) => p.profile_id === s.profile_id); const profileRate = Number(pt?.profile?.valor_hora) || 0; const r = Number(s.base_value) > 0 ? Number(s.base_value) : getDefaultRate(pt?.role || '', profileRate); return ['Equipe', s.profile?.full_name || 'N/A', String((transportMinutes / 60) * r + Number(s.extras) - Number(s.discounts))]; }),
+      ...staffCosts.map((s: any) => { const pt = participants.find((p: any) => p.profile_id === s.profile_id); const profileRate = Number(pt?.profile?.valor_hora) || 0; const r = Number(s.base_value) > 0 ? Number(s.base_value) : getDefaultRate(pt?.role || '', profileRate); const min = (pt && getAssignmentMinutes(pt.profile_id, pt.role)) ?? transportMinutes; return ['Equipe', s.profile?.full_name || 'N/A', String((min / 60) * r + Number(s.extras) - Number(s.discounts))]; }),
       ...insumoCosts.medications.map((m: any) => ['Medicamento', `${m.name} (${m.qty}x)`, String(m.total)]),
       ...insumoCosts.materials.map((m: any) => ['Material', `${m.name} (${m.qty}x)`, String(m.total)]),
       ...otherCosts.map((c: any) => ['Outros', c.category, String(Number(c.amount))]),
@@ -406,8 +424,21 @@ export default function EventFinancial() {
 
         {/* Custos da Equipe */}
         <Card>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Custos da Equipe ({fmt(totalStaff)})</CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Custos da Equipe ({fmt(totalStaff)})</CardTitle>
+            <Button size="sm" variant="outline" onClick={async () => { await recomputeAllAssignmentsForEvent(id!); await loadData(); toast({ title: 'Horas recalculadas' }); }}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recalcular horas
+            </Button>
+          </CardHeader>
           <CardContent>
+            {assignments.some((a: any) => a.recebe_deslocamento_resolvido && !hasFullTransport) && (
+              <Alert className="mb-3 border-amber-500/30 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 text-xs">
+                  Deslocamento ativo, mas faltam horários reais de transporte — usando horário previsto.
+                </AlertDescription>
+              </Alert>
+            )}
             {participants.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Nenhum participante</p>
             ) : (
@@ -417,21 +448,34 @@ export default function EventFinancial() {
                   const d = existing || { payment_type: 'por_hora', base_value: 0, extras: 0, discounts: 0 };
                   const profileRate = Number(p.profile?.valor_hora) || 0;
                   const rate = Number(d.base_value) > 0 ? Number(d.base_value) : getDefaultRate(p.role, profileRate);
-                  const personTotal = (transportMinutes / 60) * rate + Number(d.extras) - Number(d.discounts);
-                  const hours = transportMinutes / 60;
+                  const a = assignments.find((x: any) => x.profile_id === p.profile_id && x.role === p.role);
+                  const minutes = a?.paid_duration_minutes ?? transportMinutes;
+                  const personTotal = (minutes / 60) * rate + Number(d.extras) - Number(d.discounts);
+                  const hours = minutes / 60;
+                  const fmtDT = (v: string | null) => { try { return v ? formatBR(new Date(v), 'dd/MM HH:mm') : '—'; } catch { return '—'; } };
                   return (
                     <div key={p.id} className="p-3 border rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold">{p.profile?.full_name}</p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{p.role}</Badge>
                             {p.profile?.professional_id && <span className="text-[10px] text-muted-foreground">{p.profile.professional_id}</span>}
+                            {a && (a.recebe_deslocamento_resolvido
+                              ? <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20">Com deslocamento</Badge>
+                              : <Badge variant="outline" className="text-[10px]">Sem deslocamento</Badge>
+                            )}
                           </div>
-                          {transportMinutes > 0 && (
+                          {a && (
+                            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+                              <p>Previsto: {fmtDT(a.scheduled_start)} → {fmtDT(a.scheduled_end)}</p>
+                              <p>Pago: {fmtDT(a.paid_start)} → {fmtDT(a.paid_end)}</p>
+                            </div>
+                          )}
+                          {minutes > 0 && (
                             <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {fmt(rate)}/h × {hours.toFixed(1)}h = {fmt(personTotal)}
+                              {fmt(rate)}/h × {hours.toFixed(2)}h = {fmt(personTotal)}
                             </p>
                           )}
                         </div>
