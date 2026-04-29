@@ -28,6 +28,8 @@ export default function EventFinancial() {
   const [event, setEvent] = useState<any>(null);
   const [contractors, setContractors] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [hasFullTransport, setHasFullTransport] = useState(false);
   const [insumoCosts, setInsumoCosts] = useState<{ medications: any[], materials: any[], totalMed: number, totalMat: number }>({ medications: [], materials: [], totalMed: 0, totalMat: 0 });
   const [transportMinutes, setTransportMinutes] = useState(0);
   const [fuelCost, setFuelCost] = useState({ kmDriven: 0, liters: 0, cost: 0, kmPerLiter: 0 });
@@ -63,6 +65,7 @@ export default function EventFinancial() {
         { data: otherData },
         { data: costItems },
         { data: transportData },
+        { data: assignmentsData },
       ] = await Promise.all([
         supabase.from('events').select('*, ambulance:ambulances(*)').eq('id', id!).single(),
         db.from('contractors').select('*').eq('is_active', true).order('name'),
@@ -72,7 +75,10 @@ export default function EventFinancial() {
         db.from('event_other_costs').select('*').eq('event_id', id!),
         db.from('cost_items').select('*').eq('is_active', true),
         supabase.from('transport_records').select('departure_time, arrival_time').eq('event_id', id!).maybeSingle(),
+        db.from('event_assignments').select('*').eq('event_id', id!),
       ]);
+      setAssignments(assignmentsData || []);
+      setHasFullTransport(!!(transportData?.departure_time && transportData?.arrival_time));
 
       // Calculate transport duration for staff cost
       let minutes = 0;
@@ -256,12 +262,19 @@ export default function EventFinancial() {
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  const getAssignmentMinutes = (profileId: string, role: string) => {
+    const a = assignments.find((x: any) => x.profile_id === profileId && x.role === role);
+    return a?.paid_duration_minutes ?? null;
+  };
+
   const calcStaffTotal = (c: any, participant?: any) => {
     const profileRate = Number(participant?.profile?.valor_hora) || 0;
     const role = participant?.role || '';
     const fallbackRate = getDefaultRate(role, profileRate);
     const rate = Number(c.base_value) > 0 ? Number(c.base_value) : fallbackRate;
-    return (transportMinutes / 60) * rate + Number(c.extras) - Number(c.discounts);
+    const assignedMin = participant ? getAssignmentMinutes(participant.profile_id, role) : null;
+    const minutes = assignedMin != null ? assignedMin : transportMinutes;
+    return (minutes / 60) * rate + Number(c.extras) - Number(c.discounts);
   };
 
   const totalInsumos = insumoCosts.totalMed + insumoCosts.totalMat;
@@ -277,7 +290,9 @@ export default function EventFinancial() {
     : participants.reduce((s: number, p: any) => {
         const profileRate = Number(p.profile?.valor_hora) || 0;
         const rate = getDefaultRate(p.role, profileRate);
-        return s + (transportMinutes / 60) * rate;
+        const assignedMin = getAssignmentMinutes(p.profile_id, p.role);
+        const minutes = assignedMin != null ? assignedMin : transportMinutes;
+        return s + (minutes / 60) * rate;
       }, 0);
   const totalOther = otherCosts.reduce((s: number, c: any) => s + Number(c.amount), 0);
   const totalPaid = payments.filter((p: any) => !p.cancelled).reduce((s: number, p: any) => s + Number(p.amount), 0);
