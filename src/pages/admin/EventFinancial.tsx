@@ -11,9 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowLeft, DollarSign, Users, Package, Plus, Save, Pill, Download, FileText, Clock, Fuel } from 'lucide-react';
+import { Loader2, ArrowLeft, DollarSign, Users, Package, Plus, Save, Pill, Download, FileText, Clock, Fuel, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { differenceInMinutes, parseISO } from 'date-fns';
 import { useDefaultRates } from '@/hooks/useDefaultRates';
+import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
+import { formatBR } from '@/utils/dateFormat';
 
 const db = supabase as any;
 
@@ -421,8 +424,21 @@ export default function EventFinancial() {
 
         {/* Custos da Equipe */}
         <Card>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Custos da Equipe ({fmt(totalStaff)})</CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Custos da Equipe ({fmt(totalStaff)})</CardTitle>
+            <Button size="sm" variant="outline" onClick={async () => { await recomputeAllAssignmentsForEvent(id!); await loadData(); toast({ title: 'Horas recalculadas' }); }}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recalcular horas
+            </Button>
+          </CardHeader>
           <CardContent>
+            {assignments.some((a: any) => a.recebe_deslocamento_resolvido && !hasFullTransport) && (
+              <Alert className="mb-3 border-amber-500/30 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 text-xs">
+                  Deslocamento ativo, mas faltam horários reais de transporte — usando horário previsto.
+                </AlertDescription>
+              </Alert>
+            )}
             {participants.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Nenhum participante</p>
             ) : (
@@ -432,21 +448,34 @@ export default function EventFinancial() {
                   const d = existing || { payment_type: 'por_hora', base_value: 0, extras: 0, discounts: 0 };
                   const profileRate = Number(p.profile?.valor_hora) || 0;
                   const rate = Number(d.base_value) > 0 ? Number(d.base_value) : getDefaultRate(p.role, profileRate);
-                  const personTotal = (transportMinutes / 60) * rate + Number(d.extras) - Number(d.discounts);
-                  const hours = transportMinutes / 60;
+                  const a = assignments.find((x: any) => x.profile_id === p.profile_id && x.role === p.role);
+                  const minutes = a?.paid_duration_minutes ?? transportMinutes;
+                  const personTotal = (minutes / 60) * rate + Number(d.extras) - Number(d.discounts);
+                  const hours = minutes / 60;
+                  const fmtDT = (v: string | null) => { try { return v ? formatBR(new Date(v), 'dd/MM HH:mm') : '—'; } catch { return '—'; } };
                   return (
                     <div key={p.id} className="p-3 border rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold">{p.profile?.full_name}</p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{p.role}</Badge>
                             {p.profile?.professional_id && <span className="text-[10px] text-muted-foreground">{p.profile.professional_id}</span>}
+                            {a && (a.recebe_deslocamento_resolvido
+                              ? <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20">Com deslocamento</Badge>
+                              : <Badge variant="outline" className="text-[10px]">Sem deslocamento</Badge>
+                            )}
                           </div>
-                          {transportMinutes > 0 && (
+                          {a && (
+                            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+                              <p>Previsto: {fmtDT(a.scheduled_start)} → {fmtDT(a.scheduled_end)}</p>
+                              <p>Pago: {fmtDT(a.paid_start)} → {fmtDT(a.paid_end)}</p>
+                            </div>
+                          )}
+                          {minutes > 0 && (
                             <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {fmt(rate)}/h × {hours.toFixed(1)}h = {fmt(personTotal)}
+                              {fmt(rate)}/h × {hours.toFixed(2)}h = {fmt(personTotal)}
                             </p>
                           )}
                         </div>
