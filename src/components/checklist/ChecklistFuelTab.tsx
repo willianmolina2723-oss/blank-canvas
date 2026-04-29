@@ -341,10 +341,11 @@ export const ChecklistFuelTab = forwardRef<ChecklistFuelTabHandle, Props>(functi
     }
   };
 
-  const saveStart = async () => {
+  const saveStart = async (): Promise<boolean> => {
+    if (isStartConfirmed) return true;
     if (!data.km_inicial.trim()) {
       toast({ title: 'Atenção', description: 'KM Inicial é obrigatório.', variant: 'destructive' });
-      return;
+      return false;
     }
     setIsSaving(true);
     try {
@@ -365,13 +366,21 @@ export const ChecklistFuelTab = forwardRef<ChecklistFuelTabHandle, Props>(functi
 
       setIsStartConfirmed(true);
       toast({ title: 'Salvo', description: 'Dados de início registrados.' });
+      return true;
     } catch (err) {
       console.error(err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    confirmStart: saveStart,
+    isStartComplete: () => !!data.km_inicial.trim(),
+    isStartConfirmed: () => isStartConfirmed,
+  }), [data.km_inicial, isStartConfirmed, startItemId]);
 
   const saveEnd = async () => {
     if (!data.km_final.trim()) {
