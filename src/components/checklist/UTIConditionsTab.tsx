@@ -339,7 +339,7 @@ export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(functi
       )}
 
       {/* Confirm button */}
-      {canCheck && !isConfirmed ? (
+      {!hideConfirmButton && canCheck && !isConfirmed ? (
         <Button
           onClick={handleConfirm}
           disabled={!allFilled || isSaving}
@@ -348,7 +348,7 @@ export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(functi
           {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
           Confirmar Condições da UTI
         </Button>
-      ) : isConfirmed ? (
+      ) : !hideConfirmButton && isConfirmed ? (
         <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
           <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
           Condições da UTI confirmadas com sucesso.
@@ -356,4 +356,5 @@ export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(functi
       ) : null}
     </div>
   );
-}
+});
+
