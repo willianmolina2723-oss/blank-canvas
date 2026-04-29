@@ -183,10 +183,11 @@ export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(functi
   const pct = Math.round((filledCount / totalFields) * 100);
   const allFilled = pct === 100;
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (): Promise<boolean> => {
+    if (isConfirmed) return true;
     if (!allFilled) {
       toast({ title: 'Atenção', description: 'Todos os campos devem ser preenchidos antes de confirmar.', variant: 'destructive' });
-      return;
+      return false;
     }
 
     setIsSaving(true);
