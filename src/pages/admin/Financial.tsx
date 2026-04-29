@@ -45,6 +45,8 @@ export default function Financial() {
   const [events, setEvents] = useState<any[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
   const [eventFinances, setEventFinances] = useState<Record<string, any>>({});
+  const [eventInsumos, setEventInsumos] = useState<Record<string, number>>({});
+  const [eventChargeInsumos, setEventChargeInsumos] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate('/');
@@ -223,6 +225,8 @@ export default function Financial() {
           insumosRevenueTotal += insumosByEvent.get(f.event_id) || 0;
         }
       });
+      setEventInsumos(Object.fromEntries(insumosByEvent));
+      setEventChargeInsumos(Object.fromEntries(eventChargeMap));
 
       const totalRevenue = (finances || []).reduce((sum: number, f: any) => sum + Number(f.contract_value) - Number(f.discounts) + Number(f.additions), 0) + insumosRevenueTotal;
       const totalOtherCosts = (otherCosts || []).reduce((sum: number, o: any) => sum + Number(o.amount), 0);
@@ -292,11 +296,13 @@ export default function Financial() {
 
   const exportCSV = () => {
     const rows = [
-      ['Evento', 'Local', 'Status', 'Receita', 'Custo Equipe', 'Outros Custos', 'Lucro'],
+      ['Evento', 'Local', 'Status', 'Receita Contrato', 'Insumos Cobrados', 'Receita Total'],
       ...filteredEvents.map(ev => {
         const fin = eventFinances[ev.id];
-        const revenue = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
-        return [ev.code, ev.location || '', ev.status, revenue.toFixed(2), '0', '0', revenue.toFixed(2)];
+        const contractRev = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+        const insumos = eventChargeInsumos[ev.id] ? (eventInsumos[ev.id] || 0) : 0;
+        const total = contractRev + insumos;
+        return [ev.code, ev.location || '', fin?.status || 'sem dados', contractRev.toFixed(2), insumos.toFixed(2), total.toFixed(2)];
       }),
     ];
     const csv = rows.map(r => r.join(';')).join('\n');
@@ -433,13 +439,18 @@ export default function Financial() {
                   <div className="space-y-2">
                     {filteredEvents.map((event) => {
                       const fin = eventFinances[event.id];
-                      const revenue = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+                      const contractRev = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+                      const insumos = eventChargeInsumos[event.id] ? (eventInsumos[event.id] || 0) : 0;
+                      const revenue = contractRev + insumos;
                       return (
                         <button key={event.id} onClick={() => navigate(`/admin/financial/event/${event.id}`)}
                           className="w-full flex items-center justify-between p-3 rounded-xl border hover:bg-muted/50 transition-colors text-left">
                           <div>
                             <p className="text-sm font-bold">{event.code}</p>
                             <p className="text-xs text-muted-foreground">{event.location || 'Sem local'}</p>
+                            {insumos > 0 && (
+                              <p className="text-[10px] text-purple-600">+ {formatCurrency(insumos)} insumos cobrados</p>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {revenue > 0 && <span className="text-xs font-semibold text-emerald-600">{formatCurrency(revenue)}</span>}
