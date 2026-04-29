@@ -65,15 +65,38 @@ Deno.serve(async (req) => {
       // 1. Checklist VTR - all items must be checked
       const { data: checklistItems } = await supabaseAdmin
         .from('checklist_items')
-        .select('id, is_checked, item_type')
+        .select('id, is_checked, item_type, notes, item_name')
         .eq('event_id', event_id)
 
       if (!checklistItems || checklistItems.length === 0) {
         pendingItems.push('Checklist da VTR: nenhum item registrado')
       } else {
-        const unchecked = checklistItems.filter(i => !i.is_checked)
+        // Equipamentos VTR (item_type = 'pre' ou demais não-especiais) precisam estar marcados
+        const vtrItems = checklistItems.filter(i => {
+          const t = i.item_type as string
+          return t !== 'psicotropicos' && t !== 'medications' && t !== 'consumo_medicamentos'
+            && t !== 'materiais' && t !== 'uti' && t !== 'uti_confirmed'
+            && t !== 'checklist_confirmed' && t !== 'videos_confirmed'
+            && t !== 'psicotropicos_confirmed' && !t.startsWith('video_')
+            && !t.startsWith('fuel_')
+        })
+        const unchecked = vtrItems.filter(i => !i.is_checked)
         if (unchecked.length > 0) {
           pendingItems.push(`Checklist da VTR: ${unchecked.length} item(ns) não marcado(s)`)
+        }
+      }
+
+      // 1b. Medicamentos psicotrópicos - inventário deve estar preenchido com quantidades
+      const psychoItems = (checklistItems || []).filter(i => (i.item_type as string) === 'psicotropicos')
+      if (psychoItems.length === 0) {
+        pendingItems.push('Medicamentos: inventário de psicotrópicos não foi preenchido')
+      } else {
+        const semQuantidade = psychoItems.filter(i => {
+          const qty = parseInt((i.notes as string) || '0') || 0
+          return qty < 1
+        })
+        if (semQuantidade.length > 0) {
+          pendingItems.push(`Medicamentos: ${semQuantidade.length} medicamento(s) sem quantidade informada`)
         }
       }
 
