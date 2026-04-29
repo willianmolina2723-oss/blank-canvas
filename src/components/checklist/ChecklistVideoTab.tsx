@@ -786,13 +786,13 @@ export const ChecklistVideoTab = forwardRef<ChecklistVideoTabHandle, Props>(func
         </Card>
       )}
 
-      {canCheck && !isConfirmed ? (
+      {!hideConfirmButton && canCheck && !isConfirmed ? (
         <Button onClick={handleConfirm} disabled={!allRecorded}
           className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
           <CheckCircle2 className="h-4 w-4 mr-2" />
           Confirmar Vídeos da VTR
         </Button>
-      ) : isConfirmed ? (
+      ) : !hideConfirmButton && isConfirmed ? (
         <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
           <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
           Vídeos da VTR confirmados com sucesso.
@@ -800,4 +800,5 @@ export const ChecklistVideoTab = forwardRef<ChecklistVideoTabHandle, Props>(func
       ) : null}
     </div>
   );
-}
+});
+
