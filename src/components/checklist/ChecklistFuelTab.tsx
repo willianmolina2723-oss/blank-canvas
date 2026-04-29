@@ -109,7 +109,10 @@ interface FuelData {
   receipt_photos?: string[];
 }
 
-export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Props) {
+export const ChecklistFuelTab = forwardRef<ChecklistFuelTabHandle, Props>(function ChecklistFuelTab(
+  { eventId, canCheck, profileId, empresaId, hideStartConfirmButton = false }: Props,
+  ref
+) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
