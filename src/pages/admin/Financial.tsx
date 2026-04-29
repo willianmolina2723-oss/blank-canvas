@@ -45,6 +45,8 @@ export default function Financial() {
   const [events, setEvents] = useState<any[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
   const [eventFinances, setEventFinances] = useState<Record<string, any>>({});
+  const [eventInsumos, setEventInsumos] = useState<Record<string, number>>({});
+  const [eventChargeInsumos, setEventChargeInsumos] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!authLoading && !isAdmin) navigate('/');
