@@ -658,4 +658,5 @@ export const ChecklistFuelTab = forwardRef<ChecklistFuelTabHandle, Props>(functi
       )}
     </div>
   );
-}
+});
+
