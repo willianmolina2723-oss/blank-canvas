@@ -422,9 +422,12 @@ export default function FinancialPayments() {
       ...weekGroups.flatMap(wg =>
         wg.persons.map(p => {
           const fp = freelancerPayments[p.profile_id];
+          const paid = fp?.fullPayment ? p.total : p.events.reduce((s, e) => s + (fp?.paidEventCodes?.has(e.event_code) ? e.total : 0), 0);
+          const status = paid >= p.total && p.total > 0 ? 'Pago' : paid > 0 ? 'Parcial' : 'Pendente';
+          const lastPay = fp?.payments?.[fp.payments.length - 1];
           return [wg.label, formatBR(wg.paymentDate, 'dd/MM/yyyy'), p.name, ROLE_LABELS[p.role as AppRole] || p.role, p.professional_id || '', String(p.events.length),
             formatHours(p.totalMinutes), p.total.toFixed(2),
-            fp?.status === 'pago' ? 'Pago' : 'Pendente', fp?.payment_date || '', fp?.payment_method || ''];
+            status, lastPay?.payment_date || '', lastPay?.payment_method || ''];
         })
       ),
     ];
