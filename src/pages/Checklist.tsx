@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -8,14 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ClipboardCheck, Plus, Loader2, Check, AlertTriangle, Car, CheckCircle2, Video, Fuel } from 'lucide-react';
+import {
+  ArrowLeft, ArrowRight, ClipboardCheck, Plus, Loader2, Check, AlertTriangle,
+  Car, CheckCircle2, Video, Fuel
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
-import { UTIConditionsTab } from '@/components/checklist/UTIConditionsTab';
-import { ChecklistVideoTab } from '@/components/checklist/ChecklistVideoTab';
-import { ChecklistFuelTab } from '@/components/checklist/ChecklistFuelTab';
+import { UTIConditionsTab, type UTIConditionsTabHandle } from '@/components/checklist/UTIConditionsTab';
+import { ChecklistVideoTab, type ChecklistVideoTabHandle } from '@/components/checklist/ChecklistVideoTab';
+import { ChecklistFuelTab, type ChecklistFuelTabHandle } from '@/components/checklist/ChecklistFuelTab';
+import { cn } from '@/lib/utils';
 import type { ChecklistItem, AppRole } from '@/types/database';
 
 const DEFAULT_ITEMS = [
@@ -36,18 +39,32 @@ const ITEMS_WITH_NOTES = [
   'Torpedos de oxigênio completo pequeno',
 ];
 
+type StepKey = 'equipamentos' | 'uti' | 'videos' | 'combustivel';
+const STEPS: { key: StepKey; label: string; icon: typeof ClipboardCheck }[] = [
+  { key: 'equipamentos', label: 'Equip.', icon: ClipboardCheck },
+  { key: 'uti', label: 'UTI', icon: Car },
+  { key: 'videos', label: 'Vídeos', icon: Video },
+  { key: 'combustivel', label: 'KM', icon: Fuel },
+];
+
 export default function Checklist() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { profile, roles } = useAuth();
   const { toast } = useToast();
-  
+
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [eventRole, setEventRole] = useState<AppRole | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const utiRef = useRef<UTIConditionsTabHandle>(null);
+  const videosRef = useRef<ChecklistVideoTabHandle>(null);
+  const fuelRef = useRef<ChecklistFuelTabHandle>(null);
 
   // Load event role
   useEffect(() => {
@@ -89,7 +106,7 @@ export default function Checklist() {
         const t = i.item_type as string;
         return t !== 'checklist_confirmed' && t !== 'uti' && t !== 'uti_confirmed' && t !== 'psicotropicos' && t !== 'psicotropicos_confirmed' && !t.startsWith('video_') && t !== 'videos_confirmed' && !t.startsWith('fuel_');
       });
-      
+
       if (displayItems.length === 0 && (canCheck || canManageItems)) {
         await createDefaultItems();
         return;
@@ -217,18 +234,38 @@ export default function Checklist() {
   };
 
   const status = getCompletionStatus(items);
-  const allAnswered = status.percentage === 100;
+  const equipAllAnswered = status.percentage === 100;
 
-  const handleConfirmChecklist = async () => {
-    if (!canCheck) {
-      toast({ title: 'Sem permissão', description: 'Sua função não permite confirmar o checklist da viatura.', variant: 'destructive' });
+  // Step completion checks
+  const isStepComplete = (idx: number): boolean => {
+    if (isConfirmed) return true;
+    switch (STEPS[idx].key) {
+      case 'equipamentos':
+        return equipAllAnswered;
+      case 'uti':
+        return utiRef.current?.isComplete() ?? false;
+      case 'videos':
+        return videosRef.current?.isComplete() ?? false;
+      case 'combustivel':
+        return fuelRef.current?.isStartComplete() ?? false;
+    }
+  };
+
+  const goNext = () => {
+    if (!isStepComplete(currentStep)) {
+      toast({
+        title: 'Atenção',
+        description: 'Complete todos os campos desta etapa antes de avançar.',
+        variant: 'destructive',
+      });
       return;
     }
-    if (!allAnswered) {
-      toast({ title: 'Atenção', description: 'Todos os itens devem ser respondidos antes de confirmar.', variant: 'destructive' });
-      return;
-    }
-    setIsSaving(true);
+    setCurrentStep(s => Math.min(s + 1, STEPS.length - 1));
+  };
+
+  const goBack = () => setCurrentStep(s => Math.max(s - 1, 0));
+
+  const confirmEquipamentos = async (): Promise<boolean> => {
     try {
       await supabase.from('checklist_items').delete().eq('event_id', eventId).eq('item_type', 'checklist_confirmed' as any);
       const { error } = await supabase.from('checklist_items').insert({
@@ -236,19 +273,57 @@ export default function Checklist() {
         is_checked: true, checked_by: profile?.id, checked_at: new Date().toISOString(), empresa_id: profile?.empresa_id || null,
       });
       if (error) throw error;
-      setIsConfirmed(true);
-      toast({ title: 'Sucesso', description: 'Checklist confirmado com sucesso.' });
+      return true;
     } catch (err) {
-      console.error('Error confirming checklist:', err);
-      toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar o checklist.'), variant: 'destructive' });
+      console.error('Error confirming equipamentos:', err);
+      toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar equipamentos.'), variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!canCheck) {
+      toast({ title: 'Sem permissão', description: 'Sua função não permite confirmar o checklist da viatura.', variant: 'destructive' });
+      return;
+    }
+    // Validate every step
+    for (let i = 0; i < STEPS.length; i++) {
+      if (!isStepComplete(i)) {
+        setCurrentStep(i);
+        toast({
+          title: 'Etapa incompleta',
+          description: `Complete a etapa "${STEPS[i].label}" antes de finalizar.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    setIsFinalizing(true);
+    try {
+      // Confirm in order: UTI, Videos, Fuel start, then equipamentos flag
+      const utiOk = (await utiRef.current?.confirm()) ?? true;
+      if (!utiOk) return;
+      const videosOk = (await videosRef.current?.confirm()) ?? true;
+      if (!videosOk) return;
+      const fuelOk = (await fuelRef.current?.confirmStart()) ?? true;
+      if (!fuelOk) return;
+      const equipOk = await confirmEquipamentos();
+      if (!equipOk) return;
+
+      setIsConfirmed(true);
+      toast({ title: 'Checklist finalizado', description: 'Todas as etapas foram confirmadas com sucesso.' });
     } finally {
-      setIsSaving(false);
+      setIsFinalizing(false);
     }
   };
 
   if (isLoading) {
     return <MainLayout><div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></MainLayout>;
   }
+
+  const isLastStep = currentStep === STEPS.length - 1;
+  const stepKey = STEPS[currentStep].key;
 
   return (
     <MainLayout>
@@ -273,60 +348,162 @@ export default function Checklist() {
 
         <ReadOnlyBanner show={!canCheck} message="Apenas condutores e administradores podem editar o checklist da viatura." />
 
-        <Tabs defaultValue="equipamentos" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="equipamentos" className="flex-1 gap-1.5 text-xs"><ClipboardCheck className="h-4 w-4" />Equip.</TabsTrigger>
-            <TabsTrigger value="uti" className="flex-1 gap-1.5 text-xs"><Car className="h-4 w-4" />UTI</TabsTrigger>
-            <TabsTrigger value="videos" className="flex-1 gap-1.5 text-xs"><Video className="h-4 w-4" />Vídeos</TabsTrigger>
-            <TabsTrigger value="combustivel" className="flex-1 gap-1.5 text-xs"><Fuel className="h-4 w-4" />KM</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="equipamentos" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Equipamentos</CardTitle>
-                  <Badge variant={status.percentage === 100 ? 'default' : 'secondary'}>{status.answered}/{status.total} ({status.percentage}%)</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">{items.map(renderItem)}</CardContent>
-            </Card>
-
-            {canManageItems && (
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-lg">Adicionar Item</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Input placeholder="Nome do item..." value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="flex-1" />
-                    <Button onClick={addItem} disabled={!newItemName.trim() || isSaving}><Plus className="h-4 w-4 mr-2" />Adicionar</Button>
+        {/* Stepper header */}
+        <div className="flex items-center justify-between gap-1 p-2 rounded-xl bg-muted/40 border">
+          {STEPS.map((s, idx) => {
+            const Icon = s.icon;
+            const isActive = idx === currentStep;
+            const isPast = idx < currentStep;
+            return (
+              <div key={s.key} className="flex items-center gap-1 flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Allow free navigation backwards; forward only if previous done
+                    if (idx <= currentStep || isStepComplete(currentStep)) {
+                      setCurrentStep(idx);
+                    } else {
+                      toast({
+                        title: 'Atenção',
+                        description: 'Complete a etapa atual antes de avançar.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg flex-1 transition-colors',
+                    isActive && 'bg-primary text-primary-foreground shadow',
+                    !isActive && isPast && 'text-primary',
+                    !isActive && !isPast && 'text-muted-foreground'
+                  )}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className={cn(
+                      'flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold border',
+                      isActive && 'bg-primary-foreground text-primary border-primary-foreground',
+                      !isActive && isPast && 'bg-primary text-primary-foreground border-primary',
+                      !isActive && !isPast && 'border-muted-foreground/40'
+                    )}>{idx + 1}</span>
+                    <Icon className="h-3.5 w-3.5" />
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {canCheck && !isConfirmed ? (
-              <Button onClick={handleConfirmChecklist} disabled={!allAnswered || isSaving} className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
-                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                Confirmar Checklist
-              </Button>
-            ) : isConfirmed ? (
-              <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
-                <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
-                Checklist confirmado com sucesso.
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">{s.label}</span>
+                </button>
+                {idx < STEPS.length - 1 && (
+                  <div className={cn('h-0.5 w-2 rounded', idx < currentStep ? 'bg-primary' : 'bg-muted-foreground/20')} />
+                )}
               </div>
-            ) : null}
-          </TabsContent>
+            );
+          })}
+        </div>
 
-          <TabsContent value="uti" className="mt-4">
-            <UTIConditionsTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
-          </TabsContent>
-          <TabsContent value="videos" className="mt-4">
-            <ChecklistVideoTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
-          </TabsContent>
-          <TabsContent value="combustivel" className="mt-4">
-            <ChecklistFuelTab eventId={eventId!} canCheck={canCheck} profileId={profile?.id} empresaId={profile?.empresa_id} />
-          </TabsContent>
-        </Tabs>
+        {/* Step content */}
+        <div className="min-h-[200px]">
+          {stepKey === 'equipamentos' && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Equipamentos</CardTitle>
+                    <Badge variant={status.percentage === 100 ? 'default' : 'secondary'}>{status.answered}/{status.total} ({status.percentage}%)</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">{items.map(renderItem)}</CardContent>
+              </Card>
+
+              {canManageItems && (
+                <Card>
+                  <CardHeader className="pb-3"><CardTitle className="text-lg">Adicionar Item</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      <Input placeholder="Nome do item..." value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="flex-1" />
+                      <Button onClick={addItem} disabled={!newItemName.trim() || isSaving}><Plus className="h-4 w-4 mr-2" />Adicionar</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Keep tabs mounted so refs persist while navigating */}
+          <div className={stepKey === 'uti' ? '' : 'hidden'}>
+            <UTIConditionsTab
+              ref={utiRef}
+              eventId={eventId!}
+              canCheck={canCheck}
+              profileId={profile?.id}
+              empresaId={profile?.empresa_id}
+              hideConfirmButton
+            />
+          </div>
+          <div className={stepKey === 'videos' ? '' : 'hidden'}>
+            <ChecklistVideoTab
+              ref={videosRef}
+              eventId={eventId!}
+              canCheck={canCheck}
+              profileId={profile?.id}
+              empresaId={profile?.empresa_id}
+              hideConfirmButton
+            />
+          </div>
+          <div className={stepKey === 'combustivel' ? '' : 'hidden'}>
+            <ChecklistFuelTab
+              ref={fuelRef}
+              eventId={eventId!}
+              canCheck={canCheck}
+              profileId={profile?.id}
+              empresaId={profile?.empresa_id}
+              hideStartConfirmButton
+            />
+          </div>
+        </div>
+
+        {/* Navigation */}
+        {!isConfirmed ? (
+          <div className="sticky bottom-0 bg-background/95 backdrop-blur pt-3 pb-2 border-t">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={goBack}
+                disabled={currentStep === 0 || isFinalizing}
+                className="flex-1"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Voltar
+              </Button>
+              {!isLastStep ? (
+                <Button
+                  onClick={goNext}
+                  disabled={isFinalizing}
+                  className="flex-[2]"
+                >
+                  Próximo
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleFinalize}
+                  disabled={isFinalizing || !canCheck}
+                  className="flex-[2] rounded-xl py-5 text-sm font-black uppercase tracking-widest"
+                >
+                  {isFinalizing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  Finalizar Checklist
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground text-center mt-2">
+              Etapa {currentStep + 1} de {STEPS.length} · {STEPS[currentStep].label}
+            </p>
+          </div>
+        ) : (
+          <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
+            <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
+            Checklist finalizado com sucesso.
+          </div>
+        )}
       </div>
     </MainLayout>
   );

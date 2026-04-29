@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +53,13 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
+  hideConfirmButton?: boolean;
+}
+
+export interface ChecklistVideoTabHandle {
+  confirm: () => Promise<boolean>;
+  isComplete: () => boolean;
+  isConfirmed: () => boolean;
 }
 
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -107,7 +114,10 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   }
 }
 
-export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: Props) {
+export const ChecklistVideoTab = forwardRef<ChecklistVideoTabHandle, Props>(function ChecklistVideoTab(
+  { eventId, canCheck, profileId, empresaId, hideConfirmButton = false }: Props,
+  ref
+) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -525,11 +535,12 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (): Promise<boolean> => {
+    if (isConfirmed) return true;
     const allRecorded = VIDEO_TYPES.every(v => getRecordingForType(v.key));
     if (!allRecorded) {
       toast({ title: 'Atenção', description: 'Todos os 3 vídeos devem ser gravados antes de confirmar.', variant: 'destructive' });
-      return;
+      return false;
     }
     try {
       const now = new Date().toISOString();
@@ -553,11 +564,19 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
       }
       setIsConfirmed(true);
       toast({ title: 'Sucesso', description: 'Vídeos confirmados com sucesso.' });
+      return true;
     } catch (err) {
       console.error('Confirm error:', err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível confirmar.'), variant: 'destructive' });
+      return false;
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    confirm: handleConfirm,
+    isComplete: () => VIDEO_TYPES.every(v => getRecordingForType(v.key)),
+    isConfirmed: () => isConfirmed,
+  }), [recordings, isConfirmed]);
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -767,13 +786,13 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
         </Card>
       )}
 
-      {canCheck && !isConfirmed ? (
+      {!hideConfirmButton && canCheck && !isConfirmed ? (
         <Button onClick={handleConfirm} disabled={!allRecorded}
           className="w-full rounded-2xl py-6 text-sm font-black uppercase tracking-widest">
           <CheckCircle2 className="h-4 w-4 mr-2" />
           Confirmar Vídeos da VTR
         </Button>
-      ) : isConfirmed ? (
+      ) : !hideConfirmButton && isConfirmed ? (
         <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
           <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
           Vídeos da VTR confirmados com sucesso.
@@ -781,4 +800,5 @@ export function ChecklistVideoTab({ eventId, canCheck, profileId, empresaId }: P
       ) : null}
     </div>
   );
-}
+});
+

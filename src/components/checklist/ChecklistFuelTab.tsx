@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,6 +88,13 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
+  hideStartConfirmButton?: boolean;
+}
+
+export interface ChecklistFuelTabHandle {
+  confirmStart: () => Promise<boolean>;
+  isStartComplete: () => boolean;
+  isStartConfirmed: () => boolean;
 }
 
 interface FuelData {
@@ -102,7 +109,10 @@ interface FuelData {
   receipt_photos?: string[];
 }
 
-export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Props) {
+export const ChecklistFuelTab = forwardRef<ChecklistFuelTabHandle, Props>(function ChecklistFuelTab(
+  { eventId, canCheck, profileId, empresaId, hideStartConfirmButton = false }: Props,
+  ref
+) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -331,10 +341,11 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
     }
   };
 
-  const saveStart = async () => {
+  const saveStart = async (): Promise<boolean> => {
+    if (isStartConfirmed) return true;
     if (!data.km_inicial.trim()) {
       toast({ title: 'Atenção', description: 'KM Inicial é obrigatório.', variant: 'destructive' });
-      return;
+      return false;
     }
     setIsSaving(true);
     try {
@@ -355,13 +366,21 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
 
       setIsStartConfirmed(true);
       toast({ title: 'Salvo', description: 'Dados de início registrados.' });
+      return true;
     } catch (err) {
       console.error(err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível salvar.'), variant: 'destructive' });
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    confirmStart: saveStart,
+    isStartComplete: () => !!data.km_inicial.trim(),
+    isStartConfirmed: () => isStartConfirmed,
+  }), [data.km_inicial, isStartConfirmed, startItemId]);
 
   const saveEnd = async () => {
     if (!data.km_final.trim()) {
@@ -483,7 +502,7 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
                 className="border-red-300 focus:border-red-500" />
             </div>
           )}
-          {canCheck && !isStartConfirmed && (
+          {!hideStartConfirmButton && canCheck && !isStartConfirmed && (
             <Button onClick={saveStart} disabled={isSaving || !data.km_inicial.trim()} className="w-full">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
               Confirmar Início
@@ -639,4 +658,5 @@ export function ChecklistFuelTab({ eventId, canCheck, profileId, empresaId }: Pr
       )}
     </div>
   );
-}
+});
+

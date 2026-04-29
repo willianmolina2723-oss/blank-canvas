@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,9 +37,19 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
+  hideConfirmButton?: boolean;
 }
 
-export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Props) {
+export interface UTIConditionsTabHandle {
+  confirm: () => Promise<boolean>;
+  isComplete: () => boolean;
+  isConfirmed: () => boolean;
+}
+
+export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(function UTIConditionsTab(
+  { eventId, canCheck, profileId, empresaId, hideConfirmButton = false }: Props,
+  ref
+) {
   const { toast } = useToast();
   const [data, setData] = useState<UTIData>(EMPTY_DATA);
   const [recordId, setRecordId] = useState<string | null>(null);
@@ -173,10 +183,11 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
   const pct = Math.round((filledCount / totalFields) * 100);
   const allFilled = pct === 100;
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (): Promise<boolean> => {
+    if (isConfirmed) return true;
     if (!allFilled) {
       toast({ title: 'Atenção', description: 'Todos os campos devem ser preenchidos antes de confirmar.', variant: 'destructive' });
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -225,6 +236,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
 
       setIsConfirmed(true);
       toast({ title: 'Sucesso', description: 'Condições da UTI confirmadas com sucesso.' });
+      return true;
     } catch (err) {
       console.error('Error confirming UTI:', err);
       toast({
@@ -232,10 +244,17 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
         description: explainError(err, 'Não foi possível confirmar.'),
         variant: 'destructive',
       });
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    confirm: handleConfirm,
+    isComplete: () => allFilled,
+    isConfirmed: () => isConfirmed,
+  }), [allFilled, isConfirmed]);
 
   const renderSelector = (label: string, field: keyof UTIData, options: { value: string; label: string; color: string }[]) => (
     <div className="flex items-center gap-2 p-2 rounded-lg border bg-card border-border">
@@ -320,7 +339,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
       )}
 
       {/* Confirm button */}
-      {canCheck && !isConfirmed ? (
+      {!hideConfirmButton && canCheck && !isConfirmed ? (
         <Button
           onClick={handleConfirm}
           disabled={!allFilled || isSaving}
@@ -329,7 +348,7 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
           {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
           Confirmar Condições da UTI
         </Button>
-      ) : isConfirmed ? (
+      ) : !hideConfirmButton && isConfirmed ? (
         <div className="text-center text-sm text-muted-foreground bg-green-50 border border-green-200 rounded-2xl p-4">
           <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
           Condições da UTI confirmadas com sucesso.
@@ -337,4 +356,5 @@ export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Pr
       ) : null}
     </div>
   );
-}
+});
+
