@@ -53,6 +53,13 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
+  hideConfirmButton?: boolean;
+}
+
+export interface ChecklistVideoTabHandle {
+  confirm: () => Promise<boolean>;
+  isComplete: () => boolean;
+  isConfirmed: () => boolean;
 }
 
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
