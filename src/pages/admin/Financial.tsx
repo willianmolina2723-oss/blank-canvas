@@ -439,13 +439,18 @@ export default function Financial() {
                   <div className="space-y-2">
                     {filteredEvents.map((event) => {
                       const fin = eventFinances[event.id];
-                      const revenue = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+                      const contractRev = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+                      const insumos = eventChargeInsumos[event.id] ? (eventInsumos[event.id] || 0) : 0;
+                      const revenue = contractRev + insumos;
                       return (
                         <button key={event.id} onClick={() => navigate(`/admin/financial/event/${event.id}`)}
                           className="w-full flex items-center justify-between p-3 rounded-xl border hover:bg-muted/50 transition-colors text-left">
                           <div>
                             <p className="text-sm font-bold">{event.code}</p>
                             <p className="text-xs text-muted-foreground">{event.location || 'Sem local'}</p>
+                            {insumos > 0 && (
+                              <p className="text-[10px] text-purple-600">+ {formatCurrency(insumos)} insumos cobrados</p>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {revenue > 0 && <span className="text-xs font-semibold text-emerald-600">{formatCurrency(revenue)}</span>}
