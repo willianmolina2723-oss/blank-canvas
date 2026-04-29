@@ -304,7 +304,20 @@ export default function FinancialPayments() {
       const { data: fp } = await db.from('freelancer_payments').select('*')
         .eq('reference_month', `${selectedMonth}-01`).eq('cancelled', false);
       const fpMap: Record<string, any> = {};
-      (fp || []).forEach((p: any) => { fpMap[p.profile_id] = p; });
+      (fp || []).forEach((p: any) => {
+        // Aggregate per profile: keep all payments + extract paid event codes from notes
+        if (!fpMap[p.profile_id]) {
+          fpMap[p.profile_id] = { payments: [], paidEventCodes: new Set<string>(), fullPayment: null };
+        }
+        fpMap[p.profile_id].payments.push(p);
+        const match = (p.notes || '').match(/\[Evento\s+([^\]]+)\]/);
+        if (match) {
+          fpMap[p.profile_id].paidEventCodes.add(match[1].trim());
+        } else {
+          // Payment without specific event = full payment for the period
+          fpMap[p.profile_id].fullPayment = p;
+        }
+      });
       setFreelancerPayments(fpMap);
     } catch (error) {
       console.error('Error:', error);
