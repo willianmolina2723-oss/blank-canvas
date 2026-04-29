@@ -225,6 +225,8 @@ export default function Financial() {
           insumosRevenueTotal += insumosByEvent.get(f.event_id) || 0;
         }
       });
+      setEventInsumos(Object.fromEntries(insumosByEvent));
+      setEventChargeInsumos(Object.fromEntries(eventChargeMap));
 
       const totalRevenue = (finances || []).reduce((sum: number, f: any) => sum + Number(f.contract_value) - Number(f.discounts) + Number(f.additions), 0) + insumosRevenueTotal;
       const totalOtherCosts = (otherCosts || []).reduce((sum: number, o: any) => sum + Number(o.amount), 0);
