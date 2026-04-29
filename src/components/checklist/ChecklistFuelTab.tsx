@@ -88,6 +88,13 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
+  hideStartConfirmButton?: boolean;
+}
+
+export interface ChecklistFuelTabHandle {
+  confirmStart: () => Promise<boolean>;
+  isStartComplete: () => boolean;
+  isStartConfirmed: () => boolean;
 }
 
 interface FuelData {
