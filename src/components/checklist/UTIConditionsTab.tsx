@@ -37,9 +37,19 @@ interface Props {
   canCheck: boolean;
   profileId?: string;
   empresaId?: string | null;
+  hideConfirmButton?: boolean;
 }
 
-export function UTIConditionsTab({ eventId, canCheck, profileId, empresaId }: Props) {
+export interface UTIConditionsTabHandle {
+  confirm: () => Promise<boolean>;
+  isComplete: () => boolean;
+  isConfirmed: () => boolean;
+}
+
+export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(function UTIConditionsTab(
+  { eventId, canCheck, profileId, empresaId, hideConfirmButton = false }: Props,
+  ref
+) {
   const { toast } = useToast();
   const [data, setData] = useState<UTIData>(EMPTY_DATA);
   const [recordId, setRecordId] = useState<string | null>(null);
