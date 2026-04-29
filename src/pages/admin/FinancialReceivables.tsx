@@ -285,10 +285,11 @@ export default function FinancialReceivables() {
                                 </Badge>
                               </div>
                             </div>
-                            <div className="flex gap-4 text-[10px] text-muted-foreground">
+                            <div className="flex gap-4 text-[10px] text-muted-foreground flex-wrap">
                               {ev.due_date && <span>Venc: {ev.due_date}</span>}
                               {ev.payment_method && <span>Forma: {ev.payment_method}</span>}
                               <span>Pago: {fmt(ev.paid)}</span>
+                              {ev.insumos > 0 && <span className="text-purple-600">Insumos: +{fmt(ev.insumos)}</span>}
                             </div>
                             {ev.payments.length > 0 && (
                               <div className="mt-1 space-y-1">
