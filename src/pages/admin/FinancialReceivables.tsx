@@ -93,7 +93,7 @@ export default function FinancialReceivables() {
         grouped[f.contractor_id].events.push({
           finance_id: f.id,
           event_code: f.event?.code || '', location: f.event?.location || '',
-          value: finalVal, paid: eventPaid, status: f.status,
+          value: finalVal, contractVal, insumos, paid: eventPaid, status: f.status,
           due_date: f.due_date, payment_method: f.payment_method,
           isOverdue, payments: eventPayments,
         });
