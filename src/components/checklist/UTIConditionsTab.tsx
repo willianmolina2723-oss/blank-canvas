@@ -236,6 +236,7 @@ export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(functi
 
       setIsConfirmed(true);
       toast({ title: 'Sucesso', description: 'Condições da UTI confirmadas com sucesso.' });
+      return true;
     } catch (err) {
       console.error('Error confirming UTI:', err);
       toast({
@@ -243,10 +244,17 @@ export const UTIConditionsTab = forwardRef<UTIConditionsTabHandle, Props>(functi
         description: explainError(err, 'Não foi possível confirmar.'),
         variant: 'destructive',
       });
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    confirm: handleConfirm,
+    isComplete: () => allFilled,
+    isConfirmed: () => isConfirmed,
+  }), [allFilled, isConfirmed]);
 
   const renderSelector = (label: string, field: keyof UTIData, options: { value: string; label: string; color: string }[]) => (
     <div className="flex items-center gap-2 p-2 rounded-lg border bg-card border-border">
