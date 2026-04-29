@@ -296,11 +296,13 @@ export default function Financial() {
 
   const exportCSV = () => {
     const rows = [
-      ['Evento', 'Local', 'Status', 'Receita', 'Custo Equipe', 'Outros Custos', 'Lucro'],
+      ['Evento', 'Local', 'Status', 'Receita Contrato', 'Insumos Cobrados', 'Receita Total'],
       ...filteredEvents.map(ev => {
         const fin = eventFinances[ev.id];
-        const revenue = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
-        return [ev.code, ev.location || '', ev.status, revenue.toFixed(2), '0', '0', revenue.toFixed(2)];
+        const contractRev = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+        const insumos = eventChargeInsumos[ev.id] ? (eventInsumos[ev.id] || 0) : 0;
+        const total = contractRev + insumos;
+        return [ev.code, ev.location || '', fin?.status || 'sem dados', contractRev.toFixed(2), insumos.toFixed(2), total.toFixed(2)];
       }),
     ];
     const csv = rows.map(r => r.join(';')).join('\n');
