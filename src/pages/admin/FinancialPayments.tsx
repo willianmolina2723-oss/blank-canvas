@@ -304,7 +304,20 @@ export default function FinancialPayments() {
       const { data: fp } = await db.from('freelancer_payments').select('*')
         .eq('reference_month', `${selectedMonth}-01`).eq('cancelled', false);
       const fpMap: Record<string, any> = {};
-      (fp || []).forEach((p: any) => { fpMap[p.profile_id] = p; });
+      (fp || []).forEach((p: any) => {
+        // Aggregate per profile: keep all payments + extract paid event codes from notes
+        if (!fpMap[p.profile_id]) {
+          fpMap[p.profile_id] = { payments: [], paidEventCodes: new Set<string>(), fullPayment: null };
+        }
+        fpMap[p.profile_id].payments.push(p);
+        const match = (p.notes || '').match(/\[Evento\s+([^\]]+)\]/);
+        if (match) {
+          fpMap[p.profile_id].paidEventCodes.add(match[1].trim());
+        } else {
+          // Payment without specific event = full payment for the period
+          fpMap[p.profile_id].fullPayment = p;
+        }
+      });
       setFreelancerPayments(fpMap);
     } catch (error) {
       console.error('Error:', error);
@@ -356,16 +369,17 @@ export default function FinancialPayments() {
     const amountToPay = payingEvent ? payingEvent.total : payingPerson.total;
     const notesPrefix = payingEvent ? `[Evento ${payingEvent.event_code}] ` : '';
     try {
-      const existing = freelancerPayments[payingPerson.profile_id];
-      if (existing && !payingEvent) {
-        // Full payment update
+      const fpData = freelancerPayments[payingPerson.profile_id];
+      const existingFull = fpData?.fullPayment;
+      if (existingFull && !payingEvent) {
+        // Update existing full payment
         await db.from('freelancer_payments').update({
           status: 'pago', total_amount: amountToPay,
           payment_date: paymentForm.payment_date, payment_method: paymentForm.payment_method,
           notes: paymentForm.notes || null,
-        }).eq('id', existing.id);
+        }).eq('id', existingFull.id);
       } else {
-        // Insert new payment record (for individual event or new full payment)
+        // Insert new payment record (per-event or full)
         await db.from('freelancer_payments').insert({
           profile_id: payingPerson.profile_id, reference_month: `${selectedMonth}-01`,
           total_amount: amountToPay, status: 'pago',
@@ -408,9 +422,12 @@ export default function FinancialPayments() {
       ...weekGroups.flatMap(wg =>
         wg.persons.map(p => {
           const fp = freelancerPayments[p.profile_id];
+          const paid = fp?.fullPayment ? p.total : p.events.reduce((s, e) => s + (fp?.paidEventCodes?.has(e.event_code) ? e.total : 0), 0);
+          const status = paid >= p.total && p.total > 0 ? 'Pago' : paid > 0 ? 'Parcial' : 'Pendente';
+          const lastPay = fp?.payments?.[fp.payments.length - 1];
           return [wg.label, formatBR(wg.paymentDate, 'dd/MM/yyyy'), p.name, ROLE_LABELS[p.role as AppRole] || p.role, p.professional_id || '', String(p.events.length),
             formatHours(p.totalMinutes), p.total.toFixed(2),
-            fp?.status === 'pago' ? 'Pago' : 'Pendente', fp?.payment_date || '', fp?.payment_method || ''];
+            status, lastPay?.payment_date || '', lastPay?.payment_method || ''];
         })
       ),
     ];
@@ -424,8 +441,31 @@ export default function FinancialPayments() {
     URL.revokeObjectURL(url);
   };
 
-  const totalPendente = staffSummary.filter(p => freelancerPayments[p.profile_id]?.status !== 'pago').reduce((s, p) => s + p.total, 0);
-  const totalPago = staffSummary.filter(p => freelancerPayments[p.profile_id]?.status === 'pago').reduce((s, p) => s + p.total, 0);
+  // Helpers para status por evento
+  const isEventPaid = (profileId: string, eventCode: string) => {
+    const fp = freelancerPayments[profileId];
+    if (!fp) return false;
+    if (fp.fullPayment) return true;
+    return fp.paidEventCodes?.has(eventCode);
+  };
+  const isPersonFullyPaid = (person: PersonSummary) => {
+    const fp = freelancerPayments[person.profile_id];
+    if (!fp) return false;
+    if (fp.fullPayment) return true;
+    // Considerado totalmente pago se TODOS os eventos com valor > 0 foram pagos individualmente
+    const billable = person.events.filter(e => e.total > 0);
+    if (billable.length === 0) return false;
+    return billable.every(e => fp.paidEventCodes?.has(e.event_code));
+  };
+  const personPaidAmount = (person: PersonSummary) => {
+    const fp = freelancerPayments[person.profile_id];
+    if (!fp) return 0;
+    if (fp.fullPayment) return person.total;
+    return person.events.reduce((sum, e) => sum + (fp.paidEventCodes?.has(e.event_code) ? e.total : 0), 0);
+  };
+
+  const totalPago = staffSummary.reduce((s, p) => s + personPaidAmount(p), 0);
+  const totalPendente = staffSummary.reduce((s, p) => s + (p.total - personPaidAmount(p)), 0);
   const totalHours = staffSummary.reduce((s, p) => s + p.totalMinutes, 0);
 
   if (authLoading || isLoading) {
@@ -435,7 +475,10 @@ export default function FinancialPayments() {
 
   const renderPersonCard = (person: PersonSummary, weekPayDate?: Date) => {
     const fp = freelancerPayments[person.profile_id];
-    const isPaid = fp?.status === 'pago';
+    const isPaid = isPersonFullyPaid(person);
+    const paidAmount = personPaidAmount(person);
+    const remaining = person.total - paidAmount;
+    const hasPartial = !isPaid && paidAmount > 0;
     const isExpanded = expandedId === person.profile_id;
 
     return (
@@ -456,8 +499,8 @@ export default function FinancialPayments() {
               <div className="flex items-center gap-2">
                 <div className="text-right">
                   <p className="font-bold text-lg text-primary">{fmt(person.total)}</p>
-                  <Badge variant={isPaid ? 'default' : 'destructive'} className="text-[10px]">
-                    {isPaid ? 'Pago' : 'Pendente'}
+                  <Badge variant={isPaid ? 'default' : hasPartial ? 'secondary' : 'destructive'} className="text-[10px]">
+                    {isPaid ? 'Pago' : hasPartial ? `Parcial (${fmt(remaining)} pend.)` : 'Pendente'}
                   </Badge>
                 </div>
                 {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -468,10 +511,15 @@ export default function FinancialPayments() {
           {isExpanded && (
             <div className="mt-4 pt-4 border-t space-y-3">
               <h4 className="text-xs font-bold text-muted-foreground">EVENTOS ({person.events.length})</h4>
-              {person.events.map((ev, i) => (
+              {person.events.map((ev, i) => {
+                const evPaid = isEventPaid(person.profile_id, ev.event_code);
+                return (
                 <div key={i} className="p-2 bg-muted/50 rounded space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold">{ev.event_code}</span>
+                    <span className="font-semibold flex items-center gap-2">
+                      {ev.event_code}
+                      {evPaid && <Badge variant="default" className="text-[9px] py-0">Pago</Badge>}
+                    </span>
                     <span className="font-semibold">{ev.total > 0 ? fmt(ev.total) : '--'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -486,8 +534,8 @@ export default function FinancialPayments() {
                       {ev.discounts > 0 && ` - Desc: ${fmt(ev.discounts)}`}
                     </p>
                   ) : null}
-                  {/* Per-event pay button when person has multiple events and is not fully paid */}
-                  {!isPaid && person.events.length > 1 && ev.total > 0 && (
+                  {/* Botão por evento: aparece quando ainda não foi pago e não está em pagamento total */}
+                  {!evPaid && !isPaid && ev.total > 0 && (
                     <Button size="sm" variant="outline" className="w-full text-xs mt-1" onClick={() => {
                       setPayingPerson(person);
                       setPayingEvent(ev);
@@ -502,18 +550,25 @@ export default function FinancialPayments() {
                     </Button>
                   )}
                 </div>
-              ))}
+              );
+              })}
 
-              {isPaid && fp && (
-                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                  <p className="text-xs font-semibold text-primary">Pago em {fp.payment_date} via {fp.payment_method}</p>
-                  {fp.notes && <p className="text-xs text-primary/80 mt-1">{fp.notes}</p>}
+              {(isPaid || hasPartial) && fp?.payments?.length > 0 && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-1">
+                  {fp.payments.map((p: any) => (
+                    <p key={p.id} className="text-xs text-primary">
+                      <strong>{fmt(Number(p.total_amount))}</strong> em {p.payment_date} via {p.payment_method}
+                      {p.notes && <span className="text-primary/70"> — {p.notes}</span>}
+                    </p>
+                  ))}
                 </div>
               )}
 
-              {!isPaid && (
+              {!isPaid && remaining > 0 && (
                 <Button size="sm" className="w-full" onClick={() => {
-                  setPayingPerson(person);
+                  // Pagamento "tudo" só dos pendentes: se já há parciais, pagamos só o restante via evento individual
+                  // Para simplicidade: se há parciais, abrimos só o restante somando, mas marcando cada evento pendente.
+                  setPayingPerson({ ...person, total: remaining });
                   setPayingEvent(null);
                   setPaymentForm(prev => ({
                     ...prev,
@@ -521,7 +576,7 @@ export default function FinancialPayments() {
                   }));
                   setShowPayDialog(true);
                 }}>
-                  <Check className="h-4 w-4 mr-1" /> Pagar Tudo ({fmt(person.total)})
+                  <Check className="h-4 w-4 mr-1" /> {hasPartial ? `Pagar Restante (${fmt(remaining)})` : `Pagar Tudo (${fmt(person.total)})`}
                 </Button>
               )}
             </div>
