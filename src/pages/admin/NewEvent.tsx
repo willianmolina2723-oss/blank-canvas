@@ -175,13 +175,18 @@ export default function NewEventPage() {
 
     setIsSaving(true);
     try {
+      // Ordena datas e calcula cache departure/arrival (primeira/última)
+      const sortedDates = [...eventDates].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
+      const firstTs = buildEventDateTimestamps(sortedDates[0]);
+      const lastTs = buildEventDateTimestamps(sortedDates[sortedDates.length - 1]);
+
       const insertData: Record<string, unknown> = {
           code: code.trim(),
           location: location.trim() || null,
           description: description.trim() || null,
           ambulance_id: selectedAmbulance || null,
-          departure_time: departureTime || null,
-          arrival_time: arrivalTime || null,
+          departure_time: firstTs?.start || null,
+          arrival_time: lastTs?.end || null,
           contractor_id: selectedContractor || null,
           contractor_responsible: contractorResponsible.trim() || null,
           contractor_phone: contractorPhone.trim() || null,
@@ -198,6 +203,24 @@ export default function NewEventPage() {
         .single();
 
       if (eventError) throw eventError;
+
+      // Insere event_dates
+      const dateRows = sortedDates.map((d, idx) => {
+        const ts = buildEventDateTimestamps(d)!;
+        return {
+          event_id: eventData.id,
+          empresa_id: profile?.empresa_id || null,
+          ordem: idx + 1,
+          date: d.date,
+          start_time: ts.start,
+          end_time: ts.end,
+          location_override: d.location_override?.trim() || null,
+          notes: d.notes?.trim() || null,
+          status: 'ativo',
+        };
+      });
+      const { error: datesErr } = await (supabase as any).from('event_dates').insert(dateRows);
+      if (datesErr) throw datesErr;
 
       const selectedParticipants = participants.filter(p => p.selected);
       if (selectedParticipants.length > 0) {
