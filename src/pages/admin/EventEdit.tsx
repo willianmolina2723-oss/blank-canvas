@@ -20,6 +20,7 @@ import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole }
 import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { AssignmentSummary } from '@/components/events/AssignmentSummary';
+import { ParticipantsByDateMatrix } from '@/components/events/ParticipantsByDateMatrix';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
  
  interface ProfileWithRoles extends Profile {
@@ -572,7 +573,8 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
               />
             );
           })()}
-         {id && <AssignmentSummary eventId={id} empresaId={currentProfile?.empresa_id || null} />}
+          {id && <ParticipantsByDateMatrix eventId={id} empresaId={currentProfile?.empresa_id || null} />}
+          {id && <AssignmentSummary eventId={id} empresaId={currentProfile?.empresa_id || null} />}
  
          {/* Actions */}
          <div className="flex justify-end gap-2">
