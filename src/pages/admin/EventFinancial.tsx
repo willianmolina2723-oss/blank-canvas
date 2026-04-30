@@ -28,6 +28,7 @@ export default function EventFinancial() {
   const { isAdmin, isLoading: authLoading, profile } = useAuth();
   const { toast } = useToast();
   const { getRate: getDefaultRate } = useDefaultRates();
+  const { dates, activeId, activeDate, setActiveId } = useEventDates(id);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [event, setEvent] = useState<any>(null);
