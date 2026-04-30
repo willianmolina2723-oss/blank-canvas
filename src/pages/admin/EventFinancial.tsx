@@ -241,6 +241,7 @@ export default function EventFinancial() {
       await db.from('event_other_costs').insert({
         event_id: id!, category: newOtherCost.category,
         description: newOtherCost.description || null, amount: newOtherCost.amount,
+        event_date_id: activeId || null,
         created_by: profile?.id || null, empresa_id: profile?.empresa_id || null,
       });
       setNewOtherCost({ category: '', description: '', amount: 0 });
