@@ -35,13 +35,20 @@ export function useActiveEvents() {
       const eventIds = events.map(e => e.id);
       let counts: Record<string, number> = {};
       let userEventRoles: Record<string, string> = {};
+      let eventStartDates: Record<string, string> = {};
 
       if (eventIds.length > 0) {
-        // Fetch participants and user's participations in parallel
+        // Fetch participants, user's participations, and event dates in parallel
         const participantsPromise = supabase
           .from('event_participants')
           .select('event_id')
           .in('event_id', eventIds);
+
+        const datesPromise = supabase
+          .from('event_dates')
+          .select('event_id, start_time, date, ordem')
+          .in('event_id', eventIds)
+          .order('ordem', { ascending: true });
 
         const myParticipationsPromise = profileResult.data
           ? supabase
