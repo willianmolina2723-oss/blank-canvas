@@ -155,8 +155,12 @@ export default function NewEventPage() {
     const errors: string[] = [];
     if (!code.trim()) errors.push('Código do evento');
     if (!selectedAmbulance) errors.push('Viatura');
-    if (!departureTime) errors.push('Início do evento');
-    if (!arrivalTime) errors.push('Término do evento');
+    if (eventDates.length === 0) errors.push('Pelo menos uma data');
+    eventDates.forEach((d, i) => {
+      if (!d.date || !d.start_time || !d.end_time) {
+        errors.push(`Data/hora da Data ${i + 1}`);
+      }
+    });
     if (!location.trim()) errors.push('Localização');
     if (!description.trim()) errors.push('Descrição');
     if (!selectedContractor) errors.push('Contratante');
