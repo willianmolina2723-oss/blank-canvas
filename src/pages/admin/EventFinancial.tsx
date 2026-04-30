@@ -476,15 +476,24 @@ export default function EventFinancial() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{p.role}</Badge>
                             {p.profile?.professional_id && <span className="text-[10px] text-muted-foreground">{p.profile.professional_id}</span>}
-                            {a && (a.recebe_deslocamento_resolvido
+                            {aRows.length > 0 && (anyDeslocamento
                               ? <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20">Com deslocamento</Badge>
                               : <Badge variant="outline" className="text-[10px]">Sem deslocamento</Badge>
                             )}
                           </div>
-                          {a && (
+                          {aRows.length > 0 && (
                             <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-                              <p>Previsto: {fmtDT(a.scheduled_start)} → {fmtDT(a.scheduled_end)}</p>
-                              <p>Pago: {fmtDT(a.paid_start)} → {fmtDT(a.paid_end)}</p>
+                              {aRows.map((r: any, idx: number) => {
+                                const dateRow = dates.find(dd => dd.id === r.event_date_id);
+                                const dateLabel = dateRow ? formatBR(dateRow.start_time, 'dd/MM') : (aRows.length > 1 ? `Turno ${idx + 1}` : '');
+                                return (
+                                  <div key={r.id} className="flex flex-wrap gap-x-2">
+                                    {dateLabel && <span className="font-semibold">{dateLabel}:</span>}
+                                    <span>Prev {fmtDT(r.scheduled_start)}→{fmtDT(r.scheduled_end)}</span>
+                                    <span>• Pago {fmtDT(r.paid_start)}→{fmtDT(r.paid_end)}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                           {minutes > 0 && (
