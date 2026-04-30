@@ -36,6 +36,7 @@ interface Opportunity {
   title: string;
   description: string | null;
   event_date: string;
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   location: string | null;
@@ -209,10 +210,14 @@ export function OpportunityCard({ opportunity, onDelete, onRefresh }: Opportunit
 
   const statusLabel = { aberta: 'Aberta', fechada: 'Encerrada', cancelada: 'Cancelada' }[opportunity.status] || opportunity.status;
 
-  const formattedDate = (() => {
-    try { return formatBR(parseISO(opportunity.event_date), "dd 'de' MMMM 'de' yyyy"); }
-    catch { return opportunity.event_date; }
-  })();
+  const formatDay = (d: string) => {
+    try { return formatBR(parseISO(d), "dd 'de' MMMM 'de' yyyy"); }
+    catch { return d; }
+  };
+  const formattedDate = formatDay(opportunity.event_date);
+  const formattedEndDate = opportunity.end_date && opportunity.end_date !== opportunity.event_date
+    ? formatDay(opportunity.end_date)
+    : null;
 
   return (
     <>
@@ -232,6 +237,7 @@ export function OpportunityCard({ opportunity, onDelete, onRefresh }: Opportunit
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {formattedDate}
+                  {formattedEndDate && <> {'→'} {formattedEndDate}</>}
                 </span>
                 {(opportunity.start_time || opportunity.end_time) && (
                   <span className="flex items-center gap-1">
