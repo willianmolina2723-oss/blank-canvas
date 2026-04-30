@@ -74,7 +74,8 @@ export default function MedicalEvolutionForm() {
       loadPatients();
       loadMedicationCatalog();
     }
-  }, [eventId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, activeDateId]);
 
   const loadMedicationCatalog = async () => {
     try {
@@ -102,11 +103,15 @@ export default function MedicalEvolutionForm() {
   const loadPatients = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('patients')
         .select('*')
         .eq('event_id', eventId!)
         .order('created_at', { ascending: true });
+      if (activeDateId) {
+        query = query.or(`event_date_id.eq.${activeDateId},event_date_id.is.null`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       setPatients((data || []) as Patient[]);
     } catch (err) {
