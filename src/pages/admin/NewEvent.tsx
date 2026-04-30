@@ -20,6 +20,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
+import {
+  ParticipantsByDateMatrixLocal,
+  ensureAllocationDefaults,
+  type LocalAllocation,
+  type LocalParticipantRef,
+} from '@/components/events/ParticipantsByDateMatrixLocal';
 
 interface ParticipantSelection {
   profile: Profile;
@@ -56,6 +62,7 @@ export default function NewEventPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
   const [roleSchedules, setRoleSchedules] = useState<RoleSchedulesByDate>({});
+  const [allocation, setAllocation] = useState<LocalAllocation>({});
 
   useEffect(() => {
     if (!isReadOnly) {
@@ -83,6 +90,18 @@ export default function NewEventPage() {
     for (const p of sel) counts[p.role] = (counts[p.role] ?? 0) + 1;
     const dateOpts = buildDateOptionsFromEntries(eventDates);
     setRoleSchedules(prev => buildDefaultRoleSchedulesByDate(prev, dateOpts, rolesInUse, counts));
+  }, [participants, eventDates]);
+
+  // Sync local allocation matrix with selected participants × dates
+  useEffect(() => {
+    const sel = participants.filter(p => p.selected);
+    const refs: LocalParticipantRef[] = sel.map(p => ({
+      profile_id: p.profile.id,
+      role: p.role,
+      full_name: p.profile.full_name,
+    }));
+    const dateKeys = eventDates.map((_, i) => `tmp-${i}`);
+    setAllocation(prev => ensureAllocationDefaults(refs, dateKeys, prev));
   }, [participants, eventDates]);
 
   // Redirect if read-only (after all hooks)
@@ -272,21 +291,56 @@ export default function NewEventPage() {
         if (schedErr) console.error('event_role_schedules insert error:', schedErr);
       }
 
-      // Recompute assignments
+      // Recompute assignments (cria event_assignments para todos × todas as datas)
       try { await recomputeAllAssignmentsForEvent(eventData.id); } catch (e) { console.error(e); }
+
+      // Aplica matriz de alocação local: deleta assignments para pares (profile,role,date) desmarcados.
+      // tmp-N refere-se ao índice de `eventDates` ORIGINAL. Mapeamos via timestamp -> id real.
+      try {
+        const origIdxToRealId: Record<number, string> = {};
+        eventDates.forEach((entry, origIdx) => {
+          const ts = buildEventDateTimestamps(entry);
+          if (!ts) return;
+          const match = (insertedDates || []).find((row: any) => {
+            const sdIdx = sortedDates.findIndex(sd => sd.date === entry.date && sd.start_time === entry.start_time);
+            return sdIdx >= 0 && row.ordem === sdIdx + 1;
+          });
+          if (match) origIdxToRealId[origIdx] = match.id;
+        });
+
+        const deletions: Array<{ profile_id: string; role: AppRole; event_date_id: string }> = [];
+        for (const sp of selectedParticipants) {
+          const k = `${sp.profile.id}:${sp.role}`;
+          const allowed = allocation[k] || new Set<string>();
+          eventDates.forEach((_, origIdx) => {
+            const dk = `tmp-${origIdx}`;
+            const realId = origIdxToRealId[origIdx];
+            if (!realId) return;
+            if (!allowed.has(dk)) {
+              deletions.push({ profile_id: sp.profile.id, role: sp.role, event_date_id: realId });
+            }
+          });
+        }
+
+        for (const del of deletions) {
+          await (supabase as any)
+            .from('event_assignments')
+            .delete()
+            .eq('event_id', eventData.id)
+            .eq('profile_id', del.profile_id)
+            .eq('role', del.role)
+            .eq('event_date_id', del.event_date_id);
+        }
+      } catch (e) {
+        console.error('Erro ao aplicar matriz de alocação:', e);
+      }
 
       const hasMultipleDates = eventDates.length > 1;
       toast({
         title: 'Evento criado',
-        description: hasMultipleDates
-          ? `O evento ${code} foi criado. Aloque a equipe em cada data abaixo.`
-          : `O evento ${code} foi criado com sucesso.`,
+        description: `O evento ${code} foi criado com sucesso.`,
       });
-      if (hasMultipleDates) {
-        navigate(`/admin/events/${eventData.id}/edit`);
-      } else {
-        navigate('/');
-      }
+      navigate(hasMultipleDates ? `/admin/events/${eventData.id}/edit` : '/');
     } catch (err: any) {
       console.error('Error creating event:', err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar o evento.'), variant: 'destructive' });
@@ -514,13 +568,13 @@ export default function NewEventPage() {
                 </CardTitle>
                 <CardDescription>
                   Selecione todos os profissionais que poderão participar deste evento.
-                  {eventDates.length > 1 && ' Após criar, você poderá marcar em quais datas cada um trabalha.'}
+                  {eventDates.length > 1 && ' Marque abaixo em quais datas cada um vai trabalhar.'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {eventDates.length > 1 && (
                   <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
-                    Este evento tem <strong>{eventDates.length} datas</strong>. Marque aqui a equipe completa; ao salvar, você será levado à tela de edição para alocar cada profissional em datas específicas.
+                    Este evento tem <strong>{eventDates.length} datas</strong>. Marque a equipe completa e use a matriz de alocação por data abaixo para definir quem trabalha em cada dia.
                   </div>
                 )}
                 {Object.entries(groupedParticipants).map(([role, roleParticipants]) => (
@@ -577,6 +631,23 @@ export default function NewEventPage() {
                 )}
               </CardContent>
             </Card>
+
+            {eventDates.length > 1 && participants.some(p => p.selected) && (
+              <div className="mt-6">
+                <ParticipantsByDateMatrixLocal
+                  participants={participants
+                    .filter(p => p.selected)
+                    .map(p => ({
+                      profile_id: p.profile.id,
+                      role: p.role,
+                      full_name: p.profile.full_name,
+                    }))}
+                  dates={eventDates}
+                  value={allocation}
+                  onChange={setAllocation}
+                />
+              </div>
+            )}
 
             <div className="mt-6">
               <RoleScheduleEditor
