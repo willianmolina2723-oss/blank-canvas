@@ -92,6 +92,18 @@ export default function NewEventPage() {
     setRoleSchedules(prev => buildDefaultRoleSchedulesByDate(prev, dateOpts, rolesInUse, counts));
   }, [participants, eventDates]);
 
+  // Sync local allocation matrix with selected participants × dates
+  useEffect(() => {
+    const sel = participants.filter(p => p.selected);
+    const refs: LocalParticipantRef[] = sel.map(p => ({
+      profile_id: p.profile.id,
+      role: p.role,
+      full_name: p.profile.full_name,
+    }));
+    const dateKeys = eventDates.map((_, i) => `tmp-${i}`);
+    setAllocation(prev => ensureAllocationDefaults(refs, dateKeys, prev));
+  }, [participants, eventDates]);
+
   // Redirect if read-only (after all hooks)
   if (isReadOnly) {
     return (
