@@ -62,6 +62,7 @@ export default function NewEventPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
   const [roleSchedules, setRoleSchedules] = useState<RoleSchedulesByDate>({});
+  const [allocation, setAllocation] = useState<LocalAllocation>({});
 
   useEffect(() => {
     if (!isReadOnly) {
