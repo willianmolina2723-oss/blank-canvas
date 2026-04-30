@@ -260,7 +260,7 @@ export default function PayrollPage() {
         const profile = p.profile as any;
         if (!profile) continue;
 
-        const event = events.find(e => e.id === p.event_id);
+        const event = paidEvents.find(e => e.id === p.event_id);
         if (!event) continue;
 
         const transport = transportByEvent.get(event.id);
