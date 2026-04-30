@@ -97,11 +97,30 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
           location: eventData.location || '',
           description: eventData.description || '',
           status: eventData.status as EventStatus,
-          departure_time: (eventData as any).departure_time ? (eventData as any).departure_time.slice(0, 16) : '',
-          arrival_time: (eventData as any).arrival_time ? (eventData as any).arrival_time.slice(0, 16) : '',
           cobrar_materiais_medicamentos: (eventData as any).cobrar_materiais_medicamentos ?? false,
         });
        setOriginalAmbulanceId(eventData.ambulance_id || '');
+
+       // Fetch event_dates
+       const { data: edData } = await (supabase as any)
+         .from('event_dates')
+         .select('*')
+         .eq('event_id', id)
+         .order('ordem', { ascending: true });
+       if (edData && edData.length > 0) {
+         setEventDates(edData.map((d: any) => {
+           const startStr = String(d.start_time);
+           const endStr = String(d.end_time);
+           return {
+             id: d.id,
+             date: d.date,
+             start_time: startStr.slice(11, 16),
+             end_time: endStr.slice(11, 16),
+             location_override: d.location_override || '',
+             notes: d.notes || '',
+           } as EventDateEntry;
+         }));
+       }
  
        // Fetch current participants
        const { data: participantsData } = await supabase
