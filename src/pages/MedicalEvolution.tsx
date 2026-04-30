@@ -372,6 +372,10 @@ export default function MedicalEvolutionForm() {
             </div>
           </div>
 
+          {dates.length > 0 && (
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          )}
+
           {patients.length === 0 ? (
             <div className="bg-muted/50 rounded-2xl p-8 text-center space-y-3">
               <UserRound className="h-10 w-10 text-muted-foreground mx-auto" />
