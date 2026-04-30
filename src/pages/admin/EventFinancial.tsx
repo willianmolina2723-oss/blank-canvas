@@ -17,6 +17,8 @@ import { differenceInMinutes, parseISO } from 'date-fns';
 import { useDefaultRates } from '@/hooks/useDefaultRates';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 import { formatBR } from '@/utils/dateFormat';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 const db = supabase as any;
 
@@ -26,6 +28,7 @@ export default function EventFinancial() {
   const { isAdmin, isLoading: authLoading, profile } = useAuth();
   const { toast } = useToast();
   const { getRate: getDefaultRate } = useDefaultRates();
+  const { dates, activeId, activeDate, setActiveId } = useEventDates(id);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [event, setEvent] = useState<any>(null);
@@ -238,6 +241,7 @@ export default function EventFinancial() {
       await db.from('event_other_costs').insert({
         event_id: id!, category: newOtherCost.category,
         description: newOtherCost.description || null, amount: newOtherCost.amount,
+        event_date_id: activeId || null,
         created_by: profile?.id || null, empresa_id: profile?.empresa_id || null,
       });
       setNewOtherCost({ category: '', description: '', amount: 0 });
@@ -265,9 +269,19 @@ export default function EventFinancial() {
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-  const getAssignmentMinutes = (profileId: string, role: string) => {
-    const a = assignments.find((x: any) => x.profile_id === profileId && x.role === role);
-    return a?.paid_duration_minutes ?? null;
+  // Soma minutos pagos de TODAS as datas para um (profile, role)
+  const getAssignmentMinutes = (profileId: string, role: string): number | null => {
+    const rows = assignments.filter((x: any) => x.profile_id === profileId && x.role === role);
+    if (rows.length === 0) return null;
+    let total = 0;
+    let any = false;
+    for (const r of rows) {
+      if (r.paid_duration_minutes != null) {
+        total += Number(r.paid_duration_minutes) || 0;
+        any = true;
+      }
+    }
+    return any ? total : null;
   };
 
   const calcStaffTotal = (c: any, participant?: any) => {
@@ -350,6 +364,18 @@ export default function EventFinancial() {
             <Download className="h-4 w-4 mr-1" /> Exportar
           </Button>
         </div>
+
+        {/* Banner: visão consolidada + seletor de data ativa para novos custos */}
+        {dates.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/40 border">
+            <div className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Visão consolidada</span> — somando todas as {dates.length} {dates.length === 1 ? 'data' : 'datas'} do evento.
+              <br />
+              Novos custos serão vinculados à data selecionada ao lado.
+            </div>
+            <EventDateSelector dates={dates} activeId={activeId} onChange={setActiveId} />
+          </div>
+        )}
 
         {/* Summary */}
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
@@ -448,11 +474,13 @@ export default function EventFinancial() {
                   const d = existing || { payment_type: 'por_hora', base_value: 0, extras: 0, discounts: 0 };
                   const profileRate = Number(p.profile?.valor_hora) || 0;
                   const rate = Number(d.base_value) > 0 ? Number(d.base_value) : getDefaultRate(p.role, profileRate);
-                  const a = assignments.find((x: any) => x.profile_id === p.profile_id && x.role === p.role);
-                  const minutes = a?.paid_duration_minutes ?? transportMinutes;
+                  const aRows = assignments.filter((x: any) => x.profile_id === p.profile_id && x.role === p.role);
+                  const totalAssignedMin = aRows.reduce((s: number, r: any) => s + (Number(r.paid_duration_minutes) || 0), 0);
+                  const minutes = aRows.length > 0 ? totalAssignedMin : transportMinutes;
                   const personTotal = (minutes / 60) * rate + Number(d.extras) - Number(d.discounts);
                   const hours = minutes / 60;
                   const fmtDT = (v: string | null) => { try { return v ? formatBR(new Date(v), 'dd/MM HH:mm') : '—'; } catch { return '—'; } };
+                  const anyDeslocamento = aRows.some((r: any) => r.recebe_deslocamento_resolvido);
                   return (
                     <div key={p.id} className="p-3 border rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
@@ -461,15 +489,24 @@ export default function EventFinancial() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{p.role}</Badge>
                             {p.profile?.professional_id && <span className="text-[10px] text-muted-foreground">{p.profile.professional_id}</span>}
-                            {a && (a.recebe_deslocamento_resolvido
+                            {aRows.length > 0 && (anyDeslocamento
                               ? <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20">Com deslocamento</Badge>
                               : <Badge variant="outline" className="text-[10px]">Sem deslocamento</Badge>
                             )}
                           </div>
-                          {a && (
+                          {aRows.length > 0 && (
                             <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-                              <p>Previsto: {fmtDT(a.scheduled_start)} → {fmtDT(a.scheduled_end)}</p>
-                              <p>Pago: {fmtDT(a.paid_start)} → {fmtDT(a.paid_end)}</p>
+                              {aRows.map((r: any, idx: number) => {
+                                const dateRow = dates.find(dd => dd.id === r.event_date_id);
+                                const dateLabel = dateRow ? formatBR(dateRow.start_time, 'dd/MM') : (aRows.length > 1 ? `Turno ${idx + 1}` : '');
+                                return (
+                                  <div key={r.id} className="flex flex-wrap gap-x-2">
+                                    {dateLabel && <span className="font-semibold">{dateLabel}:</span>}
+                                    <span>Prev {fmtDT(r.scheduled_start)}→{fmtDT(r.scheduled_end)}</span>
+                                    <span>• Pago {fmtDT(r.paid_start)}→{fmtDT(r.paid_end)}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                           {minutes > 0 && (
@@ -581,15 +618,21 @@ export default function EventFinancial() {
         <Card>
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4" /> Outros Custos ({fmt(totalOther)})</CardTitle></CardHeader>
           <CardContent>
-            {otherCosts.map((c: any) => (
-              <div key={c.id} className="flex items-center justify-between p-2 border rounded-lg mb-2">
-                <div>
-                  <p className="text-sm font-semibold">{c.category}</p>
-                  <p className="text-xs text-muted-foreground">{c.description || ''}</p>
+            {otherCosts.map((c: any) => {
+              const dateRow = dates.find(d => d.id === c.event_date_id);
+              return (
+                <div key={c.id} className="flex items-center justify-between p-2 border rounded-lg mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold">{c.category}</p>
+                      {dateRow && <Badge variant="outline" className="text-[10px]">{formatBR(dateRow.start_time, 'dd/MM')}</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{c.description || ''}</p>
+                  </div>
+                  <p className="font-bold text-sm">{fmt(Number(c.amount))}</p>
                 </div>
-                <p className="font-bold text-sm">{fmt(Number(c.amount))}</p>
-              </div>
-            ))}
+              );
+            })}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
               <Select value={newOtherCost.category} onValueChange={(v) => setNewOtherCost(p => ({ ...p, category: v }))}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
