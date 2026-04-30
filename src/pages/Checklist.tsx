@@ -365,6 +365,12 @@ export default function Checklist() {
           </div>
         </div>
 
+        {dates.length > 0 && (
+          <div className="px-1">
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          </div>
+        )}
+
         <ReadOnlyBanner show={!canCheck} message="Apenas condutores e administradores podem editar o checklist da viatura." />
 
         {/* Stepper header */}
