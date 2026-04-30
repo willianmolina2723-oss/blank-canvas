@@ -128,7 +128,21 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUs
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // FunctionsHttpError: tentar ler corpo da Response para mensagem real
+        let realMsg = error.message || 'Erro ao criar usuário';
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.error) realMsg = body.error;
+          } else if (ctx && typeof ctx.text === 'function') {
+            const txt = await ctx.text();
+            if (txt) realMsg = txt;
+          }
+        } catch (_e) { /* ignore */ }
+        throw new Error(realMsg);
+      }
       if (result?.error) throw new Error(result.error);
 
       if (photoFile && result?.user_id) {
