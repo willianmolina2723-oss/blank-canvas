@@ -17,7 +17,7 @@ import { explainError } from '@/utils/explainError';
  import { ArrowLeft, Save, Loader2, Clock, AlertCircle } from 'lucide-react';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
  import { STATUS_LABELS, ROLE_LABELS } from '@/types/database';
-import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { AssignmentSummary } from '@/components/events/AssignmentSummary';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
@@ -56,7 +56,7 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
    const [isLoading, setIsLoading] = useState(true);
    const [isSaving, setIsSaving] = useState(false);
    const [originalAmbulanceId, setOriginalAmbulanceId] = useState<string>('');
-   const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
+   const [roleSchedules, setRoleSchedules] = useState<RoleSchedulesByDate>({});
    const [eventDates, setEventDates] = useState<EventDateEntry[]>([blankEventDate()]);
  
    useEffect(() => {
@@ -71,13 +71,14 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
      }
    }, [id]);
 
-   // Sync role schedules with selected participants
+   // Sync role schedules with selected participants × dates
    useEffect(() => {
      const rolesInUse = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
      const counts: Partial<Record<AppRole, number>> = {};
      for (const r of Object.values(selectedParticipants)) if (r) counts[r] = (counts[r] ?? 0) + 1;
-     setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
-   }, [selectedParticipants]);
+     const dateOpts = buildDateOptionsFromEntries(eventDates);
+     setRoleSchedules(prev => buildDefaultRoleSchedulesByDate(prev, dateOpts, rolesInUse, counts));
+   }, [selectedParticipants, eventDates]);
  
    const fetchData = async () => {
      setIsLoading(true);
