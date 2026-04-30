@@ -568,13 +568,13 @@ export default function NewEventPage() {
                 </CardTitle>
                 <CardDescription>
                   Selecione todos os profissionais que poderão participar deste evento.
-                  {eventDates.length > 1 && ' Após criar, você poderá marcar em quais datas cada um trabalha.'}
+                  {eventDates.length > 1 && ' Marque abaixo em quais datas cada um vai trabalhar.'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {eventDates.length > 1 && (
                   <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
-                    Este evento tem <strong>{eventDates.length} datas</strong>. Marque aqui a equipe completa; ao salvar, você será levado à tela de edição para alocar cada profissional em datas específicas.
+                    Este evento tem <strong>{eventDates.length} datas</strong>. Marque a equipe completa e use a matriz de alocação por data abaixo para definir quem trabalha em cada dia.
                   </div>
                 )}
                 {Object.entries(groupedParticipants).map(([role, roleParticipants]) => (
