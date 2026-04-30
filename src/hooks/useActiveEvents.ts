@@ -35,13 +35,20 @@ export function useActiveEvents() {
       const eventIds = events.map(e => e.id);
       let counts: Record<string, number> = {};
       let userEventRoles: Record<string, string> = {};
+      let eventStartDates: Record<string, string> = {};
 
       if (eventIds.length > 0) {
-        // Fetch participants and user's participations in parallel
+        // Fetch participants, user's participations, and event dates in parallel
         const participantsPromise = supabase
           .from('event_participants')
           .select('event_id')
           .in('event_id', eventIds);
+
+        const datesPromise = supabase
+          .from('event_dates')
+          .select('event_id, start_time, date, ordem')
+          .in('event_id', eventIds)
+          .order('ordem', { ascending: true });
 
         const myParticipationsPromise = profileResult.data
           ? supabase
@@ -51,9 +58,10 @@ export function useActiveEvents() {
               .eq('profile_id', profileResult.data.id)
           : Promise.resolve({ data: null });
 
-        const [participantsResult, myResult] = await Promise.all([
+        const [participantsResult, myResult, datesResult] = await Promise.all([
           participantsPromise,
           myParticipationsPromise,
+          datesPromise,
         ]);
 
         if (participantsResult.data) {
@@ -67,9 +75,25 @@ export function useActiveEvents() {
             userEventRoles[p.event_id] = p.role;
           });
         }
+
+        if (datesResult.data) {
+          const today = new Date().toISOString().slice(0, 10);
+          // Group by event_id
+          const byEvent: Record<string, any[]> = {};
+          datesResult.data.forEach((d: any) => {
+            (byEvent[d.event_id] ||= []).push(d);
+          });
+          Object.entries(byEvent).forEach(([eid, list]) => {
+            // Prefer today, else next future, else last past, else first
+            const exact = list.find(d => d.date === today);
+            const future = list.find(d => d.date >= today);
+            const chosen = exact || future || list[list.length - 1] || list[0];
+            if (chosen) eventStartDates[eid] = chosen.start_time;
+          });
+        }
       }
 
-      return { events, participantCounts: counts, userEventRoles };
+      return { events, participantCounts: counts, userEventRoles, eventStartDates };
     },
     staleTime: 30_000,
     refetchOnWindowFocus: true,

@@ -34,6 +34,7 @@ export default function Dashboard() {
 
   const activeEvents = data?.events || [];
   const participantCounts = data?.participantCounts || {};
+  const eventStartDates = data?.eventStartDates || {};
 
   // Super Admin goes straight to company management
   useEffect(() => {
@@ -190,7 +191,7 @@ export default function Dashboard() {
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {formatDateBR(event.created_at)}
+                              {formatDateBR(eventStartDates[event.id] || event.created_at)}
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="h-3 w-3" />
