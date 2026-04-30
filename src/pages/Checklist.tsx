@@ -188,7 +188,7 @@ export default function Checklist() {
     try {
       const { data, error } = await supabase
         .from('checklist_items')
-        .insert({ event_id: eventId, item_type: 'pre', item_name: newItemName.trim(), is_checked: false, empresa_id: profile?.empresa_id || null })
+        .insert({ event_id: eventId, event_date_id: activeDateId || null, item_type: 'pre', item_name: newItemName.trim(), is_checked: false, empresa_id: profile?.empresa_id || null })
         .select()
         .single();
 
