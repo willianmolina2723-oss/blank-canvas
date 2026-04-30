@@ -465,33 +465,7 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
                </div>
  
  
-               <div className="space-y-2">
-                 <Label htmlFor="departure">Início do Evento <span className="text-destructive">*</span></Label>
-                 <div className="relative">
-                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                   <Input
-                     id="departure"
-                     type="datetime-local"
-                     value={form.departure_time}
-                     onChange={(e) => handleDepartureChange(e.target.value)}
-                     className="pl-10"
-                   />
-                 </div>
-               </div>
- 
-               <div className="space-y-2">
-                 <Label htmlFor="arrival">Término do Evento <span className="text-destructive">*</span></Label>
-                 <div className="relative">
-                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                   <Input
-                     id="arrival"
-                     type="datetime-local"
-                     value={form.arrival_time}
-                     onChange={(e) => handleArrivalChange(e.target.value)}
-                     className="pl-10"
-                   />
-                 </div>
-               </div>
+                {/* Datas movidas para o card EventDatesEditor abaixo */}
  
                <div className="space-y-2">
                  <Label htmlFor="location">Local <span className="text-destructive">*</span></Label>
@@ -564,12 +538,18 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
            </CardContent>
          </Card>
 
+         <EventDatesEditor
+           value={eventDates}
+           onChange={setEventDates}
+           defaultLocation={form.location}
+         />
+
          <RoleScheduleEditor
            rolesInUse={Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]))}
            value={roleSchedules}
            onChange={setRoleSchedules}
-           eventDefaultStart={form.departure_time}
-           eventDefaultEnd={form.arrival_time}
+           eventDefaultStart={buildEventDateTimestamps(eventDates[0])?.start.slice(0, 16) || ''}
+           eventDefaultEnd={buildEventDateTimestamps(eventDates[0])?.end.slice(0, 16) || ''}
          />
 
          {id && <AssignmentSummary eventId={id} empresaId={currentProfile?.empresa_id || null} />}
