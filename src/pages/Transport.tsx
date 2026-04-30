@@ -130,6 +130,12 @@ export default function TransportForm() {
           )}
         </div>
 
+        {dates.length > 0 && (
+          <div className="px-1">
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          </div>
+        )}
+
         <ReadOnlyBanner show={!canEdit} message="Apenas condutores e administradores podem editar os dados de transporte." />
 
         <Card>
