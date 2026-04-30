@@ -158,7 +158,7 @@ export default function TransportForm() {
 
         {dates.length > 0 && (
           <div className="px-1">
-            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} />
           </div>
         )}
 
