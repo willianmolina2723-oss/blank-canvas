@@ -78,7 +78,7 @@ export default function EventHub() {
       if (!session) throw new Error('Sessão expirada');
 
       const response = await supabase.functions.invoke('update-event-status', {
-        body: { event_id: id, new_status: newStatus },
+        body: { event_id: id, new_status: newStatus, event_date_id: activeId ?? undefined },
       });
 
       if (response.error) {
