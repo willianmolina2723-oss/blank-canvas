@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { TransportRecord, AppRole } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 export default function TransportForm() {
   const { eventId } = useParams();
