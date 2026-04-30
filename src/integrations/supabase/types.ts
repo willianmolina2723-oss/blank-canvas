@@ -157,6 +157,7 @@ export type Database = {
           cost_item_id: string | null
           created_at: string
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           id: string
           is_checked: boolean | null
@@ -170,6 +171,7 @@ export type Database = {
           cost_item_id?: string | null
           created_at?: string
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
           is_checked?: boolean | null
@@ -183,6 +185,7 @@ export type Database = {
           cost_item_id?: string | null
           created_at?: string
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
           is_checked?: boolean | null
@@ -217,6 +220,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_items_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -395,6 +405,7 @@ export type Database = {
       digital_signatures: {
         Row: {
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           id: string
           ip_address: string | null
@@ -407,6 +418,7 @@ export type Database = {
         }
         Insert: {
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
           ip_address?: string | null
@@ -419,6 +431,7 @@ export type Database = {
         }
         Update: {
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
           ip_address?: string | null
@@ -435,6 +448,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digital_signatures_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -627,6 +647,7 @@ export type Database = {
           empresa_id: string | null
           end_time: string | null
           event_arrival: string | null
+          event_date_id: string | null
           event_id: string
           id: string
           observations: string | null
@@ -643,6 +664,7 @@ export type Database = {
           empresa_id?: string | null
           end_time?: string | null
           event_arrival?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
           observations?: string | null
@@ -659,6 +681,7 @@ export type Database = {
           empresa_id?: string | null
           end_time?: string | null
           event_arrival?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
           observations?: string | null
@@ -687,6 +710,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_reports_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -809,6 +839,7 @@ export type Database = {
         Row: {
           created_at: string
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           id: string
           paid_duration_minutes: number | null
@@ -825,6 +856,7 @@ export type Database = {
         Insert: {
           created_at?: string
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
           paid_duration_minutes?: number | null
@@ -841,6 +873,7 @@ export type Database = {
         Update: {
           created_at?: string
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
           paid_duration_minutes?: number | null
@@ -854,7 +887,68 @@ export type Database = {
           scheduled_start?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_assignments_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_dates: {
+        Row: {
+          created_at: string
+          date: string
+          empresa_id: string | null
+          end_time: string
+          event_id: string
+          id: string
+          location_override: string | null
+          notes: string | null
+          ordem: number
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          empresa_id?: string | null
+          end_time: string
+          event_id: string
+          id?: string
+          location_override?: string | null
+          notes?: string | null
+          ordem?: number
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          empresa_id?: string | null
+          end_time?: string
+          event_id?: string
+          id?: string
+          location_override?: string | null
+          notes?: string | null
+          ordem?: number
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_dates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_finance_payments: {
         Row: {
@@ -990,6 +1084,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           id: string
         }
@@ -1000,6 +1095,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
         }
@@ -1010,6 +1106,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
         }
@@ -1019,6 +1116,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_other_costs_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -1082,6 +1186,7 @@ export type Database = {
           duration_seconds: number | null
           empresa_id: string | null
           ended_at: string | null
+          event_date_id: string | null
           event_id: string
           file_hash: string | null
           file_size_bytes: number | null
@@ -1100,6 +1205,7 @@ export type Database = {
           duration_seconds?: number | null
           empresa_id?: string | null
           ended_at?: string | null
+          event_date_id?: string | null
           event_id: string
           file_hash?: string | null
           file_size_bytes?: number | null
@@ -1118,6 +1224,7 @@ export type Database = {
           duration_seconds?: number | null
           empresa_id?: string | null
           ended_at?: string | null
+          event_date_id?: string | null
           event_id?: string
           file_hash?: string | null
           file_size_bytes?: number | null
@@ -1138,6 +1245,7 @@ export type Database = {
           created_at: string
           empresa_id: string | null
           end_time: string | null
+          event_date_id: string | null
           event_id: string
           id: string
           quantity: number
@@ -1150,6 +1258,7 @@ export type Database = {
           created_at?: string
           empresa_id?: string | null
           end_time?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
           quantity?: number
@@ -1162,6 +1271,7 @@ export type Database = {
           created_at?: string
           empresa_id?: string | null
           end_time?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
           quantity?: number
@@ -1170,7 +1280,15 @@ export type Database = {
           updated_at?: string
           use_event_default?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_role_schedules_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_staff_costs: {
         Row: {
@@ -1178,6 +1296,7 @@ export type Database = {
           created_at: string
           discounts: number
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           extras: number
           id: string
@@ -1191,6 +1310,7 @@ export type Database = {
           created_at?: string
           discounts?: number
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           extras?: number
           id?: string
@@ -1204,6 +1324,7 @@ export type Database = {
           created_at?: string
           discounts?: number
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           extras?: number
           id?: string
@@ -1218,6 +1339,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_staff_costs_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -1523,6 +1651,7 @@ export type Database = {
           created_by: string | null
           diagnosis: string | null
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           id: string
           medical_assessment: string | null
@@ -1539,6 +1668,7 @@ export type Database = {
           created_by?: string | null
           diagnosis?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           id?: string
           medical_assessment?: string | null
@@ -1555,6 +1685,7 @@ export type Database = {
           created_by?: string | null
           diagnosis?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           id?: string
           medical_assessment?: string | null
@@ -1585,6 +1716,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_evolutions_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -1635,6 +1773,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           heart_rate: number | null
           id: string
@@ -1656,6 +1795,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           heart_rate?: number | null
           id?: string
@@ -1677,6 +1817,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           heart_rate?: number | null
           id?: string
@@ -1711,6 +1852,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nursing_evolutions_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -1915,6 +2063,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           gender: string | null
           id: string
@@ -1934,6 +2083,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           gender?: string | null
           id?: string
@@ -1953,6 +2103,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           gender?: string | null
           id?: string
@@ -1980,6 +2131,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patients_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -2166,6 +2324,7 @@ export type Database = {
           created_by: string | null
           departure_time: string | null
           empresa_id: string | null
+          event_date_id: string | null
           event_id: string
           final_km: number | null
           id: string
@@ -2180,6 +2339,7 @@ export type Database = {
           created_by?: string | null
           departure_time?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id: string
           final_km?: number | null
           id?: string
@@ -2194,6 +2354,7 @@ export type Database = {
           created_by?: string | null
           departure_time?: string | null
           empresa_id?: string | null
+          event_date_id?: string | null
           event_id?: string
           final_km?: number | null
           id?: string
@@ -2222,6 +2383,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_records_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
             referencedColumns: ["id"]
           },
           {
@@ -2433,6 +2601,7 @@ export type Database = {
     }
     Functions: {
       check_plan_access: { Args: { modulo: string }; Returns: boolean }
+      event_dates_count: { Args: { _event_id: string }; Returns: number }
       get_empresa_id: { Args: never; Returns: string }
       get_empresa_plano: {
         Args: never
