@@ -84,6 +84,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
           title: form.title,
           description: form.description || null,
           event_date: form.event_date,
+          end_date: form.end_date || null,
           start_time: form.start_time || null,
           end_time: form.end_time || null,
           location: form.location || null,
@@ -110,7 +111,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
       }
 
       toast({ title: 'Oportunidade criada com sucesso!' });
-      setForm({ title: '', description: '', event_date: '', start_time: '', end_time: '', location: '' });
+      setForm({ title: '', description: '', event_date: '', end_date: '', start_time: '', end_time: '', location: '' });
       setRoleQuantities(Object.fromEntries(ALL_ROLES.map(r => [r, 0])));
       onSuccess();
       onOpenChange(false);
@@ -139,14 +140,26 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="opp-date">Data do Evento *</Label>
-            <Input
-              id="opp-date"
-              type="date"
-              value={form.event_date}
-              onChange={e => setForm(prev => ({ ...prev, event_date: e.target.value }))}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="opp-date">Data Início *</Label>
+              <Input
+                id="opp-date"
+                type="date"
+                value={form.event_date}
+                onChange={e => setForm(prev => ({ ...prev, event_date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="opp-end-date">Data Término</Label>
+              <Input
+                id="opp-end-date"
+                type="date"
+                value={form.end_date}
+                min={form.event_date || undefined}
+                onChange={e => setForm(prev => ({ ...prev, end_date: e.target.value }))}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
