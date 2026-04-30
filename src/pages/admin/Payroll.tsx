@@ -467,7 +467,7 @@ export default function PayrollPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Folha de Pagamento</h1>
-              <p className="text-sm text-muted-foreground capitalize">{monthLabel}</p>
+              <p className="text-sm text-muted-foreground capitalize">{monthLabel} • Apenas eventos pagos pelo contratante</p>
             </div>
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto">
