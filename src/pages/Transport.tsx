@@ -41,7 +41,7 @@ export default function TransportForm() {
   const { canEditTransportSection, guardAction } = usePermissions({ eventRole });
   const canEdit = canEditTransportSection;
 
-  useEffect(() => { if (eventId) loadData(); }, [eventId]);
+  useEffect(() => { if (eventId) loadData(); }, [eventId, activeDateId]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -50,9 +50,28 @@ export default function TransportForm() {
       const { data: ev } = await supabase.from('events').select('status, departure_time, arrival_time').eq('id', eventId!).maybeSingle();
       if (ev) setEventData(ev);
 
-      // Load or create transport record
-      const { data, error } = await supabase.from('transport_records').select('*').eq('event_id', eventId).maybeSingle();
+      // Busca transport da data ativa; se não houver, fallback para o legado (event_date_id null)
+      let q = supabase.from('transport_records').select('*').eq('event_id', eventId);
+      q = activeDateId ? q.eq('event_date_id' as any, activeDateId as any) : q.is('event_date_id' as any, null);
+      let { data, error } = await q.maybeSingle();
       if (error) throw error;
+
+      if (!data && activeDateId) {
+        // Fallback: registro antigo sem data — adota como sendo desta data
+        const { data: legacy } = await supabase
+          .from('transport_records')
+          .select('*')
+          .eq('event_id', eventId)
+          .is('event_date_id' as any, null)
+          .maybeSingle();
+        if (legacy) {
+          await (supabase as any)
+            .from('transport_records')
+            .update({ event_date_id: activeDateId })
+            .eq('id', legacy.id);
+          data = { ...legacy, event_date_id: activeDateId };
+        }
+      }
 
       if (data) {
         let occText = data.occurrences || '';
@@ -71,11 +90,18 @@ export default function TransportForm() {
         });
         setExistingTransportId(data.id);
       } else {
-        const { data: newRecord, error: insertError } = await supabase.from('transport_records')
-          .insert({ event_id: eventId, created_by: profile?.id, empresa_id: profile?.empresa_id || null, updated_at: new Date().toISOString() })
+        const { data: newRecord, error: insertError } = await (supabase as any).from('transport_records')
+          .insert({
+            event_id: eventId,
+            event_date_id: activeDateId || null,
+            created_by: profile?.id,
+            empresa_id: profile?.empresa_id || null,
+            updated_at: new Date().toISOString(),
+          })
           .select().single();
         if (insertError) throw insertError;
         setExistingTransportId(newRecord.id);
+        setTransport({ occurrences: '' });
       }
     } catch (err) {
       console.error('Error loading transport:', err);
@@ -132,7 +158,7 @@ export default function TransportForm() {
 
         {dates.length > 0 && (
           <div className="px-1">
-            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} />
           </div>
         )}
 
