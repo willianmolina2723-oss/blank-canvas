@@ -632,6 +632,23 @@ export default function NewEventPage() {
               </CardContent>
             </Card>
 
+            {eventDates.length > 1 && participants.some(p => p.selected) && (
+              <div className="mt-6">
+                <ParticipantsByDateMatrixLocal
+                  participants={participants
+                    .filter(p => p.selected)
+                    .map(p => ({
+                      profile_id: p.profile.id,
+                      role: p.role,
+                      full_name: p.profile.full_name,
+                    }))}
+                  dates={eventDates}
+                  value={allocation}
+                  onChange={setAllocation}
+                />
+              </div>
+            )}
+
             <div className="mt-6">
               <RoleScheduleEditor
                 rolesInUse={rolesInUse}
