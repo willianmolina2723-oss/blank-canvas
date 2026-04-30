@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
 
     const tempPassword = generateTempPassword()
 
+    console.log('[create-user] criando auth user para', email)
     // Create auth user
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -58,18 +59,28 @@ Deno.serve(async (req) => {
       email_confirm: true,
       user_metadata: { full_name },
     })
-    if (createError) throw new Error(`Erro ao criar usuário: ${createError.message}`)
+    if (createError) {
+      console.error('[create-user] auth.admin.createUser falhou:', createError)
+      throw new Error(`Erro ao criar usuário: ${createError.message}`)
+    }
 
     const userId = authData.user.id
     const empresaId = callerProfile?.empresa_id || null
+    console.log('[create-user] auth user criado', userId, 'empresa', empresaId)
 
     // Update profile with extra data (profile is auto-created by trigger)
-    await supabaseAdmin.from('profiles').update({
+    const { error: profileError } = await supabaseAdmin.from('profiles').update({
       professional_id: professional_id || null,
       phone: phone || null,
       empresa_id: empresaId,
       must_change_password: true,
     }).eq('user_id', userId)
+    if (profileError) {
+      console.error('[create-user] update profile falhou:', profileError)
+      // rollback
+      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {})
+      throw new Error(`Erro ao atualizar perfil: ${profileError.message}`)
+    }
 
     // Assign roles
     if (roles && roles.length > 0) {
@@ -78,7 +89,12 @@ Deno.serve(async (req) => {
         role,
         empresa_id: empresaId,
       }))
-      await supabaseAdmin.from('user_roles').insert(roleInserts)
+      const { error: rolesError } = await supabaseAdmin.from('user_roles').insert(roleInserts)
+      if (rolesError) {
+        console.error('[create-user] insert roles falhou:', rolesError)
+        await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {})
+        throw new Error(`Erro ao atribuir funções: ${rolesError.message}`)
+      }
     }
 
     // Registrar convite
