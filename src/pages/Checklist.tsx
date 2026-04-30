@@ -88,17 +88,25 @@ export default function Checklist() {
   const canManageItems = isFullAdmin;
 
   useEffect(() => {
-    if (eventId) loadChecklist();
-  }, [eventId]);
+    if (eventId && activeDateId !== undefined) loadChecklist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, activeDateId]);
 
   const loadChecklist = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('checklist_items')
         .select('*')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true });
+
+      // Quando há data ativa, filtra: itens da data ou legados (NULL)
+      if (activeDateId) {
+        query = query.or(`event_date_id.eq.${activeDateId},event_date_id.is.null`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -129,6 +137,7 @@ export default function Checklist() {
     try {
       const allItems = DEFAULT_ITEMS.map(name => ({
         event_id: eventId,
+        event_date_id: activeDateId || null,
         item_type: 'pre',
         item_name: name,
         is_checked: false,
