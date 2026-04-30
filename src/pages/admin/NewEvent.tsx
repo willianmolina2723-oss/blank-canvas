@@ -20,6 +20,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
+import {
+  ParticipantsByDateMatrixLocal,
+  ensureAllocationDefaults,
+  type LocalAllocation,
+  type LocalParticipantRef,
+} from '@/components/events/ParticipantsByDateMatrixLocal';
 
 interface ParticipantSelection {
   profile: Profile;
