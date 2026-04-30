@@ -159,7 +159,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error('[create-user] erro fatal:', err?.message, err?.stack)
+    return new Response(JSON.stringify({ error: err.message || 'Erro desconhecido' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
