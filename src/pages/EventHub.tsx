@@ -180,16 +180,17 @@ export default function EventHub() {
     tecnico: ['ENFERMAGEM', 'PACIENTES', 'MEDICAMENTOS', 'CONSUMO MEDS', 'MATERIAIS'],
   };
 
+  const dateQs = activeId ? `?date=${activeId}` : '';
   const allActionCards = [
-    { title: 'PACIENTES', icon: Users, route: `/patient/${id}`, baseColor: 'bg-emerald-500 text-white' },
-    { title: 'CHECKLIST VTR', icon: ClipboardCheck, route: `/checklist/${id}`, baseColor: 'bg-violet-600 text-white' },
-    { title: 'MEDICAMENTOS', icon: Pill, route: `/medications/${id}`, baseColor: 'bg-purple-600 text-white' },
-    { title: 'CONSUMO MEDS', icon: Syringe, route: `/medication-consumption/${id}`, baseColor: 'bg-pink-600 text-white' },
-    { title: 'ENFERMAGEM', icon: Activity, route: `/nursing-evolution/${id}`, baseColor: 'bg-cyan-500 text-white' },
-    { title: 'MÉDICO', icon: Stethoscope, route: `/medical-evolution/${id}`, baseColor: 'bg-red-600 text-white' },
-    { title: 'MATERIAIS', icon: Package, route: `/materials/${id}`, baseColor: 'bg-amber-600 text-white' },
-    { title: 'TRANSPORTE', icon: Truck, route: `/transport/${id}`, baseColor: 'bg-teal-700 text-white' },
-    
+    { title: 'PACIENTES', icon: Users, route: `/patient/${id}${dateQs}`, baseColor: 'bg-emerald-500 text-white' },
+    { title: 'CHECKLIST VTR', icon: ClipboardCheck, route: `/checklist/${id}${dateQs}`, baseColor: 'bg-violet-600 text-white' },
+    { title: 'MEDICAMENTOS', icon: Pill, route: `/medications/${id}${dateQs}`, baseColor: 'bg-purple-600 text-white' },
+    { title: 'CONSUMO MEDS', icon: Syringe, route: `/medication-consumption/${id}${dateQs}`, baseColor: 'bg-pink-600 text-white' },
+    { title: 'ENFERMAGEM', icon: Activity, route: `/nursing-evolution/${id}${dateQs}`, baseColor: 'bg-cyan-500 text-white' },
+    { title: 'MÉDICO', icon: Stethoscope, route: `/medical-evolution/${id}${dateQs}`, baseColor: 'bg-red-600 text-white' },
+    { title: 'MATERIAIS', icon: Package, route: `/materials/${id}${dateQs}`, baseColor: 'bg-amber-600 text-white' },
+    { title: 'TRANSPORTE', icon: Truck, route: `/transport/${id}${dateQs}`, baseColor: 'bg-teal-700 text-white' },
+
   ];
 
   const highlightTitles = isFullAdmin
