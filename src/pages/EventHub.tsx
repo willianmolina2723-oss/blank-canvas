@@ -242,6 +242,18 @@ export default function EventHub() {
           </div>
         </div>
 
+        {/* Date selector */}
+        {dates.length > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <EventDateSelector dates={dates} activeId={activeId} onChange={setActiveId} />
+            {dates.length > 1 && (
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Operação por data
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Status action buttons */}
         {!isFinalized && !isReadOnly && (canStart || canFinish) && (
           <div className="flex gap-3">
