@@ -618,15 +618,21 @@ export default function EventFinancial() {
         <Card>
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4" /> Outros Custos ({fmt(totalOther)})</CardTitle></CardHeader>
           <CardContent>
-            {otherCosts.map((c: any) => (
-              <div key={c.id} className="flex items-center justify-between p-2 border rounded-lg mb-2">
-                <div>
-                  <p className="text-sm font-semibold">{c.category}</p>
-                  <p className="text-xs text-muted-foreground">{c.description || ''}</p>
+            {otherCosts.map((c: any) => {
+              const dateRow = dates.find(d => d.id === c.event_date_id);
+              return (
+                <div key={c.id} className="flex items-center justify-between p-2 border rounded-lg mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold">{c.category}</p>
+                      {dateRow && <Badge variant="outline" className="text-[10px]">{formatBR(dateRow.start_time, 'dd/MM')}</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{c.description || ''}</p>
+                  </div>
+                  <p className="font-bold text-sm">{fmt(Number(c.amount))}</p>
                 </div>
-                <p className="font-bold text-sm">{fmt(Number(c.amount))}</p>
-              </div>
-            ))}
+              );
+            })}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
               <Select value={newOtherCost.category} onValueChange={(v) => setNewOtherCost(p => ({ ...p, category: v }))}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
