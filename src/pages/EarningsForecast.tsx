@@ -277,7 +277,7 @@ export default function EarningsForecast() {
             <TrendingUp className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-xl font-bold">Previsão de Ganhos</h1>
-              <p className="text-sm text-muted-foreground">Projeção semanal dos seus eventos</p>
+              <p className="text-sm text-muted-foreground">Apenas eventos já pagos pelo contratante</p>
             </div>
           </div>
         </div>
