@@ -286,6 +286,7 @@ export default function MedicalEvolutionForm() {
         .insert({
           ...currentEvolution,
           event_id: eventId,
+          event_date_id: activeDateId || null,
           patient_id: selectedPatient.id,
           created_by: profile?.id,
           empresa_id: profile?.empresa_id || null,
