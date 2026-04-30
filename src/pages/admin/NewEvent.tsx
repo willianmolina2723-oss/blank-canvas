@@ -275,8 +275,18 @@ export default function NewEventPage() {
       // Recompute assignments
       try { await recomputeAllAssignmentsForEvent(eventData.id); } catch (e) { console.error(e); }
 
-      toast({ title: 'Evento criado', description: `O evento ${code} foi criado com sucesso.` });
-      navigate('/');
+      const hasMultipleDates = eventDates.length > 1;
+      toast({
+        title: 'Evento criado',
+        description: hasMultipleDates
+          ? `O evento ${code} foi criado. Aloque a equipe em cada data abaixo.`
+          : `O evento ${code} foi criado com sucesso.`,
+      });
+      if (hasMultipleDates) {
+        navigate(`/admin/events/${eventData.id}/edit`);
+      } else {
+        navigate('/');
+      }
     } catch (err: any) {
       console.error('Error creating event:', err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar o evento.'), variant: 'destructive' });
