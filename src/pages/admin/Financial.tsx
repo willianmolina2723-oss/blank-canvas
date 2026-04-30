@@ -445,21 +445,35 @@ export default function Financial() {
                   <div className="space-y-2">
                     {filteredEvents.map((event) => {
                       const fin = eventFinances[event.id];
-                      const contractRev = fin ? Number(fin.contract_value) - Number(fin.discounts) + Number(fin.additions) : 0;
+                      const contractValue = fin ? Number(fin.contract_value) : 0;
+                      const discounts = fin ? Number(fin.discounts) : 0;
+                      const additions = fin ? Number(fin.additions) : 0;
+                      const contractRev = contractValue - discounts + additions;
                       const insumos = eventChargeInsumos[event.id] ? (eventInsumos[event.id] || 0) : 0;
                       const revenue = contractRev + insumos;
+                      const hasFinance = !!fin;
                       return (
                         <button key={event.id} onClick={() => navigate(`/admin/financial/event/${event.id}`)}
                           className="w-full flex items-center justify-between p-3 rounded-xl border hover:bg-muted/50 transition-colors text-left">
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold">{event.code}</p>
                             <p className="text-xs text-muted-foreground">{event.location || 'Sem local'}</p>
-                            {insumos > 0 && (
-                              <p className="text-[10px] text-purple-600">+ {formatCurrency(insumos)} insumos cobrados</p>
+                            {hasFinance && (
+                              <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+                                <span className="text-muted-foreground">Contrato: {formatCurrency(contractValue)}</span>
+                                {discounts > 0 && <span className="text-red-600">− {formatCurrency(discounts)} desc.</span>}
+                                {additions > 0 && <span className="text-blue-600">+ {formatCurrency(additions)} adic.</span>}
+                                {insumos > 0 && <span className="text-purple-600">+ {formatCurrency(insumos)} insumos</span>}
+                              </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            {revenue > 0 && <span className="text-xs font-semibold text-emerald-600">{formatCurrency(revenue)}</span>}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {hasFinance ? (
+                              <div className="text-right">
+                                <p className="text-[10px] text-muted-foreground leading-none">Valor final</p>
+                                <span className="text-sm font-bold text-emerald-600">{formatCurrency(revenue)}</span>
+                              </div>
+                            ) : null}
                             <Badge variant="outline" className="text-[10px]">{fin?.status || 'sem dados'}</Badge>
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                           </div>
