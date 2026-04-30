@@ -5,35 +5,29 @@ interface ComputeInput {
   eventId: string;
   profileId: string;
   role: AppRole;
+  /**
+   * Quando informado, recalcula apenas o assignment desta data.
+   * Quando ausente, recalcula todas as datas do evento (ou o assignment legado sem data).
+   */
+  eventDateId?: string | null;
 }
 
 /**
- * Recalcula `event_assignments.paid_*` para um participante específico.
+ * Recalcula `event_assignments.paid_*` para um participante em uma data específica.
+ *
  * Lógica:
  * 1) base_start/end:
  *    - manual / role_schedule → assignment.scheduled_*
- *    - event_default          → events.departure_time / arrival_time
+ *    - event_default          → event_dates.start_time/end_time (fallback: events.departure_time/arrival_time)
  * 2) recebe_desloc = resolve_recebe_deslocamento(profile, role) (RPC)
  * 3) Se recebe_desloc:
- *      paid_start = transport.departure_time (real) ?? base_start
- *      paid_end   = transport.arrival_time   (real) ?? base_end
- *    Senão:
- *      paid_start = base_start
- *      paid_end   = base_end
+ *      paid_start = transport.departure_time (real, da mesma data se houver) ?? base_start
+ *      paid_end   = transport.arrival_time   (real, da mesma data se houver) ?? base_end
  */
 export async function recomputeAssignmentPaidHours(input: ComputeInput): Promise<void> {
-  const { eventId, profileId, role } = input;
+  const { eventId, profileId, role, eventDateId = null } = input;
 
-  // 1) Carrega assignment atual (cria se não existir)
-  let { data: assignment } = await (supabase as any)
-    .from('event_assignments')
-    .select('*')
-    .eq('event_id', eventId)
-    .eq('profile_id', profileId)
-    .eq('role', role)
-    .maybeSingle();
-
-  // Carrega event base
+  // Carrega event base (cache)
   const { data: eventData } = await supabase
     .from('events')
     .select('id, departure_time, arrival_time, empresa_id')
@@ -42,18 +36,57 @@ export async function recomputeAssignmentPaidHours(input: ComputeInput): Promise
 
   if (!eventData) return;
 
-  // Lookup role schedule
-  const { data: roleSchedule } = await (supabase as any)
-    .from('event_role_schedules')
+  // Carrega event_date específica (se houver)
+  let eventDate: any = null;
+  if (eventDateId) {
+    const { data } = await (supabase as any)
+      .from('event_dates')
+      .select('*')
+      .eq('id', eventDateId)
+      .maybeSingle();
+    eventDate = data;
+  }
+
+  // Lookup role schedule por (event_id, role, event_date_id) com fallback para schedule global do evento
+  let roleSchedule: any = null;
+  if (eventDateId) {
+    const { data } = await (supabase as any)
+      .from('event_role_schedules')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('role', role)
+      .eq('event_date_id', eventDateId)
+      .maybeSingle();
+    roleSchedule = data;
+  }
+  if (!roleSchedule) {
+    const { data } = await (supabase as any)
+      .from('event_role_schedules')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('role', role)
+      .is('event_date_id', null)
+      .maybeSingle();
+    roleSchedule = data;
+  }
+
+  // Carrega assignment atual (cria se não existir) — chave: (event_id, profile_id, role, event_date_id)
+  let q = (supabase as any)
+    .from('event_assignments')
     .select('*')
     .eq('event_id', eventId)
-    .eq('role', role)
-    .maybeSingle();
+    .eq('profile_id', profileId)
+    .eq('role', role);
+  q = eventDateId ? q.eq('event_date_id', eventDateId) : q.is('event_date_id', null);
+  let { data: assignment } = await q.maybeSingle();
 
-  // Cria assignment se ausente
+  // Defaults vindos da data ou do evento
+  const defaultStart = eventDate?.start_time || eventData.departure_time;
+  const defaultEnd = eventDate?.end_time || eventData.arrival_time;
+
   if (!assignment) {
-    let scheduled_start = eventData.departure_time;
-    let scheduled_end = eventData.arrival_time;
+    let scheduled_start = defaultStart;
+    let scheduled_end = defaultEnd;
     let schedule_source: 'event_default' | 'role_schedule' = 'event_default';
 
     if (roleSchedule && roleSchedule.use_event_default === false) {
@@ -68,6 +101,7 @@ export async function recomputeAssignmentPaidHours(input: ComputeInput): Promise
         event_id: eventId,
         profile_id: profileId,
         role,
+        event_date_id: eventDateId,
         scheduled_start,
         scheduled_end,
         schedule_source,
@@ -87,8 +121,19 @@ export async function recomputeAssignmentPaidHours(input: ComputeInput): Promise
     baseStart = assignment.scheduled_start;
     baseEnd = assignment.scheduled_end;
   } else {
-    baseStart = eventData.departure_time;
-    baseEnd = eventData.arrival_time;
+    baseStart = defaultStart;
+    baseEnd = defaultEnd;
+    // Se data atual define horário diferente do que está armazenado, atualiza scheduled_*
+    if (
+      (assignment.scheduled_start !== defaultStart || assignment.scheduled_end !== defaultEnd) &&
+      defaultStart &&
+      defaultEnd
+    ) {
+      await (supabase as any)
+        .from('event_assignments')
+        .update({ scheduled_start: defaultStart, scheduled_end: defaultEnd })
+        .eq('id', assignment.id);
+    }
   }
 
   // 3) Resolve deslocamento
@@ -101,11 +146,25 @@ export async function recomputeAssignmentPaidHours(input: ComputeInput): Promise
   let paidEnd = baseEnd;
 
   if (recebeDesloc) {
-    const { data: transport } = await supabase
-      .from('transport_records')
-      .select('departure_time, arrival_time')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // Busca transport real preferindo a mesma data
+    let transport: any = null;
+    if (eventDateId) {
+      const { data } = await supabase
+        .from('transport_records')
+        .select('departure_time, arrival_time')
+        .eq('event_id', eventId)
+        .eq('event_date_id' as any, eventDateId as any)
+        .maybeSingle();
+      transport = data;
+    }
+    if (!transport) {
+      const { data } = await supabase
+        .from('transport_records')
+        .select('departure_time, arrival_time')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      transport = data;
+    }
 
     if (transport?.departure_time) paidStart = transport.departure_time;
     if (transport?.arrival_time) paidEnd = transport.arrival_time;
@@ -122,17 +181,38 @@ export async function recomputeAssignmentPaidHours(input: ComputeInput): Promise
     .eq('id', assignment.id);
 }
 
-/** Recalcula assignments de todos os participantes do evento. */
+/**
+ * Recalcula assignments de todos os participantes do evento, expandindo por todas as datas.
+ * Se o evento não tem datas em event_dates, mantém comportamento legado (event_date_id = null).
+ */
 export async function recomputeAllAssignmentsForEvent(eventId: string): Promise<void> {
   const { data: participants } = await supabase
     .from('event_participants')
     .select('profile_id, role')
     .eq('event_id', eventId);
 
-  if (!participants) return;
-  await Promise.all(
-    participants.map((p: any) =>
-      recomputeAssignmentPaidHours({ eventId, profileId: p.profile_id, role: p.role as AppRole }),
-    ),
-  );
+  if (!participants || participants.length === 0) return;
+
+  const { data: dates } = await (supabase as any)
+    .from('event_dates')
+    .select('id')
+    .eq('event_id', eventId)
+    .order('ordem');
+
+  const dateIds: (string | null)[] = dates && dates.length > 0 ? dates.map((d: any) => d.id as string) : [null];
+
+  const tasks: Promise<void>[] = [];
+  for (const p of participants) {
+    for (const eventDateId of dateIds) {
+      tasks.push(
+        recomputeAssignmentPaidHours({
+          eventId,
+          profileId: p.profile_id,
+          role: p.role as AppRole,
+          eventDateId,
+        }),
+      );
+    }
+  }
+  await Promise.all(tasks);
 }
