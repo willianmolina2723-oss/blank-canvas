@@ -448,6 +448,7 @@ export default function PatientForm() {
           .from('patients')
           .insert({
             event_id: eventId!,
+            event_date_id: activeDateId || null,
             name: patient.name!,
             birth_date: patient.birth_date || null,
             age: patient.age || null,
