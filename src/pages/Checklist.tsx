@@ -280,9 +280,15 @@ export default function Checklist() {
 
   const confirmEquipamentos = async (): Promise<boolean> => {
     try {
-      await supabase.from('checklist_items').delete().eq('event_id', eventId).eq('item_type', 'checklist_confirmed' as any);
+      // Apaga flag de confirmação apenas da data ativa (ou legado se sem data)
+      let delQ = supabase.from('checklist_items').delete().eq('event_id', eventId).eq('item_type', 'checklist_confirmed' as any);
+      if (activeDateId) delQ = delQ.eq('event_date_id', activeDateId);
+      else delQ = delQ.is('event_date_id', null);
+      await delQ;
+
       const { error } = await supabase.from('checklist_items').insert({
-        event_id: eventId, item_type: 'checklist_confirmed' as any, item_name: 'CHECKLIST_CONFIRMADO',
+        event_id: eventId, event_date_id: activeDateId || null,
+        item_type: 'checklist_confirmed' as any, item_name: 'CHECKLIST_CONFIRMADO',
         is_checked: true, checked_by: profile?.id, checked_at: new Date().toISOString(), empresa_id: profile?.empresa_id || null,
       });
       if (error) throw error;
