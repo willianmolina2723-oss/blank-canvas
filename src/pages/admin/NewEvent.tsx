@@ -275,8 +275,18 @@ export default function NewEventPage() {
       // Recompute assignments
       try { await recomputeAllAssignmentsForEvent(eventData.id); } catch (e) { console.error(e); }
 
-      toast({ title: 'Evento criado', description: `O evento ${code} foi criado com sucesso.` });
-      navigate('/');
+      const hasMultipleDates = eventDates.length > 1;
+      toast({
+        title: 'Evento criado',
+        description: hasMultipleDates
+          ? `O evento ${code} foi criado. Aloque a equipe em cada data abaixo.`
+          : `O evento ${code} foi criado com sucesso.`,
+      });
+      if (hasMultipleDates) {
+        navigate(`/admin/events/${eventData.id}/edit`);
+      } else {
+        navigate('/');
+      }
     } catch (err: any) {
       console.error('Error creating event:', err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar o evento.'), variant: 'destructive' });
@@ -503,10 +513,16 @@ export default function NewEventPage() {
                   Equipe do Atendimento
                 </CardTitle>
                 <CardDescription>
-                  Selecione os profissionais que participarão deste evento
+                  Selecione todos os profissionais que poderão participar deste evento.
+                  {eventDates.length > 1 && ' Após criar, você poderá marcar em quais datas cada um trabalha.'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {eventDates.length > 1 && (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+                    Este evento tem <strong>{eventDates.length} datas</strong>. Marque aqui a equipe completa; ao salvar, você será levado à tela de edição para alocar cada profissional em datas específicas.
+                  </div>
+                )}
                 {Object.entries(groupedParticipants).map(([role, roleParticipants]) => (
                   roleParticipants.length > 0 && (
                     <div key={role} className="space-y-3">
