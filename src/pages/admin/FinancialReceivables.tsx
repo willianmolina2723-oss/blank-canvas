@@ -56,8 +56,18 @@ export default function FinancialReceivables() {
         ]);
         const idMap = new Map((costItems || []).map((c: any) => [c.id, Number(c.unit_cost)]));
         const nameMap = new Map((costItems || []).map((c: any) => [String(c.name).toLowerCase(), Number(c.unit_cost)]));
+        const parseQty = (notes: any): number => {
+          if (notes == null) return 0;
+          try {
+            const parsed = JSON.parse(String(notes));
+            if (typeof parsed === 'object' && parsed !== null) return Number(parsed.quantity) || 0;
+            return Number(parsed) || 0;
+          } catch {
+            return parseInt(String(notes)) || 0;
+          }
+        };
         (checklistItems || []).forEach((ci: any) => {
-          const q = parseInt(ci.notes || '0') || 0;
+          const q = parseQty(ci.notes);
           if (q <= 0) return;
           const uc = ci.cost_item_id ? Number(idMap.get(ci.cost_item_id) ?? 0) : Number(nameMap.get(String(ci.item_name || '').toLowerCase()) ?? 0);
           insumosByEvent.set(ci.event_id, (insumosByEvent.get(ci.event_id) || 0) + uc * q);
