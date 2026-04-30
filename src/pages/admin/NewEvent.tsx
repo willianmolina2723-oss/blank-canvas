@@ -18,6 +18,7 @@ import { ROLE_LABELS } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 
 interface ParticipantSelection {
@@ -43,8 +44,7 @@ export default function NewEventPage() {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [selectedAmbulance, setSelectedAmbulance] = useState<string>('');
-  const [departureTime, setDepartureTime] = useState('');
-  const [arrivalTime, setArrivalTime] = useState('');
+  const [eventDates, setEventDates] = useState<EventDateEntry[]>([blankEventDate()]);
   const [ambulances, setAmbulances] = useState<AmbulanceType[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [participants, setParticipants] = useState<ParticipantSelection[]>([]);
@@ -155,8 +155,12 @@ export default function NewEventPage() {
     const errors: string[] = [];
     if (!code.trim()) errors.push('Código do evento');
     if (!selectedAmbulance) errors.push('Viatura');
-    if (!departureTime) errors.push('Início do evento');
-    if (!arrivalTime) errors.push('Término do evento');
+    if (eventDates.length === 0) errors.push('Pelo menos uma data');
+    eventDates.forEach((d, i) => {
+      if (!d.date || !d.start_time || !d.end_time) {
+        errors.push(`Data/hora da Data ${i + 1}`);
+      }
+    });
     if (!location.trim()) errors.push('Localização');
     if (!description.trim()) errors.push('Descrição');
     if (!selectedContractor) errors.push('Contratante');
@@ -171,13 +175,18 @@ export default function NewEventPage() {
 
     setIsSaving(true);
     try {
+      // Ordena datas e calcula cache departure/arrival (primeira/última)
+      const sortedDates = [...eventDates].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
+      const firstTs = buildEventDateTimestamps(sortedDates[0]);
+      const lastTs = buildEventDateTimestamps(sortedDates[sortedDates.length - 1]);
+
       const insertData: Record<string, unknown> = {
           code: code.trim(),
           location: location.trim() || null,
           description: description.trim() || null,
           ambulance_id: selectedAmbulance || null,
-          departure_time: departureTime || null,
-          arrival_time: arrivalTime || null,
+          departure_time: firstTs?.start || null,
+          arrival_time: lastTs?.end || null,
           contractor_id: selectedContractor || null,
           contractor_responsible: contractorResponsible.trim() || null,
           contractor_phone: contractorPhone.trim() || null,
@@ -194,6 +203,24 @@ export default function NewEventPage() {
         .single();
 
       if (eventError) throw eventError;
+
+      // Insere event_dates
+      const dateRows = sortedDates.map((d, idx) => {
+        const ts = buildEventDateTimestamps(d)!;
+        return {
+          event_id: eventData.id,
+          empresa_id: profile?.empresa_id || null,
+          ordem: idx + 1,
+          date: d.date,
+          start_time: ts.start,
+          end_time: ts.end,
+          location_override: d.location_override?.trim() || null,
+          notes: d.notes?.trim() || null,
+          status: 'ativo',
+        };
+      });
+      const { error: datesErr } = await (supabase as any).from('event_dates').insert(dateRows);
+      if (datesErr) throw datesErr;
 
       const selectedParticipants = participants.filter(p => p.selected);
       if (selectedParticipants.length > 0) {
@@ -333,56 +360,7 @@ export default function NewEventPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="departure">Início do Evento <span className="text-destructive">*</span></Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="departure" type="datetime-local" value={departureTime} onChange={(e) => {
-                      const newStart = e.target.value;
-                      setDepartureTime(newStart);
-                      // Re-check arrival if it exists
-                      if (arrivalTime && newStart && arrivalTime.length >= 16 && newStart.length >= 16) {
-                        const startDate = newStart.slice(0, 10);
-                        const endDate = arrivalTime.slice(0, 10);
-                        const startTime = newStart.slice(11, 16);
-                        const endTime = arrivalTime.slice(11, 16);
-                        if (startDate === endDate && endTime < startTime) {
-                          const [yy, mm, dd] = startDate.split('-').map(Number);
-                          const d2 = new Date(yy, mm - 1, dd + 1);
-                          const ny = d2.getFullYear();
-                          const nm = String(d2.getMonth() + 1).padStart(2, '0');
-                          const nd = String(d2.getDate()).padStart(2, '0');
-                          setArrivalTime(`${ny}-${nm}-${nd}T${endTime}`);
-                        }
-                      }
-                    }} className="h-12 pl-10" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="arrival">Término do Evento <span className="text-destructive">*</span></Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="arrival" type="datetime-local" value={arrivalTime} onChange={(e) => {
-                      let newEnd = e.target.value;
-                      if (departureTime && newEnd && newEnd.length >= 16 && departureTime.length >= 16) {
-                        const startDate = departureTime.slice(0, 10);
-                        const endDate = newEnd.slice(0, 10);
-                        const startTime = departureTime.slice(11, 16);
-                        const endTime = newEnd.slice(11, 16);
-                        if (startDate === endDate && endTime < startTime) {
-                          const [yy, mm, dd] = startDate.split('-').map(Number);
-                          const d2 = new Date(yy, mm - 1, dd + 1);
-                          const ny = d2.getFullYear();
-                          const nm = String(d2.getMonth() + 1).padStart(2, '0');
-                          const nd = String(d2.getDate()).padStart(2, '0');
-                          newEnd = `${ny}-${nm}-${nd}T${endTime}`;
-                        }
-                      }
-                      setArrivalTime(newEnd);
-                    }} className="h-12 pl-10" />
-                  </div>
-                </div>
+                {/* Datas do evento agora ficam em um card abaixo deste (EventDatesEditor) */}
 
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor="location">Localização <span className="text-destructive">*</span></Label>
@@ -414,6 +392,14 @@ export default function NewEventPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <div className="mt-6">
+              <EventDatesEditor
+                value={eventDates}
+                onChange={setEventDates}
+                defaultLocation={location}
+              />
+            </div>
           </TabsContent>
 
           {/* Tab: Contratante */}
@@ -564,8 +550,8 @@ export default function NewEventPage() {
                 rolesInUse={rolesInUse}
                 value={roleSchedules}
                 onChange={setRoleSchedules}
-                eventDefaultStart={departureTime}
-                eventDefaultEnd={arrivalTime}
+                eventDefaultStart={buildEventDateTimestamps(eventDates[0])?.start.slice(0, 16) || ''}
+                eventDefaultEnd={buildEventDateTimestamps(eventDates[0])?.end.slice(0, 16) || ''}
               />
             </div>
           </TabsContent>
