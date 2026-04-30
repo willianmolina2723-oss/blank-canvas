@@ -138,15 +138,17 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
          setSelectedParticipants(participantMap);
        }
 
-       // Fetch role schedules
+       // Fetch role schedules (por data)
        const { data: schedData } = await (supabase as any)
          .from('event_role_schedules')
          .select('*')
          .eq('event_id', id);
        if (schedData && schedData.length > 0) {
-         const map: Record<string, RoleScheduleEntry> = {};
+         const byDate: RoleSchedulesByDate = {};
          for (const s of schedData) {
-           map[s.role] = {
+           const dk: string = s.event_date_id || '__legacy__';
+           byDate[dk] = byDate[dk] || ({} as any);
+           (byDate[dk] as any)[s.role] = {
              role: s.role,
              quantity: s.quantity || 1,
              use_event_default: s.use_event_default,
@@ -154,7 +156,7 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
              end_time: s.end_time ? String(s.end_time).slice(0, 16) : '',
            };
          }
-         setRoleSchedules(map as any);
+         setRoleSchedules(byDate);
        }
  
        // Fetch ambulances
