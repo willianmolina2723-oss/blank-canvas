@@ -17,6 +17,8 @@ import { differenceInMinutes, parseISO } from 'date-fns';
 import { useDefaultRates } from '@/hooks/useDefaultRates';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 import { formatBR } from '@/utils/dateFormat';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 const db = supabase as any;
 
