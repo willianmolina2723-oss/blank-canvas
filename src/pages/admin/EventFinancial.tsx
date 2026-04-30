@@ -461,11 +461,13 @@ export default function EventFinancial() {
                   const d = existing || { payment_type: 'por_hora', base_value: 0, extras: 0, discounts: 0 };
                   const profileRate = Number(p.profile?.valor_hora) || 0;
                   const rate = Number(d.base_value) > 0 ? Number(d.base_value) : getDefaultRate(p.role, profileRate);
-                  const a = assignments.find((x: any) => x.profile_id === p.profile_id && x.role === p.role);
-                  const minutes = a?.paid_duration_minutes ?? transportMinutes;
+                  const aRows = assignments.filter((x: any) => x.profile_id === p.profile_id && x.role === p.role);
+                  const totalAssignedMin = aRows.reduce((s: number, r: any) => s + (Number(r.paid_duration_minutes) || 0), 0);
+                  const minutes = aRows.length > 0 ? totalAssignedMin : transportMinutes;
                   const personTotal = (minutes / 60) * rate + Number(d.extras) - Number(d.discounts);
                   const hours = minutes / 60;
                   const fmtDT = (v: string | null) => { try { return v ? formatBR(new Date(v), 'dd/MM HH:mm') : '—'; } catch { return '—'; } };
+                  const anyDeslocamento = aRows.some((r: any) => r.recebe_deslocamento_resolvido);
                   return (
                     <div key={p.id} className="p-3 border rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
