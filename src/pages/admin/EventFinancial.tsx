@@ -365,6 +365,18 @@ export default function EventFinancial() {
           </Button>
         </div>
 
+        {/* Banner: visão consolidada + seletor de data ativa para novos custos */}
+        {dates.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/40 border">
+            <div className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Visão consolidada</span> — somando todas as {dates.length} {dates.length === 1 ? 'data' : 'datas'} do evento.
+              <br />
+              Novos custos serão vinculados à data selecionada ao lado.
+            </div>
+            <EventDateSelector dates={dates} activeId={activeId} onChange={setActiveId} />
+          </div>
+        )}
+
         {/* Summary */}
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
           {[
