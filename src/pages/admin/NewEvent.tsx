@@ -18,6 +18,7 @@ import { ROLE_LABELS } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 
 interface ParticipantSelection {
@@ -43,8 +44,7 @@ export default function NewEventPage() {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [selectedAmbulance, setSelectedAmbulance] = useState<string>('');
-  const [departureTime, setDepartureTime] = useState('');
-  const [arrivalTime, setArrivalTime] = useState('');
+  const [eventDates, setEventDates] = useState<EventDateEntry[]>([blankEventDate()]);
   const [ambulances, setAmbulances] = useState<AmbulanceType[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [participants, setParticipants] = useState<ParticipantSelection[]>([]);
