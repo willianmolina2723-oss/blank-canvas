@@ -558,14 +558,20 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
            defaultLocation={form.location}
          />
 
-         <RoleScheduleEditor
-           rolesInUse={Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]))}
-           value={roleSchedules}
-           onChange={setRoleSchedules}
-           eventDefaultStart={buildEventDateTimestamps(eventDates[0])?.start.slice(0, 16) || ''}
-           eventDefaultEnd={buildEventDateTimestamps(eventDates[0])?.end.slice(0, 16) || ''}
-         />
-
+          {(() => {
+            const rolesInUse = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
+            const counts: Partial<Record<AppRole, number>> = {};
+            for (const r of Object.values(selectedParticipants)) if (r) counts[r] = (counts[r] ?? 0) + 1;
+            return (
+              <RoleScheduleEditor
+                rolesInUse={rolesInUse}
+                dates={buildDateOptionsFromEntries(eventDates)}
+                value={roleSchedules}
+                onChange={setRoleSchedules}
+                rolesCounts={counts}
+              />
+            );
+          })()}
          {id && <AssignmentSummary eventId={id} empresaId={currentProfile?.empresa_id || null} />}
  
          {/* Actions */}
