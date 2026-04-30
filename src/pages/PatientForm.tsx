@@ -514,6 +514,12 @@ export default function PatientForm() {
           )}
         </div>
 
+        {dates.length > 0 && !showForm && (
+          <div className="px-1">
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          </div>
+        )}
+
         {!canEdit && (
           <Card className="border-warning bg-warning/10">
             <CardContent className="py-3">
