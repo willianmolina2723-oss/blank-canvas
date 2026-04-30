@@ -198,6 +198,7 @@ export default function NursingEvolutionForm() {
         .from('nursing_evolutions')
         .insert({
           event_id: eventId,
+          event_date_id: activeDateId || null,
           patient_id: selectedPatient.id,
           blood_pressure_systolic: parseInt(form.blood_pressure_systolic) || null,
           blood_pressure_diastolic: parseInt(form.blood_pressure_diastolic) || null,
