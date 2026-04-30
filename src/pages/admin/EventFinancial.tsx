@@ -268,9 +268,19 @@ export default function EventFinancial() {
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-  const getAssignmentMinutes = (profileId: string, role: string) => {
-    const a = assignments.find((x: any) => x.profile_id === profileId && x.role === role);
-    return a?.paid_duration_minutes ?? null;
+  // Soma minutos pagos de TODAS as datas para um (profile, role)
+  const getAssignmentMinutes = (profileId: string, role: string): number | null => {
+    const rows = assignments.filter((x: any) => x.profile_id === profileId && x.role === role);
+    if (rows.length === 0) return null;
+    let total = 0;
+    let any = false;
+    for (const r of rows) {
+      if (r.paid_duration_minutes != null) {
+        total += Number(r.paid_duration_minutes) || 0;
+        any = true;
+      }
+    }
+    return any ? total : null;
   };
 
   const calcStaffTotal = (c: any, participant?: any) => {
