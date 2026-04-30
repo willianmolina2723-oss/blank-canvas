@@ -20,6 +20,8 @@ import { ChecklistVideoTab, type ChecklistVideoTabHandle } from '@/components/ch
 import { ChecklistFuelTab, type ChecklistFuelTabHandle } from '@/components/checklist/ChecklistFuelTab';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, AppRole } from '@/types/database';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 const DEFAULT_ITEMS = [
   'Desfibrilador automático externo',
@@ -61,6 +63,8 @@ export default function Checklist() {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [eventRole, setEventRole] = useState<AppRole | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
+
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   const utiRef = useRef<UTIConditionsTabHandle>(null);
   const videosRef = useRef<ChecklistVideoTabHandle>(null);
