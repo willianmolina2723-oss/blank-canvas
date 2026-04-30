@@ -143,7 +143,19 @@ export default function EarningsForecast() {
         .in('status', ['ativo', 'em_andamento', 'finalizado'])
         .order('departure_time', { ascending: true, nullsFirst: false });
 
+      // Filtrar apenas eventos cujo financeiro do contratante está marcado como pago
+      const { data: financesData } = await supabase
+        .from('event_finances')
+        .select('event_id, status')
+        .in('event_id', eventIds);
+      const paidEventIds = new Set(
+        (financesData || [])
+          .filter((f: any) => f.status === 'pago')
+          .map((f: any) => f.event_id),
+      );
+
       const events: ForecastEvent[] = (rawEvents || [])
+        .filter((ev: any) => paidEventIds.has(ev.id))
         .map((ev: any) => {
           const assignment = assignmentMap.get(ev.id);
           // Prefer assignment.paid_duration_minutes; fallback to legacy calc
@@ -265,7 +277,7 @@ export default function EarningsForecast() {
             <TrendingUp className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-xl font-bold">Previsão de Ganhos</h1>
-              <p className="text-sm text-muted-foreground">Projeção semanal dos seus eventos</p>
+              <p className="text-sm text-muted-foreground">Apenas eventos já pagos pelo contratante</p>
             </div>
           </div>
         </div>

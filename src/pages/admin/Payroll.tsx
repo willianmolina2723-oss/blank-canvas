@@ -207,7 +207,27 @@ export default function PayrollPage() {
         return;
       }
 
-      const eventIds = events.map(e => e.id);
+      const allEventIds = events.map(e => e.id);
+
+      // Filtrar apenas eventos cujo financeiro do contratante está marcado como pago
+      const { data: financesData } = await supabase
+        .from('event_finances')
+        .select('event_id, status')
+        .in('event_id', allEventIds);
+      const paidEventIdsSet = new Set(
+        (financesData || [])
+          .filter((f: any) => f.status === 'pago')
+          .map((f: any) => f.event_id),
+      );
+
+      const paidEvents = events.filter(e => paidEventIdsSet.has(e.id));
+      if (paidEvents.length === 0) {
+        setParticipants([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const eventIds = paidEvents.map(e => e.id);
 
       const transportByEvent = new Map<string, { departure: string | null; arrival: string | null }>();
       for (const t of transports || []) {
@@ -240,7 +260,7 @@ export default function PayrollPage() {
         const profile = p.profile as any;
         if (!profile) continue;
 
-        const event = events.find(e => e.id === p.event_id);
+        const event = paidEvents.find(e => e.id === p.event_id);
         if (!event) continue;
 
         const transport = transportByEvent.get(event.id);
@@ -447,7 +467,7 @@ export default function PayrollPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Folha de Pagamento</h1>
-              <p className="text-sm text-muted-foreground capitalize">{monthLabel}</p>
+              <p className="text-sm text-muted-foreground capitalize">{monthLabel} • Apenas eventos pagos pelo contratante</p>
             </div>
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto">
