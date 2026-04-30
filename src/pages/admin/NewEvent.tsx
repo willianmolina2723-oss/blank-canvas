@@ -17,7 +17,7 @@ import type { Ambulance as AmbulanceType, Profile, AppRole } from '@/types/datab
 import { ROLE_LABELS } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 
@@ -55,7 +55,7 @@ export default function NewEventPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
-  const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
+  const [roleSchedules, setRoleSchedules] = useState<RoleSchedulesByDate>({});
 
   useEffect(() => {
     if (!isReadOnly) {
@@ -75,14 +75,15 @@ export default function NewEventPage() {
     }
   }, [selectedContractor]);
 
-  // Sync role schedules with selected participants
+  // Sync role schedules with selected participants × dates
   useEffect(() => {
     const sel = participants.filter(p => p.selected);
     const rolesInUse = Array.from(new Set(sel.map(p => p.role))) as AppRole[];
     const counts: Partial<Record<AppRole, number>> = {};
     for (const p of sel) counts[p.role] = (counts[p.role] ?? 0) + 1;
-    setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
-  }, [participants]);
+    const dateOpts = buildDateOptionsFromEntries(eventDates);
+    setRoleSchedules(prev => buildDefaultRoleSchedulesByDate(prev, dateOpts, rolesInUse, counts));
+  }, [participants, eventDates]);
 
   // Redirect if read-only (after all hooks)
   if (isReadOnly) {
