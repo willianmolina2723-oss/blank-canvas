@@ -18,6 +18,7 @@ import { explainError } from '@/utils/explainError';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
  import { STATUS_LABELS, ROLE_LABELS } from '@/types/database';
 import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { AssignmentSummary } from '@/components/events/AssignmentSummary';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
  
