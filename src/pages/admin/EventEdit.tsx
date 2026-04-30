@@ -17,7 +17,7 @@ import { explainError } from '@/utils/explainError';
  import { ArrowLeft, Save, Loader2, Clock, AlertCircle } from 'lucide-react';
 import type { Event, Ambulance as AmbulanceType, EventStatus, Profile, AppRole } from '@/types/database';
  import { STATUS_LABELS, ROLE_LABELS } from '@/types/database';
-import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { AssignmentSummary } from '@/components/events/AssignmentSummary';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
@@ -56,7 +56,7 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
    const [isLoading, setIsLoading] = useState(true);
    const [isSaving, setIsSaving] = useState(false);
    const [originalAmbulanceId, setOriginalAmbulanceId] = useState<string>('');
-   const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
+   const [roleSchedules, setRoleSchedules] = useState<RoleSchedulesByDate>({});
    const [eventDates, setEventDates] = useState<EventDateEntry[]>([blankEventDate()]);
  
    useEffect(() => {
@@ -71,13 +71,14 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
      }
    }, [id]);
 
-   // Sync role schedules with selected participants
+   // Sync role schedules with selected participants × dates
    useEffect(() => {
      const rolesInUse = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
      const counts: Partial<Record<AppRole, number>> = {};
      for (const r of Object.values(selectedParticipants)) if (r) counts[r] = (counts[r] ?? 0) + 1;
-     setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
-   }, [selectedParticipants]);
+     const dateOpts = buildDateOptionsFromEntries(eventDates);
+     setRoleSchedules(prev => buildDefaultRoleSchedulesByDate(prev, dateOpts, rolesInUse, counts));
+   }, [selectedParticipants, eventDates]);
  
    const fetchData = async () => {
      setIsLoading(true);
@@ -137,15 +138,17 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
          setSelectedParticipants(participantMap);
        }
 
-       // Fetch role schedules
+       // Fetch role schedules (por data)
        const { data: schedData } = await (supabase as any)
          .from('event_role_schedules')
          .select('*')
          .eq('event_id', id);
        if (schedData && schedData.length > 0) {
-         const map: Record<string, RoleScheduleEntry> = {};
+         const byDate: RoleSchedulesByDate = {};
          for (const s of schedData) {
-           map[s.role] = {
+           const dk: string = s.event_date_id || '__legacy__';
+           byDate[dk] = byDate[dk] || ({} as any);
+           (byDate[dk] as any)[s.role] = {
              role: s.role,
              quantity: s.quantity || 1,
              use_event_default: s.use_event_default,
@@ -153,7 +156,7 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
              end_time: s.end_time ? String(s.end_time).slice(0, 16) : '',
            };
          }
-         setRoleSchedules(map as any);
+         setRoleSchedules(byDate);
        }
  
        // Fetch ambulances
@@ -271,6 +274,8 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
        }
 
        // Upsert (insert novas / update existentes) uma a uma para preservar ordem
+       // Mapeia chave usada no roleSchedules (id real ou tmp-N) -> id real persistido
+       const dateKeyToId: Record<string, string> = {};
        for (let i = 0; i < sortedDates.length; i++) {
          const d = sortedDates[i];
          const ts = buildEventDateTimestamps(d)!;
@@ -288,9 +293,11 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
          if (d.id) {
            const { error: upErr } = await (supabase as any).from('event_dates').update(row).eq('id', d.id);
            if (upErr) throw upErr;
+           dateKeyToId[d.id] = d.id;
          } else {
-           const { error: insErr } = await (supabase as any).from('event_dates').insert(row);
+           const { data: ins, error: insErr } = await (supabase as any).from('event_dates').insert(row).select('id').single();
            if (insErr) throw insErr;
+           dateKeyToId[`tmp-${i}`] = ins.id;
          }
        }
 
@@ -332,23 +339,30 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
          if (addError) throw addError;
         }
 
-       // Save event_role_schedules: upsert by (event_id, role) - delete-then-insert pattern
+       // Save event_role_schedules: uma linha por (data, role) — delete-then-insert
        const rolesInUseSave = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
        await (supabase as any).from('event_role_schedules').delete().eq('event_id', id);
-       const scheduleRows = rolesInUseSave.map(role => {
-         const entry = roleSchedules[role];
-         const useDefault = entry?.use_event_default ?? true;
-         const qty = Object.values(selectedParticipants).filter(r => r === role).length;
-         return {
-           event_id: id,
-           role,
-           quantity: qty,
-           use_event_default: useDefault,
-           start_time: useDefault ? null : (entry?.start_time || null),
-           end_time: useDefault ? null : (entry?.end_time || null),
-           empresa_id: currentProfile?.empresa_id || null,
-         };
-       });
+       const scheduleRows: any[] = [];
+       const dateOptsForSave = buildDateOptionsFromEntries(sortedDates);
+       for (const dOpt of dateOptsForSave) {
+         const realDateId = dateKeyToId[dOpt.key] || dOpt.key;
+         const dateMap = roleSchedules[dOpt.key] || ({} as any);
+         for (const role of rolesInUseSave) {
+           const entry = (dateMap as any)[role];
+           const useDefault = entry?.use_event_default ?? true;
+           const qty = Object.values(selectedParticipants).filter(r => r === role).length;
+           scheduleRows.push({
+             event_id: id,
+             event_date_id: realDateId,
+             role,
+             quantity: qty,
+             use_event_default: useDefault,
+             start_time: useDefault ? null : (entry?.start_time || null),
+             end_time: useDefault ? null : (entry?.end_time || null),
+             empresa_id: currentProfile?.empresa_id || null,
+           });
+         }
+       }
        if (scheduleRows.length > 0) {
          const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
          if (schedErr) console.error('event_role_schedules insert error:', schedErr);
@@ -544,14 +558,20 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
            defaultLocation={form.location}
          />
 
-         <RoleScheduleEditor
-           rolesInUse={Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]))}
-           value={roleSchedules}
-           onChange={setRoleSchedules}
-           eventDefaultStart={buildEventDateTimestamps(eventDates[0])?.start.slice(0, 16) || ''}
-           eventDefaultEnd={buildEventDateTimestamps(eventDates[0])?.end.slice(0, 16) || ''}
-         />
-
+          {(() => {
+            const rolesInUse = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
+            const counts: Partial<Record<AppRole, number>> = {};
+            for (const r of Object.values(selectedParticipants)) if (r) counts[r] = (counts[r] ?? 0) + 1;
+            return (
+              <RoleScheduleEditor
+                rolesInUse={rolesInUse}
+                dates={buildDateOptionsFromEntries(eventDates)}
+                value={roleSchedules}
+                onChange={setRoleSchedules}
+                rolesCounts={counts}
+              />
+            );
+          })()}
          {id && <AssignmentSummary eventId={id} empresaId={currentProfile?.empresa_id || null} />}
  
          {/* Actions */}

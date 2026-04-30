@@ -17,7 +17,7 @@ import type { Ambulance as AmbulanceType, Profile, AppRole } from '@/types/datab
 import { ROLE_LABELS } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RoleScheduleEditor, buildDefaultRoleSchedules, type RoleScheduleEntry } from '@/components/events/RoleScheduleEditor';
+import { RoleScheduleEditor, buildDefaultRoleSchedulesByDate, buildDateOptionsFromEntries, type RoleSchedulesByDate } from '@/components/events/RoleScheduleEditor';
 import { EventDatesEditor, blankEventDate, buildEventDateTimestamps, type EventDateEntry } from '@/components/events/EventDatesEditor';
 import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
 
@@ -55,7 +55,7 @@ export default function NewEventPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [cobrarMateriaisMedicamentos, setCobrarMateriaisMedicamentos] = useState(false);
-  const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
+  const [roleSchedules, setRoleSchedules] = useState<RoleSchedulesByDate>({});
 
   useEffect(() => {
     if (!isReadOnly) {
@@ -75,14 +75,15 @@ export default function NewEventPage() {
     }
   }, [selectedContractor]);
 
-  // Sync role schedules with selected participants
+  // Sync role schedules with selected participants × dates
   useEffect(() => {
     const sel = participants.filter(p => p.selected);
     const rolesInUse = Array.from(new Set(sel.map(p => p.role))) as AppRole[];
     const counts: Partial<Record<AppRole, number>> = {};
     for (const p of sel) counts[p.role] = (counts[p.role] ?? 0) + 1;
-    setRoleSchedules(prev => buildDefaultRoleSchedules(prev, rolesInUse, counts));
-  }, [participants]);
+    const dateOpts = buildDateOptionsFromEntries(eventDates);
+    setRoleSchedules(prev => buildDefaultRoleSchedulesByDate(prev, dateOpts, rolesInUse, counts));
+  }, [participants, eventDates]);
 
   // Redirect if read-only (after all hooks)
   if (isReadOnly) {
@@ -204,7 +205,7 @@ export default function NewEventPage() {
 
       if (eventError) throw eventError;
 
-      // Insere event_dates
+      // Insere event_dates (ordem corresponde a sortedDates)
       const dateRows = sortedDates.map((d, idx) => {
         const ts = buildEventDateTimestamps(d)!;
         return {
@@ -219,8 +220,18 @@ export default function NewEventPage() {
           status: 'ativo',
         };
       });
-      const { error: datesErr } = await (supabase as any).from('event_dates').insert(dateRows);
+      const { data: insertedDates, error: datesErr } = await (supabase as any)
+        .from('event_dates')
+        .insert(dateRows)
+        .select('id, ordem')
+        .order('ordem');
       if (datesErr) throw datesErr;
+
+      // Mapa: tmp-N (chave usada nos roleSchedules) -> id real
+      const tmpKeyToId: Record<string, string> = {};
+      (insertedDates || []).forEach((row: any, idx: number) => {
+        tmpKeyToId[`tmp-${idx}`] = row.id;
+      });
 
       const selectedParticipants = participants.filter(p => p.selected);
       if (selectedParticipants.length > 0) {
@@ -234,22 +245,28 @@ export default function NewEventPage() {
         if (participantsError) throw participantsError;
       }
 
-      // Persist event_role_schedules
+      // Persist event_role_schedules: uma linha por (data, role)
       const rolesInUse = Array.from(new Set(selectedParticipants.map(p => p.role)));
-      const scheduleRows = rolesInUse.map(role => {
-        const entry = roleSchedules[role];
-        const useDefault = entry?.use_event_default ?? true;
-        const qty = selectedParticipants.filter(p => p.role === role).length;
-        return {
-          event_id: eventData.id,
-          role,
-          quantity: qty,
-          use_event_default: useDefault,
-          start_time: useDefault ? null : (entry?.start_time || null),
-          end_time: useDefault ? null : (entry?.end_time || null),
-          empresa_id: profile?.empresa_id || null,
-        };
-      });
+      const scheduleRows: any[] = [];
+      for (const dateOpt of buildDateOptionsFromEntries(sortedDates)) {
+        const realId = tmpKeyToId[dateOpt.key] || dateOpt.key;
+        const dateMap = roleSchedules[dateOpt.key] || ({} as any);
+        for (const role of rolesInUse) {
+          const entry = dateMap[role];
+          const useDefault = entry?.use_event_default ?? true;
+          const qty = selectedParticipants.filter(p => p.role === role).length;
+          scheduleRows.push({
+            event_id: eventData.id,
+            event_date_id: realId,
+            role,
+            quantity: qty,
+            use_event_default: useDefault,
+            start_time: useDefault ? null : (entry?.start_time || null),
+            end_time: useDefault ? null : (entry?.end_time || null),
+            empresa_id: profile?.empresa_id || null,
+          });
+        }
+      }
       if (scheduleRows.length > 0) {
         const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
         if (schedErr) console.error('event_role_schedules insert error:', schedErr);
@@ -548,10 +565,10 @@ export default function NewEventPage() {
             <div className="mt-6">
               <RoleScheduleEditor
                 rolesInUse={rolesInUse}
+                dates={buildDateOptionsFromEntries(eventDates)}
                 value={roleSchedules}
                 onChange={setRoleSchedules}
-                eventDefaultStart={buildEventDateTimestamps(eventDates[0])?.start.slice(0, 16) || ''}
-                eventDefaultEnd={buildEventDateTimestamps(eventDates[0])?.end.slice(0, 16) || ''}
+                rolesCounts={roleCounts}
               />
             </div>
           </TabsContent>
