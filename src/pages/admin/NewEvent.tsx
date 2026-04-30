@@ -112,7 +112,7 @@ export default function NewEventPage() {
     setIsLoading(true);
     try {
       const [ambRes, profRes, rolesRes, contRes] = await Promise.all([
-        supabase.from('ambulances').select('*').in('status', ['disponivel', 'ocupada']).order('code'),
+        supabase.from('ambulances').select('*').in('status', ['ativa', 'disponivel', 'ocupada']).order('code'),
         supabase.from('profiles').select('*').order('full_name'),
         supabase.from('user_roles').select('*'),
         supabase.from('contractors').select('*').eq('is_active', true).order('name'),
