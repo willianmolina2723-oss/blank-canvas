@@ -199,45 +199,8 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
      setForm({ ...form, ambulance_id: value });
    };
  
-    const handleDepartureChange = (value: string) => {
-      const updated = { ...form, departure_time: value };
-      // Re-check arrival
-      if (form.arrival_time && value && form.arrival_time.length >= 16 && value.length >= 16) {
-        const startDate = value.slice(0, 10);
-        const endDate = form.arrival_time.slice(0, 10);
-        const startTime = value.slice(11, 16);
-        const endTime = form.arrival_time.slice(11, 16);
-        if (startDate === endDate && endTime < startTime) {
-          const [yy, mm, dd] = startDate.split('-').map(Number);
-          const d2 = new Date(yy, mm - 1, dd + 1);
-          const ny = d2.getFullYear();
-          const nm = String(d2.getMonth() + 1).padStart(2, '0');
-          const nd = String(d2.getDate()).padStart(2, '0');
-          updated.arrival_time = `${ny}-${nm}-${nd}T${endTime}`;
-        }
-      }
-      setForm(updated);
-    };
- 
-    const handleArrivalChange = (value: string) => {
-      let newEnd = value;
-      if (form.departure_time && newEnd && newEnd.length >= 16 && form.departure_time.length >= 16) {
-        const startDate = form.departure_time.slice(0, 10);
-        const endDate = newEnd.slice(0, 10);
-        const startTime = form.departure_time.slice(11, 16);
-        const endTime = newEnd.slice(11, 16);
-        if (startDate === endDate && endTime < startTime) {
-          const [yy, mm, dd] = startDate.split('-').map(Number);
-          const d2 = new Date(yy, mm - 1, dd + 1);
-          const ny = d2.getFullYear();
-          const nm = String(d2.getMonth() + 1).padStart(2, '0');
-          const nd = String(d2.getDate()).padStart(2, '0');
-          newEnd = `${ny}-${nm}-${nd}T${endTime}`;
-        }
-      }
-      setForm({ ...form, arrival_time: newEnd });
-    };
- 
+    // (handlers de departure/arrival removidos — agora gerenciado por EventDatesEditor)
+
    const handleParticipantToggle = (profileId: string, role: AppRole) => {
      setSelectedParticipants(prev => {
        if (prev[profileId] === role) {
@@ -252,8 +215,12 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
       const errors: string[] = [];
       if (!form.code.trim()) errors.push('Código');
       if (!form.ambulance_id) errors.push('Viatura');
-      if (!form.departure_time) errors.push('Início do evento');
-      if (!form.arrival_time) errors.push('Término do evento');
+      if (eventDates.length === 0) errors.push('Pelo menos uma data');
+      eventDates.forEach((d, i) => {
+        if (!d.date || !d.start_time || !d.end_time) {
+          errors.push(`Data/hora da Data ${i + 1}`);
+        }
+      });
       if (!form.location.trim()) errors.push('Local');
       if (!form.description.trim()) errors.push('Descrição');
       if (Object.keys(selectedParticipants).length === 0) errors.push('Pelo menos um participante');
@@ -262,10 +229,15 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
         toast({ title: 'Campos obrigatórios', description: `Preencha: ${errors.join(', ')}`, variant: 'destructive' });
         return;
       }
- 
- 
+
+
      setIsSaving(true);
      try {
+       // Ordena datas e calcula cache departure/arrival
+       const sortedDates = [...eventDates].sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
+       const firstTs = buildEventDateTimestamps(sortedDates[0]);
+       const lastTs = buildEventDateTimestamps(sortedDates[sortedDates.length - 1]);
+
        // Update event
         const { error: eventError } = await supabase
           .from('events')
@@ -275,11 +247,53 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
             location: form.location.trim() || null,
             description: form.description.trim() || null,
             status: form.status,
-            departure_time: form.departure_time || null,
-            arrival_time: form.arrival_time || null,
+            departure_time: firstTs?.start || null,
+            arrival_time: lastTs?.end || null,
             cobrar_materiais_medicamentos: form.cobrar_materiais_medicamentos,
           } as any)
           .eq('id', id);
+
+       if (eventError) throw eventError;
+
+       // Sincroniza event_dates: upsert por id, deleta as removidas
+       const { data: existingDates } = await (supabase as any)
+         .from('event_dates')
+         .select('id')
+         .eq('event_id', id);
+       const existingIds = new Set((existingDates || []).map((d: any) => d.id));
+       const keptIds = new Set(sortedDates.filter(d => d.id).map(d => d.id as string));
+
+       // Deleta as removidas
+       const toDelete = [...existingIds].filter(eid => !keptIds.has(eid as string));
+       if (toDelete.length > 0) {
+         const { error: delErr } = await (supabase as any).from('event_dates').delete().in('id', toDelete);
+         if (delErr) throw delErr;
+       }
+
+       // Upsert (insert novas / update existentes) uma a uma para preservar ordem
+       for (let i = 0; i < sortedDates.length; i++) {
+         const d = sortedDates[i];
+         const ts = buildEventDateTimestamps(d)!;
+         const row = {
+           event_id: id,
+           empresa_id: currentProfile?.empresa_id || null,
+           ordem: i + 1,
+           date: d.date,
+           start_time: ts.start,
+           end_time: ts.end,
+           location_override: d.location_override?.trim() || null,
+           notes: d.notes?.trim() || null,
+           status: 'ativo',
+         };
+         if (d.id) {
+           const { error: upErr } = await (supabase as any).from('event_dates').update(row).eq('id', d.id);
+           if (upErr) throw upErr;
+         } else {
+           const { error: insErr } = await (supabase as any).from('event_dates').insert(row);
+           if (insErr) throw insErr;
+         }
+       }
+
  
        if (eventError) throw eventError;
  
