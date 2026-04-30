@@ -16,6 +16,8 @@ import { ArrowLeft, UserRound, Save, Loader2, AlertTriangle, Plus, Edit2, Clipbo
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { Patient } from '@/types/database';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 const OCCURRENCE_OPTIONS = [
   'ADM medicação inalatória',
@@ -102,6 +104,7 @@ export default function PatientForm() {
   const isDrawingRef = useRef(false);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   useEffect(() => {
     if (eventId && profile) {
@@ -131,16 +134,21 @@ export default function PatientForm() {
     if (eventId) {
       loadPatients();
     }
-  }, [eventId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, activeDateId]);
 
   const loadPatients = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('patients')
         .select('*')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true });
+      if (activeDateId) {
+        query = query.or(`event_date_id.eq.${activeDateId},event_date_id.is.null`);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -440,6 +448,7 @@ export default function PatientForm() {
           .from('patients')
           .insert({
             event_id: eventId!,
+            event_date_id: activeDateId || null,
             name: patient.name!,
             birth_date: patient.birth_date || null,
             age: patient.age || null,
@@ -504,6 +513,12 @@ export default function PatientForm() {
             </Button>
           )}
         </div>
+
+        {dates.length > 0 && !showForm && (
+          <div className="px-1">
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          </div>
+        )}
 
         {!canEdit && (
           <Card className="border-warning bg-warning/10">

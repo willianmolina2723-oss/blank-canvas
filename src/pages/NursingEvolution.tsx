@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { NursingEvolution, Patient, Profile } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 export default function NursingEvolutionForm() {
   const { eventId } = useParams();
@@ -40,6 +42,7 @@ export default function NursingEvolutionForm() {
   const isDrawingRef = useRef(false);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   useEffect(() => {
     if (eventId && profile) {
@@ -53,7 +56,8 @@ export default function NursingEvolutionForm() {
 
   useEffect(() => {
     if (eventId) loadPatients();
-  }, [eventId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, activeDateId]);
 
   useEffect(() => {
     if (selectedPatient && !isLoading && canEdit) {
@@ -64,11 +68,15 @@ export default function NursingEvolutionForm() {
   const loadPatients = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('patients')
         .select('*')
         .eq('event_id', eventId!)
         .order('created_at', { ascending: true });
+      if (activeDateId) {
+        query = query.or(`event_date_id.eq.${activeDateId},event_date_id.is.null`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       setPatients(data as Patient[]);
     } catch (err) {
@@ -190,6 +198,7 @@ export default function NursingEvolutionForm() {
         .from('nursing_evolutions')
         .insert({
           event_id: eventId,
+          event_date_id: activeDateId || null,
           patient_id: selectedPatient.id,
           blood_pressure_systolic: parseInt(form.blood_pressure_systolic) || null,
           blood_pressure_diastolic: parseInt(form.blood_pressure_diastolic) || null,
@@ -268,6 +277,10 @@ export default function NursingEvolutionForm() {
               Evolução de Enfermagem
             </h1>
           </div>
+
+          {dates.length > 0 && (
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          )}
 
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
             Selecione um paciente

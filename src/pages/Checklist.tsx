@@ -20,6 +20,8 @@ import { ChecklistVideoTab, type ChecklistVideoTabHandle } from '@/components/ch
 import { ChecklistFuelTab, type ChecklistFuelTabHandle } from '@/components/checklist/ChecklistFuelTab';
 import { cn } from '@/lib/utils';
 import type { ChecklistItem, AppRole } from '@/types/database';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 const DEFAULT_ITEMS = [
   'Desfibrilador automático externo',
@@ -62,6 +64,8 @@ export default function Checklist() {
   const [eventRole, setEventRole] = useState<AppRole | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
+
   const utiRef = useRef<UTIConditionsTabHandle>(null);
   const videosRef = useRef<ChecklistVideoTabHandle>(null);
   const fuelRef = useRef<ChecklistFuelTabHandle>(null);
@@ -84,17 +88,25 @@ export default function Checklist() {
   const canManageItems = isFullAdmin;
 
   useEffect(() => {
-    if (eventId) loadChecklist();
-  }, [eventId]);
+    if (eventId && activeDateId !== undefined) loadChecklist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, activeDateId]);
 
   const loadChecklist = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('checklist_items')
         .select('*')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true });
+
+      // Quando há data ativa, filtra: itens da data ou legados (NULL)
+      if (activeDateId) {
+        query = query.or(`event_date_id.eq.${activeDateId},event_date_id.is.null`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -125,6 +137,7 @@ export default function Checklist() {
     try {
       const allItems = DEFAULT_ITEMS.map(name => ({
         event_id: eventId,
+        event_date_id: activeDateId || null,
         item_type: 'pre',
         item_name: name,
         is_checked: false,
@@ -175,7 +188,7 @@ export default function Checklist() {
     try {
       const { data, error } = await supabase
         .from('checklist_items')
-        .insert({ event_id: eventId, item_type: 'pre', item_name: newItemName.trim(), is_checked: false, empresa_id: profile?.empresa_id || null })
+        .insert({ event_id: eventId, event_date_id: activeDateId || null, item_type: 'pre', item_name: newItemName.trim(), is_checked: false, empresa_id: profile?.empresa_id || null })
         .select()
         .single();
 
@@ -267,9 +280,15 @@ export default function Checklist() {
 
   const confirmEquipamentos = async (): Promise<boolean> => {
     try {
-      await supabase.from('checklist_items').delete().eq('event_id', eventId).eq('item_type', 'checklist_confirmed' as any);
+      // Apaga flag de confirmação apenas da data ativa (ou legado se sem data)
+      let delQ = supabase.from('checklist_items').delete().eq('event_id', eventId).eq('item_type', 'checklist_confirmed' as any);
+      if (activeDateId) delQ = delQ.eq('event_date_id', activeDateId);
+      else delQ = delQ.is('event_date_id', null);
+      await delQ;
+
       const { error } = await supabase.from('checklist_items').insert({
-        event_id: eventId, item_type: 'checklist_confirmed' as any, item_name: 'CHECKLIST_CONFIRMADO',
+        event_id: eventId, event_date_id: activeDateId || null,
+        item_type: 'checklist_confirmed' as any, item_name: 'CHECKLIST_CONFIRMADO',
         is_checked: true, checked_by: profile?.id, checked_at: new Date().toISOString(), empresa_id: profile?.empresa_id || null,
       });
       if (error) throw error;
@@ -345,6 +364,12 @@ export default function Checklist() {
             )}
           </div>
         </div>
+
+        {dates.length > 0 && (
+          <div className="px-1">
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          </div>
+        )}
 
         <ReadOnlyBanner show={!canCheck} message="Apenas condutores e administradores podem editar o checklist da viatura." />
 

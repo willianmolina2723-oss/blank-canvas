@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { TransportRecord, AppRole } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 export default function TransportForm() {
   const { eventId } = useParams();
@@ -27,6 +29,7 @@ export default function TransportForm() {
   const [existingTransportId, setExistingTransportId] = useState<string | null>(null);
   const [eventRole, setEventRole] = useState<AppRole | null>(null);
   const [eventData, setEventData] = useState<{ status: string; departure_time: string | null; arrival_time: string | null } | null>(null);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   useEffect(() => {
     if (eventId && profile) {
@@ -126,6 +129,12 @@ export default function TransportForm() {
             </Button>
           )}
         </div>
+
+        {dates.length > 0 && (
+          <div className="px-1">
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          </div>
+        )}
 
         <ReadOnlyBanner show={!canEdit} message="Apenas condutores e administradores podem editar os dados de transporte." />
 
