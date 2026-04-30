@@ -163,9 +163,19 @@ export default function Financial() {
       // Insumo costs from checklist_items
       const costItemIdMap = new Map((costItems || []).map((c: any) => [c.id, Number(c.unit_cost)]));
       const costItemNameMap = new Map((costItems || []).map((c: any) => [c.name.toLowerCase(), Number(c.unit_cost)]));
+      const parseQty = (notes: any): number => {
+        if (notes == null) return 0;
+        try {
+          const parsed = JSON.parse(String(notes));
+          if (typeof parsed === 'object' && parsed !== null) return Number(parsed.quantity) || 0;
+          return Number(parsed) || 0;
+        } catch {
+          return parseInt(String(notes)) || 0;
+        }
+      };
       let medCosts = 0, matCosts = 0;
       (checklistItems || []).forEach((ci: any) => {
-        const q = parseInt(ci.notes || '0') || 0;
+        const q = parseQty(ci.notes);
         if (q <= 0) return;
         const uc: number = ci.cost_item_id
           ? Number(costItemIdMap.get(ci.cost_item_id) ?? 0)
@@ -217,7 +227,7 @@ export default function Financial() {
       const insumosByEvent = new Map<string, number>();
       (checklistItems || []).forEach((ci: any) => {
         if (ci.item_type !== 'consumo_medicamentos' && ci.item_type !== 'materiais') return;
-        const q = parseInt(ci.notes || '0') || 0;
+        const q = parseQty(ci.notes);
         if (q <= 0) return;
         const uc: number = ci.cost_item_id
           ? Number(costItemIdMap.get(ci.cost_item_id) ?? 0)
