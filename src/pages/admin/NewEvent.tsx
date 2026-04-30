@@ -338,15 +338,9 @@ export default function NewEventPage() {
       const hasMultipleDates = eventDates.length > 1;
       toast({
         title: 'Evento criado',
-        description: hasMultipleDates
-          ? `O evento ${code} foi criado. Aloque a equipe em cada data abaixo.`
-          : `O evento ${code} foi criado com sucesso.`,
+        description: `O evento ${code} foi criado com sucesso.`,
       });
-      if (hasMultipleDates) {
-        navigate(`/admin/events/${eventData.id}/edit`);
-      } else {
-        navigate('/');
-      }
+      navigate(hasMultipleDates ? `/admin/events/${eventData.id}/edit` : '/');
     } catch (err: any) {
       console.error('Error creating event:', err);
       toast({ title: 'Erro', description: explainError(err, 'Não foi possível criar o evento.'), variant: 'destructive' });
