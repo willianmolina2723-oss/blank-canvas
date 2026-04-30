@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { MedicalEvolution, Patient, Profile } from '@/types/database';
 import { formatBR } from '@/utils/dateFormat';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 interface CostItemMed {
   id: string;
@@ -55,6 +57,7 @@ export default function MedicalEvolutionForm() {
   const isDrawingRef = useRef(false);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   useEffect(() => {
     if (eventId && profile) {
