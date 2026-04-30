@@ -207,7 +207,27 @@ export default function PayrollPage() {
         return;
       }
 
-      const eventIds = events.map(e => e.id);
+      const allEventIds = events.map(e => e.id);
+
+      // Filtrar apenas eventos cujo financeiro do contratante está marcado como pago
+      const { data: financesData } = await supabase
+        .from('event_finances')
+        .select('event_id, status')
+        .in('event_id', allEventIds);
+      const paidEventIdsSet = new Set(
+        (financesData || [])
+          .filter((f: any) => f.status === 'pago')
+          .map((f: any) => f.event_id),
+      );
+
+      const paidEvents = events.filter(e => paidEventIdsSet.has(e.id));
+      if (paidEvents.length === 0) {
+        setParticipants([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const eventIds = paidEvents.map(e => e.id);
 
       const transportByEvent = new Map<string, { departure: string | null; arrival: string | null }>();
       for (const t of transports || []) {
