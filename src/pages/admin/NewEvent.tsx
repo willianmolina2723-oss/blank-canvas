@@ -392,6 +392,14 @@ export default function NewEventPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <div className="mt-6">
+              <EventDatesEditor
+                value={eventDates}
+                onChange={setEventDates}
+                defaultLocation={location}
+              />
+            </div>
           </TabsContent>
 
           {/* Tab: Contratante */}
@@ -542,8 +550,8 @@ export default function NewEventPage() {
                 rolesInUse={rolesInUse}
                 value={roleSchedules}
                 onChange={setRoleSchedules}
-                eventDefaultStart={departureTime}
-                eventDefaultEnd={arrivalTime}
+                eventDefaultStart={buildEventDateTimestamps(eventDates[0])?.start.slice(0, 16) || ''}
+                eventDefaultEnd={buildEventDateTimestamps(eventDates[0])?.end.slice(0, 16) || ''}
               />
             </div>
           </TabsContent>
