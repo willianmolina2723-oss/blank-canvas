@@ -34,6 +34,7 @@ export default function Dashboard() {
 
   const activeEvents = data?.events || [];
   const participantCounts = data?.participantCounts || {};
+  const eventStartDates = data?.eventStartDates || {};
 
   // Super Admin goes straight to company management
   useEffect(() => {
