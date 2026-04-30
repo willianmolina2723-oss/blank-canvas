@@ -32,8 +32,6 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
     location: string;
     description: string;
     status: EventStatus;
-    departure_time: string;
-    arrival_time: string;
     cobrar_materiais_medicamentos: boolean;
   }
  
@@ -49,8 +47,6 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
       location: '',
       description: '',
       status: 'ativo',
-      departure_time: '',
-      arrival_time: '',
       cobrar_materiais_medicamentos: false,
     });
   const [ambulances, setAmbulances] = useState<AmbulanceType[]>([]);
@@ -61,6 +57,7 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
    const [isSaving, setIsSaving] = useState(false);
    const [originalAmbulanceId, setOriginalAmbulanceId] = useState<string>('');
    const [roleSchedules, setRoleSchedules] = useState<Record<AppRole, RoleScheduleEntry>>({} as any);
+   const [eventDates, setEventDates] = useState<EventDateEntry[]>([blankEventDate()]);
  
    useEffect(() => {
      if (!authLoading && !isAdmin) {
