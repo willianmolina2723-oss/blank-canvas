@@ -227,7 +227,7 @@ export default function Financial() {
       const insumosByEvent = new Map<string, number>();
       (checklistItems || []).forEach((ci: any) => {
         if (ci.item_type !== 'consumo_medicamentos' && ci.item_type !== 'materiais') return;
-        const q = parseInt(ci.notes || '0') || 0;
+        const q = parseQty(ci.notes);
         if (q <= 0) return;
         const uc: number = ci.cost_item_id
           ? Number(costItemIdMap.get(ci.cost_item_id) ?? 0)
