@@ -16,6 +16,8 @@ import { ArrowLeft, UserRound, Save, Loader2, AlertTriangle, Plus, Edit2, Clipbo
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import type { Patient } from '@/types/database';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 const OCCURRENCE_OPTIONS = [
   'ADM medicação inalatória',
@@ -102,6 +104,7 @@ export default function PatientForm() {
   const isDrawingRef = useRef(false);
 
   const [eventRole, setEventRole] = useState<string | null>(null);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   useEffect(() => {
     if (eventId && profile) {
