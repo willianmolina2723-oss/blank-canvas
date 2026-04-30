@@ -10,6 +10,8 @@ import { explainError } from '@/utils/explainError';
 import { Button } from '@/components/ui/button';
 import type { Event, Ambulance as AmbulanceType, AppRole } from '@/types/database';
 import { STATUS_LABELS } from '@/types/database';
+import { useEventDates } from '@/hooks/useEventDates';
+import { EventDateSelector } from '@/components/events/EventDateSelector';
 
 export default function EventHub() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +24,7 @@ export default function EventHub() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const { canStartEvent, canFinishEvent, effectiveRole, isFullAdmin } = usePermissions({ eventRole: userRole });
+  const { dates, activeId, setActiveId } = useEventDates(id);
 
   useEffect(() => {
     if (id) loadEvent();
