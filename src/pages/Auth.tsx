@@ -77,9 +77,7 @@ export default function Auth() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="flex flex-col items-center space-y-2">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <Shield className="h-8 w-8 text-primary-foreground" />
-          </div>
+          <img src="/pwa-192x192.png" alt="SAPH" className="h-16 w-16 rounded-2xl shadow-lg" />
           <h1 className="text-2xl font-bold text-foreground">SAPH</h1>
           <p className="text-sm text-muted-foreground text-center">
             Sistema de Atendimento Pré-Hospitalar
