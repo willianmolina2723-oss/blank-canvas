@@ -33,6 +33,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, onSuccess }: Creat
     title: '',
     description: '',
     event_date: '',
+    end_date: '',
     start_time: '',
     end_time: '',
     location: '',
