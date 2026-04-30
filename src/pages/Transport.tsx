@@ -29,6 +29,7 @@ export default function TransportForm() {
   const [existingTransportId, setExistingTransportId] = useState<string | null>(null);
   const [eventRole, setEventRole] = useState<AppRole | null>(null);
   const [eventData, setEventData] = useState<{ status: string; departure_time: string | null; arrival_time: string | null } | null>(null);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
 
   useEffect(() => {
     if (eventId && profile) {
