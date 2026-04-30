@@ -274,6 +274,8 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
        }
 
        // Upsert (insert novas / update existentes) uma a uma para preservar ordem
+       // Mapeia chave usada no roleSchedules (id real ou tmp-N) -> id real persistido
+       const dateKeyToId: Record<string, string> = {};
        for (let i = 0; i < sortedDates.length; i++) {
          const d = sortedDates[i];
          const ts = buildEventDateTimestamps(d)!;
@@ -291,9 +293,11 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
          if (d.id) {
            const { error: upErr } = await (supabase as any).from('event_dates').update(row).eq('id', d.id);
            if (upErr) throw upErr;
+           dateKeyToId[d.id] = d.id;
          } else {
-           const { error: insErr } = await (supabase as any).from('event_dates').insert(row);
+           const { data: ins, error: insErr } = await (supabase as any).from('event_dates').insert(row).select('id').single();
            if (insErr) throw insErr;
+           dateKeyToId[`tmp-${i}`] = ins.id;
          }
        }
 
@@ -335,23 +339,30 @@ import { recomputeAllAssignmentsForEvent } from '@/utils/computePaidHours';
          if (addError) throw addError;
         }
 
-       // Save event_role_schedules: upsert by (event_id, role) - delete-then-insert pattern
+       // Save event_role_schedules: uma linha por (data, role) — delete-then-insert
        const rolesInUseSave = Array.from(new Set(Object.values(selectedParticipants).filter(Boolean) as AppRole[]));
        await (supabase as any).from('event_role_schedules').delete().eq('event_id', id);
-       const scheduleRows = rolesInUseSave.map(role => {
-         const entry = roleSchedules[role];
-         const useDefault = entry?.use_event_default ?? true;
-         const qty = Object.values(selectedParticipants).filter(r => r === role).length;
-         return {
-           event_id: id,
-           role,
-           quantity: qty,
-           use_event_default: useDefault,
-           start_time: useDefault ? null : (entry?.start_time || null),
-           end_time: useDefault ? null : (entry?.end_time || null),
-           empresa_id: currentProfile?.empresa_id || null,
-         };
-       });
+       const scheduleRows: any[] = [];
+       const dateOptsForSave = buildDateOptionsFromEntries(sortedDates);
+       for (const dOpt of dateOptsForSave) {
+         const realDateId = dateKeyToId[dOpt.key] || dOpt.key;
+         const dateMap = roleSchedules[dOpt.key] || ({} as any);
+         for (const role of rolesInUseSave) {
+           const entry = (dateMap as any)[role];
+           const useDefault = entry?.use_event_default ?? true;
+           const qty = Object.values(selectedParticipants).filter(r => r === role).length;
+           scheduleRows.push({
+             event_id: id,
+             event_date_id: realDateId,
+             role,
+             quantity: qty,
+             use_event_default: useDefault,
+             start_time: useDefault ? null : (entry?.start_time || null),
+             end_time: useDefault ? null : (entry?.end_time || null),
+             empresa_id: currentProfile?.empresa_id || null,
+           });
+         }
+       }
        if (scheduleRows.length > 0) {
          const { error: schedErr } = await (supabase as any).from('event_role_schedules').insert(scheduleRows);
          if (schedErr) console.error('event_role_schedules insert error:', schedErr);
