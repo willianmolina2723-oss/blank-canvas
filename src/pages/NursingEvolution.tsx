@@ -278,6 +278,10 @@ export default function NursingEvolutionForm() {
             </h1>
           </div>
 
+          {dates.length > 0 && (
+            <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
+          )}
+
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
             Selecione um paciente
           </p>
