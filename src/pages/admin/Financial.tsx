@@ -150,8 +150,10 @@ export default function Financial() {
       (staffCosts || []).forEach((sc: any) => { staffCostMap.set(`${sc.event_id}_${sc.profile_id}`, sc); });
 
       // Calculate total staff costs using hours × rate
+      // Apenas eventos FINALIZADOS contam para "Pago Freelancers" no dashboard
       let totalStaffCosts = 0;
       (participants || []).forEach((p: any) => {
+        if (eventStatusMap.get(p.event_id) !== 'finalizado') return;
         const minutes = transportByEvent.get(p.event_id) || 0;
         const sc = staffCostMap.get(`${p.event_id}_${p.profile_id}`);
         const rate = sc && Number(sc.base_value) > 0 ? Number(sc.base_value) : DEFAULT_RATE;
