@@ -143,6 +143,26 @@ export default function EarningsForecast() {
         .in('status', ['ativo', 'em_andamento', 'finalizado'])
         .order('departure_time', { ascending: true, nullsFirst: false });
 
+      // Load event dates to use real event date (not created_at)
+      const { data: eventDatesData } = await supabase
+        .from('event_dates')
+        .select('event_id, start_time, date, ordem')
+        .in('event_id', eventIds)
+        .order('ordem', { ascending: true });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const eventDateMap = new Map<string, string>();
+      const datesByEvent: Record<string, any[]> = {};
+      (eventDatesData || []).forEach((d: any) => {
+        (datesByEvent[d.event_id] ||= []).push(d);
+      });
+      Object.entries(datesByEvent).forEach(([eid, list]) => {
+        const exact = list.find(d => d.date === todayStr);
+        const future = list.find(d => d.date >= todayStr);
+        const chosen = exact || future || list[list.length - 1] || list[0];
+        if (chosen) eventDateMap.set(eid, chosen.start_time);
+      });
+
       // Filtrar apenas eventos cujo financeiro do contratante está marcado como pago
       const { data: financesData } = await supabase
         .from('event_finances')
@@ -158,10 +178,11 @@ export default function EarningsForecast() {
         .filter((ev: any) => paidEventIds.has(ev.id))
         .map((ev: any) => {
           const assignment = assignmentMap.get(ev.id);
-          // Prefer assignment.paid_duration_minutes; fallback to legacy calc
           const minutes = assignment?.minutes != null
             ? assignment.minutes
             : calcMinutes(ev.departure_time, ev.arrival_time);
+          // Prefer event_dates start_time, fallback to event.departure_time, then created_at
+          const eventDate = eventDateMap.get(ev.id) || ev.departure_time || ev.created_at;
           return {
             id: ev.id,
             code: ev.code,
@@ -170,7 +191,7 @@ export default function EarningsForecast() {
             departure_time: assignment?.paidStart || ev.departure_time,
             arrival_time: assignment?.paidEnd || ev.arrival_time,
             status: ev.status,
-            event_date: ev.created_at,
+            event_date: eventDate,
             minutes,
             earnings: (minutes / 60) * valorHora,
           };
