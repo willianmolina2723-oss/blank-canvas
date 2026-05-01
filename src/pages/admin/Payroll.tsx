@@ -220,14 +220,14 @@ export default function PayrollPage() {
           .map((f: any) => f.event_id),
       );
 
-      const paidEvents = events.filter(e => paidEventIdsSet.has(e.id));
-      if (paidEvents.length === 0) {
+      const paidEventsList = events.filter(e => paidEventIdsSet.has(e.id));
+      if (paidEventsList.length === 0) {
         setParticipants([]);
         setIsLoading(false);
         return;
       }
 
-      const eventIds = paidEvents.map(e => e.id);
+      const eventIds = paidEventsList.map(e => e.id);
 
       const transportByEvent = new Map<string, { departure: string | null; arrival: string | null }>();
       for (const t of transports || []) {
