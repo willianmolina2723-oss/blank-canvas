@@ -27,16 +27,38 @@ Deno.serve(async (req) => {
     if (!empresa_id) throw new Error('empresa_id é obrigatório')
 
     // Get all users from this empresa
-    const { data: profiles } = await supabaseAdmin.from('profiles').select('user_id').eq('empresa_id', empresa_id)
+    const { data: profiles } = await supabaseAdmin.from('profiles').select('id, user_id').eq('empresa_id', empresa_id)
+    const userIds = (profiles || []).map((p: any) => p.user_id).filter(Boolean)
+    const profileIds = (profiles || []).map((p: any) => p.id).filter(Boolean)
 
-    // Delete auth users
-    if (profiles) {
-      for (const p of profiles) {
-        await supabaseAdmin.auth.admin.deleteUser(p.user_id)
-      }
+    // Best-effort cleanup of tables that reference profiles/empresa without cascade
+    const cleanupByEmpresa = [
+      'event_staff_costs', 'freelancer_payments', 'event_assignments', 'event_role_schedules',
+      'event_participants', 'event_recordings', 'transport_logs', 'transport_photos',
+      'checklist_items', 'patients', 'medical_evolutions', 'nursing_evolutions',
+      'material_consumption', 'medication_consumption', 'signatures', 'opportunities',
+      'ambulances', 'maintenance_history', 'reviews', 'events', 'user_roles',
+      'user_pins', 'push_subscriptions', 'audit_log', 'changelog', 'email_logs',
+      'auth_events', 'app_config', 'default_rates'
+    ]
+    for (const tbl of cleanupByEmpresa) {
+      await supabaseAdmin.from(tbl).delete().eq('empresa_id', empresa_id).then(() => {}, () => {})
     }
 
-    // Delete empresa (cascade should handle related records)
+    // Detach profiles from empresa so FK no longer blocks deletion
+    if (profileIds.length > 0) {
+      await supabaseAdmin.from('profiles').update({ empresa_id: null }).in('id', profileIds)
+    }
+
+    // Delete auth users (cascade removes their profiles via auth.users FK)
+    for (const uid of userIds) {
+      await supabaseAdmin.auth.admin.deleteUser(uid).catch(() => {})
+    }
+
+    // Final safety: remove any remaining profiles tied to this empresa
+    await supabaseAdmin.from('profiles').delete().eq('empresa_id', empresa_id).then(() => {}, () => {})
+
+    // Delete empresa
     const { error } = await supabaseAdmin.from('empresas').delete().eq('id', empresa_id)
     if (error) throw new Error(`Erro ao excluir empresa: ${error.message}`)
 
