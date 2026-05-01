@@ -275,6 +275,7 @@ export default function Financial() {
         totalPending: Math.max(0, pendingReceivables), totalPaid,
         pendingFreelancers: Math.max(0, pendingFreelancers),
         pendingReceivables: Math.max(0, pendingReceivables),
+        totalPaidFreelancers: paidFreelancerTotal,
       });
     } catch (error) {
       console.error('Error loading financial data:', error);
