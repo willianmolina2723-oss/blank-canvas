@@ -127,13 +127,17 @@ export function ChecklistVideosList({ ambulanceId }: ChecklistVideosListProps) {
       const { data: ambs } = ambIds.length
         ? await supabase.from('ambulances').select('id, code, plate').in('id', ambIds)
         : { data: [] as AmbulanceLite[] };
-      const ambMap = new Map((ambs || []).map((a: AmbulanceLite) => [a.id, a]));
+      const ambMap = new Map<string, AmbulanceLite>(
+        ((ambs || []) as AmbulanceLite[]).map(a => [a.id, a])
+      );
 
       // 4. Profiles
       const { data: profs } = userIds.length
         ? await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
         : { data: [] as ProfileLite[] };
-      const profMap = new Map((profs || []).map((p: ProfileLite) => [p.user_id, p]));
+      const profMap = new Map<string, ProfileLite>(
+        ((profs || []) as ProfileLite[]).map(p => [p.user_id, p])
+      );
 
       return recordings.map(r => {
         const event = eventsMap.get(r.event_id);
