@@ -3,7 +3,7 @@ import { usePlanAccess } from '@/hooks/usePlanAccess';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutGrid, FileText, Users, LogOut, Truck, Calendar, Archive,
-  DollarSign, Briefcase, Crown, Settings, ChevronLeft, ChevronRight,
+  DollarSign, Briefcase, Crown, Settings, ChevronLeft, ChevronRight, Video,
 } from 'lucide-react';
 import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,7 @@ export function AppSidebar() {
     { label: 'Prontuários', icon: FileText, path: '/admin/patients', adminOnly: true, module: null },
     { label: 'Usuários', icon: Users, path: '/admin/users', adminOnly: true, module: null },
     { label: 'Viaturas', icon: Truck, path: '/admin/ambulances', adminOnly: true, module: null },
+    { label: 'Vídeos Checklist', icon: Video, path: '/admin/checklist-videos', adminOnly: true, module: null },
     { label: 'Eventos', icon: Calendar, path: '/admin/events', adminOnly: true, module: null },
     { label: 'Relatórios', icon: Archive, path: '/admin/reports', adminOnly: true, module: null },
     { label: 'Pagamentos', icon: DollarSign, path: '/admin/payroll', adminOnly: true, module: 'pagamentos_freelancers' as const, hideOnPlan: 'GESTAO_COMPLETA' as const },

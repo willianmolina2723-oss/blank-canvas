@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ArrowLeft, Truck, Hash, CalendarDays, Gauge, Fuel, Wrench, AlertTriangle, DollarSign, Calendar, FileText, Plus } from 'lucide-react';
+import { Loader2, ArrowLeft, Truck, Hash, CalendarDays, Gauge, Fuel, Wrench, AlertTriangle, DollarSign, Calendar, FileText, Plus, Video } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import { computeAlerts } from '@/utils/maintenanceAlerts';
 import { getCategoryLabel, getMaintenanceTypeLabel, VEHICLE_STATUS_OPTIONS, type AmbulanceFull, type MaintenanceLogFull } from '@/types/maintenance';
 import { MaintenanceHistory } from '@/components/admin/MaintenanceHistory';
+import { ChecklistVideosList } from '@/components/admin/ChecklistVideosList';
 
 export default function AmbulanceDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -192,9 +193,12 @@ export default function AmbulanceDetailsPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="info" className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full lg:w-auto">
+          <TabsList className="grid grid-cols-4 w-full lg:w-auto">
             <TabsTrigger value="info">Dados</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
+            <TabsTrigger value="videos" className="gap-1.5">
+              <Video className="h-3.5 w-3.5" /> Vídeos
+            </TabsTrigger>
             <TabsTrigger value="reports">Relatório</TabsTrigger>
           </TabsList>
 
@@ -300,6 +304,10 @@ export default function AmbulanceDetailsPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="videos">
+            <ChecklistVideosList ambulanceId={ambulance.id} />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
