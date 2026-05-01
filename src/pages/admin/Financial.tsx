@@ -89,7 +89,7 @@ export default function Financial() {
       setEvents(eventsData || []);
 
       if (eventIds.length === 0) {
-        setSummary({ totalRevenue: 0, totalCosts: 0, totalStaffCosts: 0, totalMedicationCosts: 0, totalMaterialCosts: 0, totalOtherCosts: 0, totalFuelCosts: 0, grossProfit: 0, totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0 });
+        setSummary({ totalRevenue: 0, totalCosts: 0, totalStaffCosts: 0, totalMedicationCosts: 0, totalMaterialCosts: 0, totalOtherCosts: 0, totalFuelCosts: 0, grossProfit: 0, totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0, totalPaidFreelancers: 0 });
         setEventFinances({});
         setIsLoading(false);
         return;
