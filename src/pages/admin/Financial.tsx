@@ -28,6 +28,7 @@ interface FinancialSummary {
   totalPaid: number;
   pendingFreelancers: number;
   pendingReceivables: number;
+  totalPaidFreelancers: number;
 }
 
 export default function Financial() {
@@ -40,7 +41,7 @@ export default function Financial() {
   const [summary, setSummary] = useState<FinancialSummary>({
     totalRevenue: 0, totalCosts: 0, totalStaffCosts: 0, totalMedicationCosts: 0,
     totalMaterialCosts: 0, totalOtherCosts: 0, totalFuelCosts: 0, grossProfit: 0,
-    totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0,
+    totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0, totalPaidFreelancers: 0,
   });
   const [events, setEvents] = useState<any[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
@@ -88,7 +89,7 @@ export default function Financial() {
       setEvents(eventsData || []);
 
       if (eventIds.length === 0) {
-        setSummary({ totalRevenue: 0, totalCosts: 0, totalStaffCosts: 0, totalMedicationCosts: 0, totalMaterialCosts: 0, totalOtherCosts: 0, totalFuelCosts: 0, grossProfit: 0, totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0 });
+        setSummary({ totalRevenue: 0, totalCosts: 0, totalStaffCosts: 0, totalMedicationCosts: 0, totalMaterialCosts: 0, totalOtherCosts: 0, totalFuelCosts: 0, grossProfit: 0, totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0, totalPaidFreelancers: 0 });
         setEventFinances({});
         setIsLoading(false);
         return;
@@ -274,6 +275,7 @@ export default function Financial() {
         totalPending: Math.max(0, pendingReceivables), totalPaid,
         pendingFreelancers: Math.max(0, pendingFreelancers),
         pendingReceivables: Math.max(0, pendingReceivables),
+        totalPaidFreelancers: paidFreelancerTotal,
       });
     } catch (error) {
       console.error('Error loading financial data:', error);
@@ -344,7 +346,7 @@ export default function Financial() {
   ];
 
   const detailCards = [
-    { title: 'Pago Freelancers', value: summary.totalStaffCosts, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
+    { title: 'Pago Freelancers', value: summary.totalPaidFreelancers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
     { title: 'Medicamentos', value: summary.totalMedicationCosts, icon: Pill, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/30' },
     { title: 'Materiais', value: summary.totalMaterialCosts, icon: Package, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
     { title: 'Outros Custos', value: summary.totalOtherCosts, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' },
