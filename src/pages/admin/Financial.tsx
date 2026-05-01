@@ -28,6 +28,7 @@ interface FinancialSummary {
   totalPaid: number;
   pendingFreelancers: number;
   pendingReceivables: number;
+  totalPaidFreelancers: number;
 }
 
 export default function Financial() {
