@@ -29,6 +29,7 @@ const PatientsPage = lazy(() => import("./pages/admin/Patients"));
 const EventsPage = lazy(() => import("./pages/admin/Events"));
 const ReportsPage = lazy(() => import("./pages/admin/Reports"));
 const ChecklistManagementPage = lazy(() => import("./pages/admin/ChecklistManagement"));
+const ChecklistVideosPage = lazy(() => import("./pages/admin/ChecklistVideos"));
 const Checklist = lazy(() => import("./pages/Checklist"));
 const PatientForm = lazy(() => import("./pages/PatientForm"));
 const NursingEvolution = lazy(() => import("./pages/NursingEvolution"));
@@ -153,6 +154,7 @@ function AppRoutes() {
         <Route path="/admin/events" element={<AdminRoute><EventsPage /></AdminRoute>} />
         <Route path="/admin/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
         <Route path="/admin/checklist" element={<AdminRoute><ChecklistManagementPage /></AdminRoute>} />
+        <Route path="/admin/checklist-videos" element={<AdminRoute><ChecklistVideosPage /></AdminRoute>} />
         <Route path="/checklist/:eventId" element={<ProtectedRoute><Checklist /></ProtectedRoute>} />
         <Route path="/patient/:eventId" element={<ProtectedRoute><PatientForm /></ProtectedRoute>} />
         <Route path="/nursing-evolution/:eventId" element={<ProtectedRoute><NursingEvolution /></ProtectedRoute>} />
