@@ -346,7 +346,7 @@ export default function Financial() {
   ];
 
   const detailCards = [
-    { title: 'Pago Freelancers', value: summary.totalStaffCosts, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
+    { title: 'Pago Freelancers', value: summary.totalPaidFreelancers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
     { title: 'Medicamentos', value: summary.totalMedicationCosts, icon: Pill, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/30' },
     { title: 'Materiais', value: summary.totalMaterialCosts, icon: Package, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
     { title: 'Outros Custos', value: summary.totalOtherCosts, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' },
