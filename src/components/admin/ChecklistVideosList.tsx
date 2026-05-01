@@ -188,51 +188,73 @@ export function ChecklistVideosList({ ambulanceId }: ChecklistVideosListProps) {
     <div className="space-y-4">
       {/* Filtros */}
       <Card>
-        <CardContent className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="lg:col-span-2 min-w-0">
-            <Input
-              placeholder="Buscar por evento, local, profissional…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full"
-            />
-          </div>
+        <CardContent className="p-4 space-y-3">
+          {/* Linha 1: busca + selects */}
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`min-w-0 ${ambulanceId ? 'lg:col-span-2' : ''}`}>
+              <Input
+                placeholder="Buscar por evento, local, profissional…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full"
+              />
+            </div>
 
-          {!ambulanceId && (
+            {!ambulanceId && (
+              <div className="min-w-0">
+                <Select value={ambulanceFilter} onValueChange={setAmbulanceFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Viatura" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as viaturas</SelectItem>
+                    {ambulances.map(a => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.code}{a.plate ? ` · ${a.plate}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="min-w-0">
-              <Select value={ambulanceFilter} onValueChange={setAmbulanceFilter}>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Viatura" />
+                  <SelectValue placeholder="Tipo de vídeo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as viaturas</SelectItem>
-                  {ambulances.map(a => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.code}{a.plate ? ` · ${a.plate}` : ''}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="cabine">Cabine</SelectItem>
+                  <SelectItem value="salao">Salão</SelectItem>
+                  <SelectItem value="externa">Externa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          <div className="min-w-0">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="cabine">Cabine</SelectItem>
-                <SelectItem value="salao">Salão</SelectItem>
-                <SelectItem value="externa">Externa</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="min-w-0 hidden lg:block" />
           </div>
 
-          <div className={`grid grid-cols-2 gap-2 min-w-0 ${ambulanceId ? 'lg:col-span-2' : ''}`}>
-            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full min-w-0 text-xs" />
-            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full min-w-0 text-xs" />
+          {/* Linha 2: período */}
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <div className="min-w-0">
+              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">De</label>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Até</label>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="w-full"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
