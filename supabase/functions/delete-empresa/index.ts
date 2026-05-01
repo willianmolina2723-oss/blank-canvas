@@ -5,6 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+// All tables with empresa_id FK to empresas (ordered: dependents first)
+const EMPRESA_TABLES = [
+  'dispatch_materials', 'dispatch_medications', 'dispatch_occurrences', 'dispatch_reports',
+  'event_finance_payments', 'event_finances', 'event_staff_costs', 'event_other_costs',
+  'freelancer_payments', 'transport_records', 'digital_signatures',
+  'medical_evolutions', 'nursing_evolutions', 'checklist_items',
+  'maintenance_logs', 'opportunity_registrations', 'opportunities',
+  'reviews', 'patients', 'cost_items', 'events', 'ambulances', 'contractors',
+  'audit_logs', 'data_changelog', 'email_logs', 'user_invites',
+  'user_roles',
+]
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
@@ -26,43 +38,37 @@ Deno.serve(async (req) => {
     const { empresa_id } = await req.json()
     if (!empresa_id) throw new Error('empresa_id é obrigatório')
 
-    // Get all users from this empresa
     const { data: profiles } = await supabaseAdmin.from('profiles').select('id, user_id').eq('empresa_id', empresa_id)
     const userIds = (profiles || []).map((p: any) => p.user_id).filter(Boolean)
     const profileIds = (profiles || []).map((p: any) => p.id).filter(Boolean)
 
-    // Best-effort cleanup of tables that reference profiles/empresa without cascade
-    const cleanupByEmpresa = [
-      'event_staff_costs', 'freelancer_payments', 'event_assignments', 'event_role_schedules',
-      'event_participants', 'event_recordings', 'transport_logs', 'transport_photos',
-      'checklist_items', 'patients', 'medical_evolutions', 'nursing_evolutions',
-      'material_consumption', 'medication_consumption', 'signatures', 'opportunities',
-      'ambulances', 'maintenance_history', 'reviews', 'events', 'user_roles',
-      'user_pins', 'push_subscriptions', 'audit_log', 'changelog', 'email_logs',
-      'auth_events', 'app_config', 'default_rates'
-    ]
-    for (const tbl of cleanupByEmpresa) {
-      await supabaseAdmin.from(tbl).delete().eq('empresa_id', empresa_id).then(() => {}, () => {})
+    // Delete from all empresa-scoped tables
+    const errors: string[] = []
+    for (const tbl of EMPRESA_TABLES) {
+      const { error } = await supabaseAdmin.from(tbl).delete().eq('empresa_id', empresa_id)
+      if (error && !error.message?.includes('does not exist')) {
+        errors.push(`${tbl}: ${error.message}`)
+      }
     }
 
-    // Detach profiles from empresa so FK no longer blocks deletion
+    // Detach profiles before user deletion (avoid FK block)
     if (profileIds.length > 0) {
       await supabaseAdmin.from('profiles').update({ empresa_id: null }).in('id', profileIds)
     }
 
-    // Delete auth users (cascade removes their profiles via auth.users FK)
+    // Delete auth users (cascades profiles via auth.users FK)
     for (const uid of userIds) {
-      await supabaseAdmin.auth.admin.deleteUser(uid).catch(() => {})
+      try { await supabaseAdmin.auth.admin.deleteUser(uid) } catch {}
     }
 
-    // Final safety: remove any remaining profiles tied to this empresa
-    await supabaseAdmin.from('profiles').delete().eq('empresa_id', empresa_id).then(() => {}, () => {})
+    // Final cleanup of any orphan profiles
+    await supabaseAdmin.from('profiles').delete().eq('empresa_id', empresa_id)
 
     // Delete empresa
     const { error } = await supabaseAdmin.from('empresas').delete().eq('id', empresa_id)
-    if (error) throw new Error(`Erro ao excluir empresa: ${error.message}`)
+    if (error) throw new Error(`Erro ao excluir empresa: ${error.message}${errors.length ? ' | Limpeza: ' + errors.join('; ') : ''}`)
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, cleanup_warnings: errors }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
