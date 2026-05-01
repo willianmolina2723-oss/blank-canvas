@@ -41,7 +41,7 @@ export default function Financial() {
   const [summary, setSummary] = useState<FinancialSummary>({
     totalRevenue: 0, totalCosts: 0, totalStaffCosts: 0, totalMedicationCosts: 0,
     totalMaterialCosts: 0, totalOtherCosts: 0, totalFuelCosts: 0, grossProfit: 0,
-    totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0,
+    totalPending: 0, totalPaid: 0, pendingFreelancers: 0, pendingReceivables: 0, totalPaidFreelancers: 0,
   });
   const [events, setEvents] = useState<any[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
