@@ -842,7 +842,7 @@ export default function FinancialPayments() {
                   <p className="font-bold">{payingPerson.name}</p>
                   {payingEvent ? (
                     <div className="mt-1">
-                      <p className="text-sm font-semibold text-primary">{payingEvent.event_code}</p>
+                      <p className="text-sm font-semibold text-primary">{payingEvent.event_display}</p>
                       <div className="flex items-center gap-3 mt-0.5">
                         <p className="text-lg font-bold text-primary">{fmt(payingEvent.total)}</p>
                         <span className="text-xs text-muted-foreground">{formatHours(payingEvent.minutes)} trabalhadas</span>
