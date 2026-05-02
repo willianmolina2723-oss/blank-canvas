@@ -539,6 +539,7 @@ export default function EventReport() {
         doc.text('Nenhum paciente registrado.', 14, y);
         y += 8;
       }
+      } // end if (!hasMultiDates) — Patients
 
       // Check page break
       if (y > 250) { doc.addPage(); y = 15; }
