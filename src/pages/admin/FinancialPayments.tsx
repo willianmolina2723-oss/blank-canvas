@@ -45,7 +45,8 @@ function calcMinutes(departure: string | null, arrival: string | null): number {
 
 interface EventEntry {
   event_id: string;
-  event_code: string;
+  event_code: string;        // unique key for payment matching (single-date: code; multi-date: `${code}#${ordem}`)
+  event_display: string;     // human label (single-date: code; multi-date: `${code} — dd/MM`)
   event_date: string;
   departure: string | null;
   arrival: string | null;
@@ -56,6 +57,7 @@ interface EventEntry {
   discounts: number;
   payment_type: string;
   hourlyRate: number;
+  date_ordem?: number | null;
 }
 
 interface PersonSummary {
