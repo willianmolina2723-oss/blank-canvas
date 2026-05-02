@@ -970,7 +970,34 @@ export default function EventReport() {
           </CardContent>
         </Card>
 
-        {/* Section 3: Patients */}
+        {/* Bloco por Data (somente se múltiplas datas) */}
+        {eventDates.length >= 2 && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Datas do Evento ({eventDates.length})
+            </h2>
+            {eventDates.map((d, idx) => (
+              <EventDateBlock
+                key={d.id}
+                index={idx}
+                date={d}
+                patients={patients.filter(p => (p as any).event_date_id === d.id)}
+                checklistItems={checklistItems.filter(i => (i as any).event_date_id === d.id)}
+                nursingEvolutions={nursingEvolutions.filter(e => (e as any).event_date_id === d.id)}
+                medicalEvolutions={medicalEvolutions.filter(e => (e as any).event_date_id === d.id)}
+                transportRecords={transportRecords.filter(t => (t as any).event_date_id === d.id)}
+                transportPhotos={transportPhotos}
+                signerProfiles={signerProfiles}
+                baseDeparture={dispatchByDate[d.id]?.base_departure || null}
+                baseArrival={dispatchByDate[d.id]?.base_arrival || null}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Section 3: Patients (oculta quando multi-datas) */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
