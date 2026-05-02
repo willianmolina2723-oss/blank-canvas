@@ -23,6 +23,7 @@ import type {
   Profile, NursingEvolution, MedicalEvolution, TransportRecord,
   DigitalSignature, STATUS_LABELS, ROLE_LABELS
 } from '@/types/database';
+import { EventDateBlock } from '@/components/reports/EventDateBlock';
 
 // Strip signature metadata from brief_history
 const stripSignatureMetadata = (text: string | null): string => {
