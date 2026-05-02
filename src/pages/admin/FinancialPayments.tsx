@@ -612,7 +612,7 @@ export default function FinancialPayments() {
                 <div key={i} className="p-2 bg-muted/50 rounded space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold flex items-center gap-2">
-                      {ev.event_code}
+                      {ev.event_display}
                       {evPaid && <Badge variant="default" className="text-[9px] py-0">Pago</Badge>}
                     </span>
                     <span className="font-semibold">{ev.total > 0 ? fmt(ev.total) : '--'}</span>
