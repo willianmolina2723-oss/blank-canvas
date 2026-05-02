@@ -877,6 +877,7 @@ export default function EventReport() {
         doc.text('Nenhum registro de transporte.', 14, y);
         y += 8;
       }
+      } // end if (!hasMultiDates) — Nursing/Medical/Transport
 
       // Page break
       if (y > 200) { doc.addPage(); y = 15; }
