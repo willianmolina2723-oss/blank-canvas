@@ -210,18 +210,45 @@ export default function FinancialPayments() {
 
       const { data: transports } = await supabase
         .from('transport_records')
-        .select('event_id, departure_time, arrival_time')
+        .select('event_id, event_date_id, departure_time, arrival_time')
         .in('event_id', eventIds);
 
+      // Group transports: per (event_id, event_date_id|null)
+      const transportByDate = new Map<string, { departure: string | null; arrival: string | null }>();
       const transportByEvent = new Map<string, { departure: string | null; arrival: string | null }>();
-      (transports || []).forEach(t => {
-        transportByEvent.set(t.event_id, { departure: t.departure_time, arrival: t.arrival_time });
+      (transports || []).forEach((t: any) => {
+        if (t.event_date_id) {
+          transportByDate.set(`${t.event_id}_${t.event_date_id}`, { departure: t.departure_time, arrival: t.arrival_time });
+        }
+        // Fallback per-event (used when single-date)
+        if (!transportByEvent.has(t.event_id)) {
+          transportByEvent.set(t.event_id, { departure: t.departure_time, arrival: t.arrival_time });
+        }
+      });
+
+      const { data: eventDatesData } = await db.from('event_dates')
+        .select('id, event_id, ordem, date, start_time, end_time')
+        .in('event_id', eventIds)
+        .order('ordem');
+      const datesByEvent = new Map<string, any[]>();
+      (eventDatesData || []).forEach((d: any) => {
+        if (!datesByEvent.has(d.event_id)) datesByEvent.set(d.event_id, []);
+        datesByEvent.get(d.event_id)!.push(d);
       });
 
       const { data: participantsData } = await supabase
         .from('event_participants')
         .select('event_id, role, profile:profiles(id, full_name, email, professional_id, phone)')
         .in('event_id', eventIds);
+
+      const { data: assignmentsData } = await db
+        .from('event_assignments')
+        .select('event_id, event_date_id, profile_id, role, paid_start, paid_end, paid_duration_minutes, scheduled_start, scheduled_end')
+        .in('event_id', eventIds);
+      const assignByKey = new Map<string, any>(); // `${event_id}_${profile_id}_${role}_${event_date_id||''}`
+      (assignmentsData || []).forEach((a: any) => {
+        assignByKey.set(`${a.event_id}_${a.profile_id}_${a.role}_${a.event_date_id || ''}`, a);
+      });
 
       const { data: staffCosts } = await db.from('event_staff_costs')
         .select('event_id, profile_id, base_value, extras, discounts, payment_type')
@@ -234,6 +261,91 @@ export default function FinancialPayments() {
 
       const grouped: Record<string, PersonSummary> = {};
 
+      const buildEntry = (
+        event: any,
+        eventDate: any | null,
+        prof: any,
+        role: string,
+        sc: any,
+        hourlyRate: number,
+      ): EventEntry | null => {
+        const isMulti = eventDate !== null;
+        const assignKey = `${event.id}_${prof.id}_${role}_${eventDate?.id || ''}`;
+        const assignment = assignByKey.get(assignKey);
+
+        let departure: string | null = null;
+        let arrival: string | null = null;
+        let minutes = 0;
+
+        if (assignment?.paid_start && assignment?.paid_end) {
+          departure = assignment.paid_start;
+          arrival = assignment.paid_end;
+          minutes = Number(assignment.paid_duration_minutes) || calcMinutes(departure, arrival);
+        } else if (isMulti) {
+          // Use date-specific transport, fallback to scheduled times of date
+          const tr = transportByDate.get(`${event.id}_${eventDate.id}`);
+          departure = tr?.departure || (eventDate.date && eventDate.start_time ? `${eventDate.date}T${eventDate.start_time}` : null);
+          if (event.status === 'finalizado') {
+            arrival = tr?.arrival || (eventDate.date && eventDate.end_time ? `${eventDate.date}T${eventDate.end_time}` : null);
+          } else if (eventDate.date && eventDate.end_time) {
+            const arr = parseISO(`${eventDate.date}T${eventDate.end_time}`);
+            arrival = new Date(arr.getTime() + 60 * 60 * 1000).toISOString();
+          } else {
+            arrival = tr?.arrival || null;
+          }
+          minutes = calcMinutes(departure, arrival);
+        } else {
+          // Legacy single-date path
+          const transport = transportByEvent.get(event.id);
+          departure = transport?.departure || event.departure_time;
+          if (event.status === 'finalizado') {
+            arrival = transport?.arrival || event.arrival_time;
+          } else if (event.arrival_time) {
+            const arr = parseISO(event.arrival_time);
+            arrival = new Date(arr.getTime() + 60 * 60 * 1000).toISOString();
+          } else {
+            arrival = null;
+          }
+          minutes = calcMinutes(departure, arrival);
+        }
+
+        const hasStaffCost = !!sc;
+        const effectiveRate = hasStaffCost && Number(sc.base_value) > 0 ? Number(sc.base_value) : hourlyRate;
+        const extras = hasStaffCost ? (Number(sc.extras) || 0) : 0;
+        const discounts = hasStaffCost ? (Number(sc.discounts) || 0) : 0;
+        const costTotal = (minutes / 60) * effectiveRate + extras - discounts;
+
+        const refDate = isMulti
+          ? (eventDate.date ? `${eventDate.date}T${eventDate.start_time || '00:00'}` : (departure || event.departure_time || event.created_at))
+          : (event.departure_time || event.created_at);
+
+        // Filter by range now (since multi-date may extend outside event's reference date)
+        const d = new Date(refDate);
+        if (d < rangeStart || d > rangeEnd) return null;
+
+        const code = isMulti
+          ? `${event.code}#${eventDate.ordem ?? ''}`
+          : event.code;
+        const display = isMulti && eventDate.date
+          ? `${event.code} — ${formatBR(parseISO(eventDate.date), 'dd/MM')}`
+          : event.code;
+
+        return {
+          event_id: event.id,
+          event_code: code,
+          event_display: display,
+          event_date: refDate,
+          departure, arrival, minutes,
+          total: costTotal,
+          base: hasStaffCost ? Number(sc.base_value) : 0,
+          extras,
+          discounts,
+          payment_type: hasStaffCost ? sc.payment_type : 'por_hora',
+          hourlyRate: effectiveRate,
+          date_ordem: isMulti ? eventDate.ordem : null,
+        };
+      };
+
       for (const p of participantsData || []) {
         const prof = p.profile as any;
         if (!prof) continue;
@@ -241,34 +353,25 @@ export default function FinancialPayments() {
         const event = events.find(e => e.id === p.event_id);
         if (!event) continue;
 
-        const transport = transportByEvent.get(event.id);
-        const departure = transport?.departure || event.departure_time;
-        // Regra: só usar arrival real do transporte se evento finalizado.
-        // Caso contrário, usar término previsto + 1h para não distorcer o financeiro.
-        let arrival: string | null;
-        if (event.status === 'finalizado') {
-          arrival = transport?.arrival || event.arrival_time;
-        } else if (event.arrival_time) {
-          const arr = parseISO(event.arrival_time);
-          arrival = new Date(arr.getTime() + 60 * 60 * 1000).toISOString();
-        } else {
-          arrival = null;
-        }
-        const minutes = calcMinutes(departure, arrival);
-
-        const sc = staffCostMap.get(`${event.id}_${pid}`);
         const role = p.role as string;
         const profileValorHora = Number(prof.valor_hora) || 0;
         const hourlyRate = getDefaultRate(role, profileValorHora);
-        const hasStaffCost = !!sc;
-        const effectiveRate = hasStaffCost && Number(sc.base_value) > 0
-          ? Number(sc.base_value)
-          : hourlyRate;
-        const extras = hasStaffCost ? (Number(sc.extras) || 0) : 0;
-        const discounts = hasStaffCost ? (Number(sc.discounts) || 0) : 0;
-        const costTotal = (minutes / 60) * effectiveRate + extras - discounts;
+        const sc = staffCostMap.get(`${event.id}_${pid}`);
 
-        const eventDate = event.departure_time || event.created_at;
+        const eventDates = datesByEvent.get(event.id) || [];
+        const entries: EventEntry[] = [];
+
+        if (eventDates.length >= 2) {
+          for (const ed of eventDates) {
+            const entry = buildEntry(event, ed, prof, role, sc, hourlyRate);
+            if (entry) entries.push(entry);
+          }
+        } else {
+          const entry = buildEntry(event, null, prof, role, sc, hourlyRate);
+          if (entry) entries.push(entry);
+        }
+
+        if (entries.length === 0) continue;
 
         if (!grouped[pid]) {
           grouped[pid] = {
@@ -284,21 +387,11 @@ export default function FinancialPayments() {
             totalMinutes: 0,
           };
         }
-
-        grouped[pid].events.push({
-          event_id: event.id,
-          event_code: event.code,
-          event_date: eventDate,
-          departure, arrival, minutes,
-          total: costTotal,
-          base: hasStaffCost ? Number(sc.base_value) : 0,
-          extras,
-          discounts,
-          payment_type: hasStaffCost ? sc.payment_type : 'por_hora',
-          hourlyRate: effectiveRate,
-        });
-        grouped[pid].total += costTotal;
-        grouped[pid].totalMinutes += minutes;
+        for (const entry of entries) {
+          grouped[pid].events.push(entry);
+          grouped[pid].total += entry.total;
+          grouped[pid].totalMinutes += entry.minutes;
+        }
       }
 
       setStaffSummary(Object.values(grouped).sort((a, b) => b.totalMinutes - a.totalMinutes));
