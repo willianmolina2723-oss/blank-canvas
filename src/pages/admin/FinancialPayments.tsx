@@ -317,7 +317,7 @@ export default function FinancialPayments() {
         const costTotal = (minutes / 60) * effectiveRate + extras - discounts;
 
         const refDate = isMulti
-          ? (eventDate.date ? `${eventDate.date}T${eventDate.start_time || '00:00'}` : (departure || event.departure_time || event.created_at))
+          ? (eventDate.start_time || departure || event.departure_time || event.created_at)
           : (event.departure_time || event.created_at);
 
         // Filter by range now (since multi-date may extend outside event's reference date)
