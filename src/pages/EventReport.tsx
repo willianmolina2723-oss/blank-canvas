@@ -1430,6 +1430,7 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhum registro de transporte.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 8: Digital Signatures */}
         <Card className="rounded-2xl">
