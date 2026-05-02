@@ -1066,6 +1066,7 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhum paciente registrado.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 4: Checklists (Summary) */}
         <Card className="rounded-2xl">
