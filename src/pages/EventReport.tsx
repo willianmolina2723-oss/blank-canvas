@@ -23,6 +23,7 @@ import type {
   Profile, NursingEvolution, MedicalEvolution, TransportRecord,
   DigitalSignature, STATUS_LABELS, ROLE_LABELS
 } from '@/types/database';
+import { EventDateBlock } from '@/components/reports/EventDateBlock';
 
 // Strip signature metadata from brief_history
 const stripSignatureMetadata = (text: string | null): string => {
@@ -90,6 +91,8 @@ export default function EventReport() {
   const [baseArrival, setBaseArrival] = useState<string | null>(null);
   const [costItemsMap, setCostItemsMap] = useState<Map<string, number>>(new Map());
   const [costItemNameMap, setCostItemNameMap] = useState<Map<string, number>>(new Map());
+  const [eventDates, setEventDates] = useState<any[]>([]);
+  const [dispatchByDate, setDispatchByDate] = useState<Record<string, { base_departure: string | null; base_arrival: string | null }>>({});
 
   useEffect(() => {
     if (eventId) loadAllData();
@@ -102,7 +105,7 @@ export default function EventReport() {
       const [
         eventRes, participantsRes, patientsRes, checklistRes,
         nursingRes, medicalRes, transportRes, signaturesRes, dispatchRes,
-        costItemsRes
+        costItemsRes, eventDatesRes, dispatchAllRes
       ] = await Promise.all([
         supabase.from('events').select('*, ambulances(*)').eq('id', eventId!).single(),
         supabase.from('event_participants').select('*, profile:profiles(*)').eq('event_id', eventId!),
@@ -112,8 +115,10 @@ export default function EventReport() {
         supabase.from('medical_evolutions').select('*').eq('event_id', eventId!).order('created_at', { ascending: false }),
         supabase.from('transport_records').select('*').eq('event_id', eventId!).order('created_at', { ascending: false }),
         supabase.from('digital_signatures').select('*').eq('event_id', eventId!).order('signed_at'),
-        supabase.from('dispatch_reports').select('base_departure, base_arrival').eq('event_id', eventId!).maybeSingle(),
+        supabase.from('dispatch_reports').select('base_departure, base_arrival').eq('event_id', eventId!).is('event_date_id', null).maybeSingle(),
         db.from('cost_items').select('id, name, unit_cost').eq('is_active', true),
+        db.from('event_dates').select('*').eq('event_id', eventId!).order('ordem', { ascending: true }),
+        supabase.from('dispatch_reports').select('event_date_id, base_departure, base_arrival').eq('event_id', eventId!),
       ]);
 
       if (eventRes.error) throw eventRes.error;
@@ -130,6 +135,12 @@ export default function EventReport() {
       setSignatures((signaturesRes.data || []) as DigitalSignature[]);
       setBaseDeparture(dispatchRes.data?.base_departure || null);
       setBaseArrival(dispatchRes.data?.base_arrival || null);
+      setEventDates((eventDatesRes?.data || []) as any[]);
+      const dispatchMap: Record<string, { base_departure: string | null; base_arrival: string | null }> = {};
+      ((dispatchAllRes?.data || []) as any[]).forEach((d) => {
+        if (d.event_date_id) dispatchMap[d.event_date_id] = { base_departure: d.base_departure, base_arrival: d.base_arrival };
+      });
+      setDispatchByDate(dispatchMap);
 
       // Build cost items maps for price lookup
       const ciData = (costItemsRes?.data || []) as any[];
@@ -321,7 +332,154 @@ export default function EventReport() {
         y += 8;
       }
 
-      // Patients
+      const hasMultiDates = eventDates.length >= 2;
+
+      // 3. DATAS DO EVENTO (multi-datas) — substitui as seções por evento e agrupa tudo por data
+      if (hasMultiDates) {
+        if (y > 240) { doc.addPage(); y = 15; }
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`3. DATAS DO EVENTO (${eventDates.length})`, 14, y);
+        y += 6;
+
+        for (let di = 0; di < eventDates.length; di++) {
+          const d = eventDates[di];
+          if (y > 240) { doc.addPage(); y = 15; }
+
+          const baseDep = dispatchByDate[d.id]?.base_departure;
+          const baseArr = dispatchByDate[d.id]?.base_arrival;
+          autoTable(doc, {
+            startY: y,
+            theme: 'grid',
+            headStyles: { fillColor: [37, 99, 235] },
+            head: [[`Data #${di + 1} — ${formatBR(d.date, "dd/MM/yyyy")} (${formatBR(d.start_time, 'HH:mm')} → ${formatBR(d.end_time, 'HH:mm')})`]],
+            body: [
+              [`Saída Base: ${baseDep ? formatBR(baseDep, "dd/MM HH:mm") : '---'}  |  Chegada Base: ${baseArr ? formatBR(baseArr, "dd/MM HH:mm") : '---'}${d.location_override ? `\nLocal: ${d.location_override}` : ''}`],
+            ],
+            margin: { left: 14 },
+            bodyStyles: { fontSize: 9 },
+          });
+          y = (doc as any).lastAutoTable.finalY + 3;
+
+          // Filtrar dados desta data
+          const dPatients = patients.filter(p => (p as any).event_date_id === d.id);
+          const dChecklist = checklistItems.filter(i => (i as any).event_date_id === d.id);
+          const dNursing = nursingEvolutions.filter(e => (e as any).event_date_id === d.id);
+          const dMedical = medicalEvolutions.filter(e => (e as any).event_date_id === d.id);
+          const dTransport = transportRecords.filter(t => (t as any).event_date_id === d.id);
+
+          // Checklist resumo
+          const dVtr = dChecklist.filter(i => {
+            const t = i.item_type as string;
+            return t !== 'uti' && t !== 'medications' && t !== 'psicotropicos' && t !== 'materiais' && t !== 'consumo_medicamentos' && t !== 'checklist_confirmed' && t !== 'uti_confirmed';
+          });
+          const dVtrChecked = dVtr.filter(i => i.is_checked).length;
+          const dVtrPct = dVtr.length > 0 ? Math.round((dVtrChecked / dVtr.length) * 100) : 0;
+          const dUti = dChecklist.filter(i => (i.item_type as string) === 'uti');
+          const dPsico = dChecklist.filter(i => (i.item_type as string) === 'medications' || (i.item_type as string) === 'psicotropicos');
+          const dMat = dChecklist.filter(i => (i.item_type as string) === 'materiais');
+          const dMedCons = dChecklist.filter(i => (i.item_type as string) === 'consumo_medicamentos');
+
+          autoTable(doc, {
+            startY: y,
+            theme: 'grid',
+            headStyles: { fillColor: [245, 158, 11] },
+            head: [['Checklist', 'Status']],
+            body: [
+              ['Viatura', dVtr.length > 0 ? `${dVtrChecked}/${dVtr.length} (${dVtrPct}%)` : 'Não preenchido'],
+              ['UTI', dUti.length > 0 ? '✓' : 'Não preenchido'],
+              ['Psicotrópicos', dPsico.length > 0 ? '✓' : 'Não preenchido'],
+              ['Consumo (Mat./Med.)', `${dMat.length + dMedCons.length} itens`],
+            ],
+            margin: { left: 14 },
+            bodyStyles: { fontSize: 8 },
+          });
+          y = (doc as any).lastAutoTable.finalY + 3;
+
+          // Pacientes
+          if (dPatients.length > 0) {
+            if (y > 250) { doc.addPage(); y = 15; }
+            autoTable(doc, {
+              startY: y,
+              theme: 'grid',
+              headStyles: { fillColor: [16, 185, 129] },
+              head: [[`Pacientes (${dPatients.length})`, 'Idade', 'Queixa']],
+              body: dPatients.map(p => [maskName(p.name), p.age ? `${p.age}a` : '---', p.main_complaint || '---']),
+              margin: { left: 14 },
+              bodyStyles: { fontSize: 8 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 3;
+          }
+
+          // Evoluções de enfermagem
+          if (dNursing.length > 0) {
+            if (y > 250) { doc.addPage(); y = 15; }
+            autoTable(doc, {
+              startY: y,
+              theme: 'grid',
+              headStyles: { fillColor: [6, 182, 212] },
+              head: [[`Enfermagem (${dNursing.length})`, 'PA / FC / SpO2', 'Profissional']],
+              body: dNursing.map(ev => {
+                const signer = ev.created_by ? signerProfiles[ev.created_by] : null;
+                return [
+                  formatBR(ev.created_at, 'dd/MM HH:mm'),
+                  `${ev.blood_pressure_systolic || '--'}/${ev.blood_pressure_diastolic || '--'} | ${ev.heart_rate || '--'} | ${ev.oxygen_saturation || '--'}%`,
+                  signer?.full_name || '---',
+                ];
+              }),
+              margin: { left: 14 },
+              bodyStyles: { fontSize: 8 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 3;
+          }
+
+          // Evoluções médicas
+          if (dMedical.length > 0) {
+            if (y > 250) { doc.addPage(); y = 15; }
+            autoTable(doc, {
+              startY: y,
+              theme: 'grid',
+              headStyles: { fillColor: [139, 92, 246] },
+              head: [[`Médicas (${dMedical.length})`, 'Diagnóstico / Conduta', 'Profissional']],
+              body: dMedical.map(ev => {
+                const signer = ev.created_by ? signerProfiles[ev.created_by] : null;
+                return [
+                  formatBR(ev.created_at, 'dd/MM HH:mm'),
+                  [ev.diagnosis, ev.conduct].filter(Boolean).join(' / ') || '---',
+                  signer?.full_name || '---',
+                ];
+              }),
+              margin: { left: 14 },
+              bodyStyles: { fontSize: 8 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 3;
+          }
+
+          // Transporte
+          if (dTransport.length > 0) {
+            if (y > 250) { doc.addPage(); y = 15; }
+            autoTable(doc, {
+              startY: y,
+              theme: 'grid',
+              headStyles: { fillColor: [100, 116, 139] },
+              head: [[`Transporte (${dTransport.length})`, 'Saída → Chegada', 'KM']],
+              body: dTransport.map(tr => [
+                tr.id.slice(0, 6),
+                `${tr.departure_time ? formatBR(tr.departure_time, 'dd/MM HH:mm') : '---'} → ${tr.arrival_time ? formatBR(tr.arrival_time, 'dd/MM HH:mm') : '---'}`,
+                `${tr.initial_km ?? '--'} → ${tr.final_km ?? '--'}`,
+              ]),
+              margin: { left: 14 },
+              bodyStyles: { fontSize: 8 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 5;
+          }
+
+          y += 3;
+        }
+      }
+
+      // Patients (ocultar quando multi-datas — agora estão por data acima)
+      if (!hasMultiDates) {
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.text('3. PACIENTES', 14, y);
@@ -381,6 +539,7 @@ export default function EventReport() {
         doc.text('Nenhum paciente registrado.', 14, y);
         y += 8;
       }
+      } // end if (!hasMultiDates) — Patients
 
       // Check page break
       if (y > 250) { doc.addPage(); y = 15; }
@@ -512,6 +671,7 @@ export default function EventReport() {
       // Page break
       if (y > 200) { doc.addPage(); y = 15; }
 
+      if (!hasMultiDates) {
       // Nursing Evolutions
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -717,6 +877,7 @@ export default function EventReport() {
         doc.text('Nenhum registro de transporte.', 14, y);
         y += 8;
       }
+      } // end if (!hasMultiDates) — Nursing/Medical/Transport
 
       // Page break
       if (y > 200) { doc.addPage(); y = 15; }
@@ -959,7 +1120,34 @@ export default function EventReport() {
           </CardContent>
         </Card>
 
-        {/* Section 3: Patients */}
+        {/* Bloco por Data (somente se múltiplas datas) */}
+        {eventDates.length >= 2 && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Datas do Evento ({eventDates.length})
+            </h2>
+            {eventDates.map((d, idx) => (
+              <EventDateBlock
+                key={d.id}
+                index={idx}
+                date={d}
+                patients={patients.filter(p => (p as any).event_date_id === d.id)}
+                checklistItems={checklistItems.filter(i => (i as any).event_date_id === d.id)}
+                nursingEvolutions={nursingEvolutions.filter(e => (e as any).event_date_id === d.id)}
+                medicalEvolutions={medicalEvolutions.filter(e => (e as any).event_date_id === d.id)}
+                transportRecords={transportRecords.filter(t => (t as any).event_date_id === d.id)}
+                transportPhotos={transportPhotos}
+                signerProfiles={signerProfiles}
+                baseDeparture={dispatchByDate[d.id]?.base_departure || null}
+                baseArrival={dispatchByDate[d.id]?.base_arrival || null}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Section 3: Patients (oculta quando multi-datas) */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
@@ -1028,6 +1216,7 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhum paciente registrado.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 4: Checklists (Summary) */}
         <Card className="rounded-2xl">
@@ -1207,6 +1396,7 @@ export default function EventReport() {
         </Card>
 
         {/* Section 5: Nursing Evolutions */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
@@ -1257,8 +1447,10 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhuma evolução de enfermagem.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 6: Medical Evolutions */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
@@ -1298,8 +1490,10 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhuma evolução médica.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 7: Transport */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
@@ -1386,6 +1580,7 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhum registro de transporte.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 8: Digital Signatures */}
         <Card className="rounded-2xl">
