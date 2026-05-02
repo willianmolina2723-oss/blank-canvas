@@ -671,6 +671,7 @@ export default function EventReport() {
       // Page break
       if (y > 200) { doc.addPage(); y = 15; }
 
+      if (!hasMultiDates) {
       // Nursing Evolutions
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
