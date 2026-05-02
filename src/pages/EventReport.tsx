@@ -90,6 +90,8 @@ export default function EventReport() {
   const [baseArrival, setBaseArrival] = useState<string | null>(null);
   const [costItemsMap, setCostItemsMap] = useState<Map<string, number>>(new Map());
   const [costItemNameMap, setCostItemNameMap] = useState<Map<string, number>>(new Map());
+  const [eventDates, setEventDates] = useState<any[]>([]);
+  const [dispatchByDate, setDispatchByDate] = useState<Record<string, { base_departure: string | null; base_arrival: string | null }>>({});
 
   useEffect(() => {
     if (eventId) loadAllData();
