@@ -282,13 +282,14 @@ export default function FinancialPayments() {
           arrival = assignment.paid_end;
           minutes = Number(assignment.paid_duration_minutes) || calcMinutes(departure, arrival);
         } else if (isMulti) {
-          // Use date-specific transport, fallback to scheduled times of date
+          // Use date-specific transport, fallback to scheduled times of date.
+          // event_dates.start_time/end_time are already full ISO timestamps.
           const tr = transportByDate.get(`${event.id}_${eventDate.id}`);
-          departure = tr?.departure || (eventDate.date && eventDate.start_time ? `${eventDate.date}T${eventDate.start_time}` : null);
+          departure = tr?.departure || eventDate.start_time || null;
           if (event.status === 'finalizado') {
-            arrival = tr?.arrival || (eventDate.date && eventDate.end_time ? `${eventDate.date}T${eventDate.end_time}` : null);
-          } else if (eventDate.date && eventDate.end_time) {
-            const arr = parseISO(`${eventDate.date}T${eventDate.end_time}`);
+            arrival = tr?.arrival || eventDate.end_time || null;
+          } else if (eventDate.end_time) {
+            const arr = parseISO(eventDate.end_time);
             arrival = new Date(arr.getTime() + 60 * 60 * 1000).toISOString();
           } else {
             arrival = tr?.arrival || null;
