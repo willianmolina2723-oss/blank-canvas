@@ -104,7 +104,7 @@ export default function EventReport() {
       const [
         eventRes, participantsRes, patientsRes, checklistRes,
         nursingRes, medicalRes, transportRes, signaturesRes, dispatchRes,
-        costItemsRes
+        costItemsRes, eventDatesRes, dispatchAllRes
       ] = await Promise.all([
         supabase.from('events').select('*, ambulances(*)').eq('id', eventId!).single(),
         supabase.from('event_participants').select('*, profile:profiles(*)').eq('event_id', eventId!),
@@ -114,8 +114,10 @@ export default function EventReport() {
         supabase.from('medical_evolutions').select('*').eq('event_id', eventId!).order('created_at', { ascending: false }),
         supabase.from('transport_records').select('*').eq('event_id', eventId!).order('created_at', { ascending: false }),
         supabase.from('digital_signatures').select('*').eq('event_id', eventId!).order('signed_at'),
-        supabase.from('dispatch_reports').select('base_departure, base_arrival').eq('event_id', eventId!).maybeSingle(),
+        supabase.from('dispatch_reports').select('base_departure, base_arrival').eq('event_id', eventId!).is('event_date_id', null).maybeSingle(),
         db.from('cost_items').select('id, name, unit_cost').eq('is_active', true),
+        db.from('event_dates').select('*').eq('event_id', eventId!).order('ordem', { ascending: true }),
+        supabase.from('dispatch_reports').select('event_date_id, base_departure, base_arrival').eq('event_id', eventId!),
       ]);
 
       if (eventRes.error) throw eventRes.error;
@@ -132,6 +134,12 @@ export default function EventReport() {
       setSignatures((signaturesRes.data || []) as DigitalSignature[]);
       setBaseDeparture(dispatchRes.data?.base_departure || null);
       setBaseArrival(dispatchRes.data?.base_arrival || null);
+      setEventDates((eventDatesRes?.data || []) as any[]);
+      const dispatchMap: Record<string, { base_departure: string | null; base_arrival: string | null }> = {};
+      ((dispatchAllRes?.data || []) as any[]).forEach((d) => {
+        if (d.event_date_id) dispatchMap[d.event_date_id] = { base_departure: d.base_departure, base_arrival: d.base_arrival };
+      });
+      setDispatchByDate(dispatchMap);
 
       // Build cost items maps for price lookup
       const ciData = (costItemsRes?.data || []) as any[];
