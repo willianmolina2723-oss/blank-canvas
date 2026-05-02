@@ -1246,6 +1246,7 @@ export default function EventReport() {
         </Card>
 
         {/* Section 5: Nursing Evolutions */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
