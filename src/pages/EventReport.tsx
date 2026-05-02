@@ -1340,8 +1340,10 @@ export default function EventReport() {
             ) : <p className="text-sm text-muted-foreground italic">Nenhuma evolução médica.</p>}
           </CardContent>
         </Card>
+        )}
 
         {/* Section 7: Transport */}
+        {eventDates.length < 2 && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
