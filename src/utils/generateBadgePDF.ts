@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import type { AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
-import { fetchBadgeTemplateUrl, fetchLogoAsBase64 } from '@/utils/logoStorage';
+import { fetchBadgeTemplateUrl } from '@/utils/logoStorage';
 
 function drawDefaultBadgeBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
   // Gradient background (deep navy -> blue)
