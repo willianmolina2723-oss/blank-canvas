@@ -1,7 +1,36 @@
 import jsPDF from 'jspdf';
 import type { AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
-import { fetchBadgeTemplateUrl } from '@/utils/logoStorage';
+import { fetchBadgeTemplateUrl, fetchLogoAsBase64 } from '@/utils/logoStorage';
+
+function drawDefaultBadgeBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  // Gradient background (deep navy -> blue)
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, '#0c2340');
+  grad.addColorStop(1, '#1a4a6e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Top accent band
+  ctx.fillStyle = '#DC2626';
+  ctx.fillRect(0, 0, w, 90);
+
+  // Bottom accent band
+  ctx.fillStyle = 'rgba(220, 38, 38, 0.85)';
+  ctx.fillRect(0, h - 50, w, 50);
+
+  // Header title
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 42px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('IDENTIFICAÇÃO', 30, 60);
+
+  ctx.font = '20px Arial, sans-serif';
+  ctx.fillStyle = '#F8FAFC';
+  ctx.textAlign = 'right';
+  ctx.fillText('SAPH', w - 30, 60);
+}
+
 
 interface BadgeData {
   fullName: string;
