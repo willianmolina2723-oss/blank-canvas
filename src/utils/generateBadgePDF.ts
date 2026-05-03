@@ -3,6 +3,35 @@ import type { AppRole } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
 import { fetchBadgeTemplateUrl } from '@/utils/logoStorage';
 
+function drawDefaultBadgeBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  // Gradient background (deep navy -> blue)
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, '#0c2340');
+  grad.addColorStop(1, '#1a4a6e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Top accent band
+  ctx.fillStyle = '#DC2626';
+  ctx.fillRect(0, 0, w, 90);
+
+  // Bottom accent band
+  ctx.fillStyle = 'rgba(220, 38, 38, 0.85)';
+  ctx.fillRect(0, h - 50, w, 50);
+
+  // Header title
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 42px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('IDENTIFICAÇÃO', 30, 60);
+
+  ctx.font = '20px Arial, sans-serif';
+  ctx.fillStyle = '#F8FAFC';
+  ctx.textAlign = 'right';
+  ctx.fillText('SAPH', w - 30, 60);
+}
+
+
 interface BadgeData {
   fullName: string;
   roles: AppRole[];
@@ -49,20 +78,21 @@ export async function renderBadgeToCanvas(
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, CARD_W, CARD_H);
 
-  // Load template background (custom or default)
+  // Load custom template background; if none, draw a default styled background
+  let templateLoaded = false;
   try {
     const customTemplateUrl = await fetchBadgeTemplateUrl();
-    const templateSrc = customTemplateUrl || '/images/cracha-bg.png';
-    const template = await loadImage(customTemplateUrl ? await fetchImageAsDataUrl(templateSrc) : templateSrc);
-    ctx.drawImage(template, 0, 0, CARD_W, CARD_H);
-  } catch {
-    // Try default as fallback
-    try {
-      const template = await loadImage('/images/cracha-bg.png');
+    if (customTemplateUrl) {
+      const template = await loadImage(await fetchImageAsDataUrl(customTemplateUrl));
       ctx.drawImage(template, 0, 0, CARD_W, CARD_H);
-    } catch {
-      console.error('Failed to load badge template');
+      templateLoaded = true;
     }
+  } catch (e) {
+    console.warn('Custom badge template not available, using default:', e);
+  }
+
+  if (!templateLoaded) {
+    drawDefaultBadgeBackground(ctx, CARD_W, CARD_H);
   }
 
   // Photo area - left side, large

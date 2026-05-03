@@ -102,15 +102,19 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUs
 
   const uploadAvatar = async (userId: string): Promise<string | null> => {
     if (!photoFile) return null;
-    const ext = photoFile.name.split('.').pop();
-    const path = `${userId}.${ext}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, photoFile, { upsert: true });
+    const ext = (photoFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `avatars/${userId}.${ext}`;
+    const formData = new FormData();
+    formData.append('file', photoFile);
+    formData.append('path', path);
+    const { data, error } = await supabase.functions.invoke('setup-storage', {
+      body: formData,
+    });
     if (error) {
       console.error('Avatar upload error:', error);
       return null;
     }
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-    return publicUrl;
+    return `${(data as any).url}?t=${Date.now()}`;
   };
 
   const onSubmit = async (data: FormData) => {
