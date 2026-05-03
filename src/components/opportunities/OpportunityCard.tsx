@@ -356,7 +356,7 @@ export function OpportunityCard({ opportunity, onDelete, onRefresh }: Opportunit
                             <Clock className="h-4 w-4 text-primary flex-shrink-0" />
                             <span className="text-xs text-muted-foreground">Disponível</span>
                           </div>
-                          {!isClosed && !isAdmin && isMyRole && !alreadyRegisteredThisRole && (
+                          {!isClosed && isMyRole && !alreadyRegisteredThisRole && (
                             <Button
                               size="sm"
                               onClick={() => handleRegister(role)}
