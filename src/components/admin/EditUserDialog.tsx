@@ -93,12 +93,16 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: Props) {
       // Upload avatar if new photo selected
       let avatarUrl = user.avatar_url;
       if (photoFile) {
-        const ext = photoFile.name.split('.').pop();
-        const path = `${user.user_id}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, photoFile, { upsert: true });
+        const ext = (photoFile.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `avatars/${user.user_id}.${ext}`;
+        const formData = new FormData();
+        formData.append('file', photoFile);
+        formData.append('path', path);
+        const { data: uploadData, error: uploadErr } = await supabase.functions.invoke('setup-storage', {
+          body: formData,
+        });
         if (uploadErr) throw uploadErr;
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-        avatarUrl = publicUrl;
+        avatarUrl = `${(uploadData as any).url}?t=${Date.now()}`;
       } else if (!photoPreview && user.avatar_url) {
         avatarUrl = null;
       }
