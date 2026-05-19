@@ -62,13 +62,13 @@ Deno.serve(async (req) => {
       verifiedUserId !== null &&
       (!email || !verifiedEmail || email.toLowerCase() === verifiedEmail.toLowerCase())
 
-    if (event_type === 'login_success' || event_type === 'logout') {
-      if (!isVerified) {
-        return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
+    // For login_success we still require verification; otherwise silently accept
+    // (logout typically happens after the session is destroyed, so the token
+    // is no longer valid — never block the auth flow).
+    if (event_type === 'login_success' && !isVerified) {
+      return new Response(JSON.stringify({ ok: true, skipped: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     await supabaseAdmin.from('audit_logs').insert({
