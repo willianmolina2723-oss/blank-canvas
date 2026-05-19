@@ -39,6 +39,19 @@
 
   <body>
     <div id="root"></div>
+    <script>
+      // Intercepta link de recuperação de senha ANTES do Supabase consumir o hash
+      (function () {
+        try {
+          var h = window.location.hash || '';
+          var s = window.location.search || '';
+          var isRecovery = h.indexOf('type=recovery') !== -1 || s.indexOf('type=recovery') !== -1;
+          if (isRecovery && window.location.pathname !== '/reset-password') {
+            window.location.replace('/reset-password' + s + h);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
