@@ -21,6 +21,19 @@ export default function ResetPassword() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tokenHash = searchParams.get('token_hash');
+
+    if (tokenHash) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }).then(({ error }) => {
+        if (!error) {
+          setIsRecovery(true);
+          const cleanUrl = `${window.location.origin}/reset-password`;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      });
+    }
+
     // Check for recovery token in URL hash
     const hash = window.location.hash;
     if (hash && hash.includes('type=recovery')) {
