@@ -56,14 +56,16 @@ Deno.serve(async (req) => {
       options: { redirectTo: `${APP_URL}/reset-password` },
     });
 
-    if (linkErr || !linkData?.properties?.action_link) {
+    if (linkErr || !linkData?.properties?.hashed_token) {
       console.error("generateLink error:", linkErr);
       return generic();
     }
 
+    const resetUrl = `${APP_URL}/reset-password?token_hash=${encodeURIComponent(linkData.properties.hashed_token)}&type=recovery`;
+
     const { subject, html } = renderPasswordResetEmail({
       fullName: profile.full_name,
-      resetUrl: linkData.properties.action_link,
+      resetUrl,
     });
 
     await admin.functions.invoke("send-email", {
