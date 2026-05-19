@@ -165,7 +165,16 @@ Deno.serve(async (req) => {
 
     if (empError) throw new Error(`Erro ao criar empresa: ${empError.message}`)
 
-    // 2. Create admin user in auth
+    // 2. Pre-check: email já existe?
+    const { data: existingList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 })
+    const emailLower = String(admin_email).toLowerCase()
+    const emailExists = existingList?.users?.some((u: any) => (u.email || '').toLowerCase() === emailLower)
+    if (emailExists) {
+      await supabaseAdmin.from('empresas').delete().eq('id', newEmpresa.id)
+      throw new Error(`Já existe um usuário cadastrado com o email ${admin_email}. Use outro email ou remova o usuário existente.`)
+    }
+
+    // Create admin user in auth
     const { data: authData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email: admin_email,
       password: admin_password,
@@ -174,9 +183,11 @@ Deno.serve(async (req) => {
     })
 
     if (createUserError) {
-      // Rollback empresa
       await supabaseAdmin.from('empresas').delete().eq('id', newEmpresa.id)
-      throw new Error(`Erro ao criar usuário: ${createUserError.message}`)
+      const msg = /already.*registered|duplicate|exists/i.test(createUserError.message)
+        ? `Já existe um usuário cadastrado com o email ${admin_email}.`
+        : `Erro ao criar usuário: ${createUserError.message}`
+      throw new Error(msg)
     }
 
     const userId = authData.user.id
