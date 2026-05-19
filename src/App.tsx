@@ -116,8 +116,14 @@ function PlanProtectedRoute({ module, children }: { module: SaaSModule; children
   return <>{children}</>;
 }
 
+function isRecoveryHash() {
+  const h = typeof window !== 'undefined' ? window.location.hash : '';
+  return h.includes('type=recovery');
+}
+
 function LandingRedirect() {
   const { user, isLoading } = useAuth();
+  if (isRecoveryHash()) return <Navigate to={`/reset-password${window.location.hash}`} replace />;
   if (isLoading) return <PageLoader />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <LandingPage />;
@@ -126,6 +132,7 @@ function LandingRedirect() {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
 
+  if (isRecoveryHash()) return <Navigate to={`/reset-password${window.location.hash}`} replace />;
   if (isLoading) return <PageLoader />;
   if (user) return <Navigate to="/dashboard" replace />;
 
