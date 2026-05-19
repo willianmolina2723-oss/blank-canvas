@@ -13,6 +13,7 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,23 +26,52 @@ export default function ForgotPassword() {
     e.preventDefault();
     if (!email || cooldown > 0) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
     setIsLoading(true);
     try {
-      await supabase.functions.invoke('send-password-reset', {
-        body: { email: email.trim().toLowerCase() },
+      const { data, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email: normalizedEmail },
       });
+
+      if (error) {
+        throw error;
+      }
+
+      const serverCooldown = typeof data?.cooldown_seconds === 'number' ? data.cooldown_seconds : 0;
+      const nextCooldown = Math.max(serverCooldown, 60);
+
+      setFeedbackMessage(
+        typeof data?.message === 'string' && data.message.length > 0
+          ? data.message
+          : 'Se o email estiver cadastrado, você receberá um link para redefinir sua senha.'
+      );
+      setCooldown(nextCooldown);
+      setSent(true);
+
+      if (serverCooldown > 0) {
+        toast({
+          title: 'Aguarde antes de tentar novamente',
+          description: `Já houve várias tentativas recentes. Tente novamente em cerca de ${Math.ceil(serverCooldown / 60)} minuto(s).`,
+        });
+      }
+
+      supabase.functions.invoke('log-auth-event', {
+        body: { event_type: 'password_reset_request', email: normalizedEmail, success: true },
+      }).catch(() => {});
     } catch (err) {
       console.error(err);
+      toast({
+        title: 'Não foi possível enviar o link agora',
+        description: 'Tente novamente em instantes.',
+        variant: 'destructive',
+      });
+
+      supabase.functions.invoke('log-auth-event', {
+        body: { event_type: 'password_reset_request', email: normalizedEmail, success: false },
+      }).catch(() => {});
     } finally {
       setIsLoading(false);
     }
-
-    supabase.functions.invoke('log-auth-event', {
-      body: { event_type: 'password_reset_request', email, success: true },
-    }).catch(() => {});
-
-    setCooldown(60);
-    setSent(true);
   };
 
   return (
@@ -68,7 +98,7 @@ export default function ForgotPassword() {
               <div className="flex flex-col items-center gap-4 py-4">
                 <CheckCircle className="h-12 w-12 text-green-500" />
                 <p className="text-sm text-muted-foreground text-center">
-                  Se o email estiver cadastrado, você receberá um link para redefinir sua senha.
+                  {feedbackMessage || 'Se o email estiver cadastrado, você receberá um link para redefinir sua senha.'}
                 </p>
                 <Link to="/auth">
                   <Button variant="outline" className="mt-2">

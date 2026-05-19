@@ -14,9 +14,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  const generic = () => new Response(JSON.stringify({
+  const generic = (cooldownSeconds = 0) => new Response(JSON.stringify({
     success: true,
-    message: "Se este e-mail estiver cadastrado, você receberá as instruções para redefinir sua senha.",
+    cooldown_seconds: cooldownSeconds,
+    message: cooldownSeconds > 0
+      ? "Se este e-mail estiver cadastrado, aguarde alguns minutos antes de solicitar um novo link de redefinição."
+      : "Se este e-mail estiver cadastrado, você receberá as instruções para redefinir sua senha.",
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
@@ -25,26 +28,34 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const normalizedEmail = email.trim().toLowerCase();
 
     // Rate limit: 3 tentativas / hora por email+ip
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count } = await admin
+    const { data: recentAttempts } = await admin
       .from("password_reset_attempts")
-      .select("*", { count: "exact", head: true })
-      .eq("email", email.toLowerCase())
-      .gte("created_at", oneHourAgo);
+      .select("created_at")
+      .eq("email", normalizedEmail)
+      .eq("ip", ip)
+      .gte("created_at", oneHourAgo)
+      .order("created_at", { ascending: true })
+      .limit(3);
 
-    if ((count ?? 0) >= 3) return generic();
+    if ((recentAttempts?.length ?? 0) >= 3) {
+      const oldestAttempt = new Date(recentAttempts![0].created_at).getTime();
+      const retryAfterSeconds = Math.max(60, Math.ceil((oldestAttempt + 60 * 60 * 1000 - Date.now()) / 1000));
+      return generic(retryAfterSeconds);
+    }
 
     await admin.from("password_reset_attempts").insert({
-      email: email.toLowerCase(), ip,
+      email: normalizedEmail, ip,
     });
 
     // Buscar usuário
     const { data: profile } = await admin
       .from("profiles")
       .select("user_id, full_name, email")
-      .ilike("email", email)
+      .ilike("email", normalizedEmail)
       .maybeSingle();
 
     if (!profile?.user_id) return generic();
@@ -68,15 +79,19 @@ Deno.serve(async (req) => {
       resetUrl,
     });
 
-    await admin.functions.invoke("send-email", {
+    const { data: sendData, error: sendError } = await admin.functions.invoke("send-email", {
       body: {
         type: "password_reset",
-        to: email,
+        to: normalizedEmail,
         subject,
         html,
         user_id: profile.user_id,
       },
     });
+
+    if (sendError || sendData?.success === false) {
+      console.error("send-email error", sendError ?? sendData);
+    }
 
     return generic();
   } catch (e) {
