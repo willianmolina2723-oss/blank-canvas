@@ -1,24 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Ambulance, Loader2, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Ambulance, Loader2, Mail, ArrowLeft, CheckCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
     if (cooldown <= 0) return;
-    const timer = setInterval(() => setCooldown(c => c <= 1 ? 0 : c - 1), 1000);
+    const timer = setInterval(
+      () => setCooldown((c) => (c <= 1 ? 0 : c - 1)),
+      1000,
+    );
     return () => clearInterval(timer);
   }, [cooldown > 0]);
 
@@ -29,46 +38,62 @@ export default function ForgotPassword() {
     const normalizedEmail = email.trim().toLowerCase();
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-password-reset', {
-        body: { email: normalizedEmail },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "send-password-reset",
+        {
+          body: { email: normalizedEmail },
+        },
+      );
 
       if (error) {
         throw error;
       }
 
-      const serverCooldown = typeof data?.cooldown_seconds === 'number' ? data.cooldown_seconds : 0;
+      const serverCooldown =
+        typeof data?.cooldown_seconds === "number" ? data.cooldown_seconds : 0;
       const nextCooldown = Math.max(serverCooldown, 60);
 
       setFeedbackMessage(
-        typeof data?.message === 'string' && data.message.length > 0
+        typeof data?.message === "string" && data.message.length > 0
           ? data.message
-          : 'Se o email estiver cadastrado, você receberá um link para redefinir sua senha.'
+          : "Se o email estiver cadastrado, você receberá um link para redefinir sua senha.",
       );
       setCooldown(nextCooldown);
       setSent(true);
 
       if (serverCooldown > 0) {
         toast({
-          title: 'Aguarde antes de tentar novamente',
+          title: "Aguarde antes de tentar novamente",
           description: `Já houve várias tentativas recentes. Tente novamente em cerca de ${Math.ceil(serverCooldown / 60)} minuto(s).`,
         });
       }
 
-      supabase.functions.invoke('log-auth-event', {
-        body: { event_type: 'password_reset_request', email: normalizedEmail, success: true },
-      }).catch(() => {});
+      supabase.functions
+        .invoke("log-auth-event", {
+          body: {
+            event_type: "password_reset_request",
+            email: normalizedEmail,
+            success: true,
+          },
+        })
+        .catch(() => {});
     } catch (err) {
       console.error(err);
       toast({
-        title: 'Não foi possível enviar o link agora',
-        description: 'Tente novamente em instantes.',
-        variant: 'destructive',
+        title: "Não foi possível enviar o link agora",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
       });
 
-      supabase.functions.invoke('log-auth-event', {
-        body: { event_type: 'password_reset_request', email: normalizedEmail, success: false },
-      }).catch(() => {});
+      supabase.functions
+        .invoke("log-auth-event", {
+          body: {
+            event_type: "password_reset_request",
+            email: normalizedEmail,
+            success: false,
+          },
+        })
+        .catch(() => {});
     } finally {
       setIsLoading(false);
     }
@@ -86,11 +111,13 @@ export default function ForgotPassword() {
 
         <Card className="border-2">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl text-center">Recuperar Senha</CardTitle>
+            <CardTitle className="text-xl text-center">
+              Recuperar Senha
+            </CardTitle>
             <CardDescription className="text-center">
               {sent
-                ? 'Verifique seu email para redefinir a senha'
-                : 'Informe seu email para receber o link de recuperação'}
+                ? "Verifique seu email para redefinir a senha"
+                : "Informe seu email para receber o link de recuperação"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -98,7 +125,8 @@ export default function ForgotPassword() {
               <div className="flex flex-col items-center gap-4 py-4">
                 <CheckCircle className="h-12 w-12 text-green-500" />
                 <p className="text-sm text-muted-foreground text-center">
-                  {feedbackMessage || 'Se o email estiver cadastrado, você receberá um link para redefinir sua senha.'}
+                  {feedbackMessage ||
+                    "Se o email estiver cadastrado, você receberá um link para redefinir sua senha."}
                 </p>
                 <Link to="/auth">
                   <Button variant="outline" className="mt-2">
@@ -125,13 +153,24 @@ export default function ForgotPassword() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 text-base" disabled={isLoading || cooldown > 0}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {cooldown > 0 ? `Aguarde ${cooldown}s` : 'Enviar link de recuperação'}
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base"
+                  disabled={isLoading || cooldown > 0}
+                >
+                  {isLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {cooldown > 0
+                    ? `Aguarde ${cooldown}s`
+                    : "Enviar link de recuperação"}
                 </Button>
 
                 <div className="text-center">
-                  <Link to="/auth" className="text-sm text-primary hover:underline">
+                  <Link
+                    to="/auth"
+                    className="text-sm text-primary hover:underline"
+                  >
                     <ArrowLeft className="h-3 w-3 inline mr-1" />
                     Voltar ao login
                   </Link>
