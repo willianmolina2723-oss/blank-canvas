@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -64,7 +64,9 @@ export default function Checklist() {
   const [eventRole, setEventRole] = useState<AppRole | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
-  const { dates, activeId: activeDateId, setActiveId: setActiveDateId } = useEventDates(eventId);
+  const { dates, activeId: activeDateId, setActiveId: setActiveDateId, isLoading: datesLoading } = useEventDates(eventId);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadVersion = useRef(0);
 
   const utiRef = useRef<UTIConditionsTabHandle>(null);
   const videosRef = useRef<ChecklistVideoTabHandle>(null);
@@ -87,13 +89,11 @@ export default function Checklist() {
   const canCheck = canEditVehicleChecklist;
   const canManageItems = isFullAdmin;
 
-  useEffect(() => {
-    if (eventId && activeDateId !== undefined) loadChecklist();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, activeDateId]);
-
-  const loadChecklist = async () => {
+  const loadChecklist = useCallback(async () => {
+    if (!eventId || datesLoading || !profile) return;
+    const version = ++loadVersion.current;
     setIsLoading(true);
+    setLoadError(null);
     try {
       let query = supabase
         .from('checklist_items')
@@ -110,7 +110,8 @@ export default function Checklist() {
 
       if (error) throw error;
 
-      const loaded = data as ChecklistItem[];
+      if (version !== loadVersion.current) return;
+      const loaded = (data || []) as ChecklistItem[];
       const confirmFlag = loaded.find(i => (i.item_type as string) === 'checklist_confirmed');
       setIsConfirmed(!!confirmFlag);
 
@@ -120,37 +121,38 @@ export default function Checklist() {
       });
 
       if (displayItems.length === 0 && (canCheck || canManageItems)) {
-        await createDefaultItems();
+        const { data: created, error: createError } = await supabase.from('checklist_items').insert(
+          DEFAULT_ITEMS.map(name => ({
+            event_id: eventId,
+            event_date_id: activeDateId || null,
+            item_type: 'pre',
+            item_name: name,
+            is_checked: false,
+            empresa_id: profile.empresa_id || null,
+          }))
+        ).select();
+        if (createError) throw createError;
+        if (version === loadVersion.current) setItems((created || []) as ChecklistItem[]);
         return;
       }
 
       setItems(displayItems);
     } catch (err) {
+      if (version !== loadVersion.current) return;
       console.error('Error loading checklist:', err);
-      toast({ title: 'Erro', description: explainError(err, 'Não foi possível carregar o checklist.'), variant: 'destructive' });
+      const message = explainError(err, 'Não foi possível carregar o checklist.');
+      setItems([]);
+      setLoadError(message);
+      toast({ title: 'Erro', description: message, variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      if (version === loadVersion.current) setIsLoading(false);
     }
-  };
+  }, [eventId, activeDateId, datesLoading, profile?.id, profile?.empresa_id, canCheck, canManageItems, toast]);
 
-  const createDefaultItems = async () => {
-    try {
-      const allItems = DEFAULT_ITEMS.map(name => ({
-        event_id: eventId,
-        event_date_id: activeDateId || null,
-        item_type: 'pre',
-        item_name: name,
-        is_checked: false,
-        empresa_id: profile?.empresa_id || null,
-      }));
-
-      const { error } = await supabase.from('checklist_items').insert(allItems);
-      if (error) throw error;
-      await loadChecklist();
-    } catch (err) {
-      console.error('Error creating default items:', err);
-    }
-  };
+  useEffect(() => {
+    void loadChecklist();
+    return () => { loadVersion.current += 1; };
+  }, [loadChecklist]);
 
   const setItemValue = async (item: ChecklistItem, value: boolean) => {
     if (!canCheck || isConfirmed) {
@@ -432,7 +434,17 @@ export default function Checklist() {
                     <Badge variant={status.percentage === 100 ? 'default' : 'secondary'}>{status.answered}/{status.total} ({status.percentage}%)</Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">{items.map(renderItem)}</CardContent>
+                <CardContent className="space-y-2">
+                  {items.map(renderItem)}
+                  {items.length === 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        {loadError || 'O checklist ainda não foi preenchido pelo condutor ou administrador.'}
+                      </p>
+                      {loadError && <Button variant="outline" onClick={() => void loadChecklist()}>Tentar novamente</Button>}
+                    </div>
+                  )}
+                </CardContent>
               </Card>
 
               {canManageItems && (
