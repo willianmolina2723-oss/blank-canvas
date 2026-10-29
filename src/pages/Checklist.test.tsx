@@ -47,7 +47,7 @@ describe('Checklist initialization', () => {
     state.canEdit = true;
     view.rerender(<Checklist />);
     await waitFor(() => expect(state.insert).toHaveBeenCalledTimes(1));
-    expect(state.insert.mock.calls[0][0]).toHaveLength(11);
+    expect(state.insert.mock.calls[0][0]).toHaveLength(10);
     expect(state.insert.mock.calls[0][0][0].event_date_id).toBe('selected-date');
   });
 

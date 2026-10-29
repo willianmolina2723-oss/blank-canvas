@@ -1,2 +1,2 @@
 - [ ] Criar conta temporária de condutor: aguardando e-mail existente para receber o convite; não criar endereço fictício.
-- [ ] Investigar e corrigir o checklist que não aparece.
+- [x] Corrigir carregamento do checklist e testar espera de datas e atualização de permissões.
