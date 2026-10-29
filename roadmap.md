@@ -1,2 +1,2 @@
-- [ ] Esclarecer e criar a conta temporária solicitada (confirmar se a função é condutor ou consultor e o e-mail).
+- [ ] Criar conta temporária de condutor: aguardando e-mail existente para receber o convite; não criar endereço fictício.
 - [ ] Investigar e corrigir o checklist que não aparece.
