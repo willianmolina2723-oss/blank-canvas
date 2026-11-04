@@ -2064,7 +2064,7 @@ export type Database = {
           deleted_by: string | null
           empresa_id: string | null
           event_date_id: string | null
-          event_id: string
+          event_id: string | null
           gender: string | null
           id: string
           main_complaint: string | null
@@ -2084,7 +2084,7 @@ export type Database = {
           deleted_by?: string | null
           empresa_id?: string | null
           event_date_id?: string | null
-          event_id: string
+          event_id?: string | null
           gender?: string | null
           id?: string
           main_complaint?: string | null
@@ -2104,7 +2104,7 @@ export type Database = {
           deleted_by?: string | null
           empresa_id?: string | null
           event_date_id?: string | null
-          event_id?: string
+          event_id?: string | null
           gender?: string | null
           id?: string
           main_complaint?: string | null
