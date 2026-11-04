@@ -264,14 +264,14 @@ export default function Financial() {
       const totalOtherCosts = (otherCosts || []).reduce((sum: number, o: any) => sum + Number(o.amount), 0);
 
       // Calculate paid: from payment records + auto-paid events (status='pago' without records)
-      let totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+      // Recebido por evento: se marcado como pago conta o valor final inteiro;
+      // senão soma os pagamentos registrados, limitado ao valor final (sem passar do devido).
+      let totalPaid = 0;
       (finances || []).forEach((f: any) => {
-        if (f.status === 'pago') {
-          const finPayments = payments.filter((p: any) => p.event_finance_id === f.id);
-          if (finPayments.length === 0) {
-            totalPaid += Number(f.contract_value) - Number(f.discounts) + Number(f.additions);
-          }
-        }
+        const due = Number(f.contract_value) - Number(f.discounts) + Number(f.additions)
+          + (eventChargeMap.get(f.event_id) ? (insumosByEvent.get(f.event_id) || 0) : 0);
+        const received = payments.filter((p: any) => p.event_finance_id === f.id).reduce((s: number, p: any) => s + Number(p.amount), 0);
+        totalPaid += f.status === 'pago' ? Math.max(due, received) : Math.min(received, Math.max(0, due));
       });
 
       const totalCosts = totalStaffCosts + medCosts + matCosts + totalOtherCosts + totalFuelCosts;
