@@ -272,6 +272,16 @@ export function OpportunityCard({ opportunity, onDelete, onRefresh }: Opportunit
                     {closingOpportunity ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Encerrar'}
                   </Button>
                 )}
+                {opportunity.status === 'fechada' && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => { window.location.href = `/admin/events/new?fromOpportunity=${opportunity.id}`; }}
+                    className="text-xs h-8"
+                  >
+                    Criar evento
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
