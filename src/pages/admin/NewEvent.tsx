@@ -158,6 +158,38 @@ export default function NewEventPage() {
             participantsList.push({ profile: p, role, selected: false });
           });
       });
+
+      // Pré-preenche a partir de uma oportunidade encerrada (?fromOpportunity=<id>)
+      const oppId = new URLSearchParams(window.location.search).get('fromOpportunity');
+      if (oppId) {
+        const [oppRes, regRes] = await Promise.all([
+          (supabase as any).from('opportunities').select('*').eq('id', oppId).maybeSingle(),
+          (supabase as any).from('opportunity_registrations').select('profile_id, role').eq('opportunity_id', oppId).eq('status', 'confirmado'),
+        ]);
+        const opp = oppRes.data;
+        if (opp) {
+          setLocation(opp.location || '');
+          setDescription(opp.description || opp.title || '');
+          const start = (opp.start_time || '08:00').slice(0, 5);
+          const end = (opp.end_time || '18:00').slice(0, 5);
+          const dates: EventDateEntry[] = [];
+          const cur = new Date(`${opp.event_date}T12:00:00`);
+          const last = new Date(`${opp.end_date || opp.event_date}T12:00:00`);
+          while (cur <= last && dates.length < 60) {
+            const y = cur.getFullYear();
+            const m = String(cur.getMonth() + 1).padStart(2, '0');
+            const d = String(cur.getDate()).padStart(2, '0');
+            dates.push({ date: `${y}-${m}-${d}`, start_time: start, end_time: end });
+            cur.setDate(cur.getDate() + 1);
+          }
+          if (dates.length) setEventDates(dates);
+          const regs = (regRes.data || []) as { profile_id: string; role: string }[];
+          participantsList.forEach(p => {
+            if (regs.some(r => r.profile_id === p.profile.id && r.role === p.role)) p.selected = true;
+          });
+          toast({ title: 'Dados da oportunidade carregados', description: `${regs.length} profissional(is) confirmado(s) já selecionado(s). Escolha a viatura e o contratante.` });
+        }
+      }
       setParticipants(participantsList);
     } catch (err) {
       console.error('Error loading data:', err);
