@@ -25,8 +25,8 @@ const PATIENTS = [
   { id: '3', event_id: 'e2', name: 'Carla Dias', cpf: null, age: 27, gender: 'feminino', birth_date: null, main_complaint: null, brief_history: null, allergies: null, current_medications: null, created_by: null, empresa_id: 'company', created_at: '2026-01-03T10:00:00.000Z', updated_at: '2026-01-03T10:00:00.000Z' },
 ];
 
-function searchBox(view: ReturnType<typeof render>) {
-  return view.getByRole('textbox', { name: 'Buscar por nome ou CPF' });
+function searchBox(view: ReturnType<typeof render>): HTMLInputElement {
+  return view.getByRole('textbox', { name: 'Buscar por nome ou CPF' }) as HTMLInputElement;
 }
 
 beforeEach(() => {
