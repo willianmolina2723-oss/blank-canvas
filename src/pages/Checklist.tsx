@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, ArrowRight, ClipboardCheck, Plus, Loader2, Check, AlertTriangle,
-  Car, CheckCircle2, Video, Fuel
+  Car, CheckCircle2, Video, Fuel, Settings2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
@@ -367,6 +367,40 @@ export default function Checklist() {
           </div>
         </div>
 
+        {status.total > 0 && (
+          <div className="rounded-xl border bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">
+                {`${status.answered} de ${status.total} itens conferidos`}
+              </p>
+              {status.percentage === 100 ? (
+                <span className="flex items-center gap-1 text-xs font-bold text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Completo
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-muted-foreground">{`${status.percentage}%`}</span>
+              )}
+            </div>
+            <div
+              className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={status.total}
+              aria-valuenow={status.answered}
+              aria-label="Progresso do checklist de equipamentos"
+            >
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-300',
+                  status.percentage === 100 ? 'bg-green-600' : 'bg-primary'
+                )}
+                style={{ width: `${status.percentage}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {dates.length > 0 && (
           <div className="px-1">
             <EventDateSelector dates={dates} activeId={activeDateId} onChange={setActiveDateId} compact />
@@ -437,11 +471,25 @@ export default function Checklist() {
                 <CardContent className="space-y-2">
                   {items.map(renderItem)}
                   {items.length === 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        {loadError || 'O checklist ainda não foi preenchido pelo condutor ou administrador.'}
-                      </p>
+                    <div className="flex flex-col items-center gap-3 py-8 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                        <ClipboardCheck className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-foreground">Nenhum item foi cadastrado</p>
+                        <p className="mx-auto max-w-xs text-xs text-muted-foreground">
+                          {loadError || (canManageItems
+                            ? 'Cadastre os equipamentos desta viatura para poder conferi-los no checklist.'
+                            : 'Aguarde um administrador cadastrar os itens deste checklist.')}
+                        </p>
+                      </div>
                       {loadError && <Button variant="outline" onClick={() => void loadChecklist()}>Tentar novamente</Button>}
+                      {canManageItems && (
+                        <Button onClick={() => navigate('/admin/checklist')}>
+                          <Settings2 className="h-4 w-4 mr-2" />
+                          Gerenciar Checklist
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
