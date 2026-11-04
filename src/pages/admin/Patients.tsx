@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -32,9 +32,11 @@ import { Pill, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { explainError } from '@/utils/explainError';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
   ArrowLeft, Search, FileDown, Loader2, UserRound, Calendar,
-  ChevronDown, Activity, Stethoscope, AlertCircle, PenTool, Plus, ShieldCheck
+  ChevronDown, Activity, Stethoscope, AlertCircle, PenTool, Plus, ShieldCheck,
+  SearchX, X
 } from 'lucide-react';
 import { formatBR } from '@/utils/dateFormat';
 import type { Patient, Event, NursingEvolution, MedicalEvolution, DigitalSignature } from '@/types/database';
@@ -350,6 +352,7 @@ export default function PatientsPage() {
   const [patients, setPatients] = useState<PatientWithEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [evolutions, setEvolutions] = useState<Record<string, { nursing: NursingEvolution[]; medical: MedicalEvolution[]; signatures: (DigitalSignature & { profile?: { full_name: string; professional_id: string | null } })[]; medications: { name: string; qty: number }[]; materials: { name: string; qty: number }[] }>>({});
@@ -451,10 +454,20 @@ export default function PatientsPage() {
     }
   };
 
-  const filteredPatients = patients.filter(patient =>
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.event?.code?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const search = debouncedSearch.trim().toLowerCase();
+  const searchDigits = debouncedSearch.replace(/\D/g, '');
+
+  const filteredPatients = useMemo(() => patients.filter(patient => {
+    if (!search) return true;
+    const name = (patient.name || '').toLowerCase();
+    const cpfDigits = (patient.cpf || '').replace(/\D/g, '');
+    const eventCode = (patient.event?.code || '').toLowerCase();
+    return (
+      name.includes(search) ||
+      (searchDigits.length >= 2 && cpfDigits.includes(searchDigits)) ||
+      eventCode.includes(search)
+    );
+  }), [patients, search, searchDigits]);
 
   if (authLoading || isLoading) {
     return (
@@ -489,25 +502,60 @@ export default function PatientsPage() {
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome ou evento..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou CPF"
+              aria-label="Buscar por nome ou CPF"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchTerm && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Limpar busca"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {searchTerm.trim()
+              ? `${filteredPatients.length} de ${patients.length} paciente${patients.length !== 1 ? 's' : ''} encontrado${filteredPatients.length !== 1 ? 's' : ''}`
+              : `${patients.length} paciente${patients.length !== 1 ? 's' : ''} cadastrado${patients.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
 
         {/* Empty State */}
         {filteredPatients.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-16">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <div className="rounded-full bg-muted p-4 mb-4">
-                <UserRound className="h-8 w-8 text-muted-foreground" />
+                <SearchX className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-muted-foreground font-medium">Nenhum paciente encontrado</p>
-              <p className="text-sm text-muted-foreground mt-1">Tente buscar com outros termos</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {searchTerm.trim()
+                  ? `Nada corresponde a "${searchTerm.trim()}". Tente outro nome ou CPF.`
+                  : 'Nenhum paciente cadastrado ainda.'}
+              </p>
+              {searchTerm.trim() ? (
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => setSearchTerm('')}>
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar busca
+                </Button>
+              ) : (
+                <Button size="sm" className="mt-4" onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Nova Ficha
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
