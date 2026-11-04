@@ -76,6 +76,8 @@ export default function Financial() {
       const { data: rawEvents } = await supabase
         .from('events')
         .select('id, code, status, location, created_at, departure_time, arrival_time, ambulance_id, cobrar_materiais_medicamentos')
+        .is('deleted_at', null)
+        .neq('status', 'cancelado')
         .order('created_at', { ascending: false });
 
       // Filter events that belong to the selected month
@@ -104,6 +106,7 @@ export default function Financial() {
         { data: participants },
         { data: checklistItems },
         { data: ambulancesData },
+        { data: assignments },
       ] = await Promise.all([
         db.from('event_finances').select('*').in('event_id', eventIds),
         db.from('event_staff_costs').select('*').in('event_id', eventIds),
@@ -113,6 +116,7 @@ export default function Financial() {
         supabase.from('event_participants').select('event_id, profile_id').in('event_id', eventIds),
         supabase.from('checklist_items').select('item_name, item_type, notes, cost_item_id, event_id').in('event_id', eventIds).in('item_type', ['consumo_medicamentos', 'materiais', 'km_combustivel_inicio', 'km_combustivel_fim']),
         supabase.from('ambulances').select('id, km_per_liter'),
+        db.from('event_assignments').select('event_id, profile_id, paid_duration_minutes').in('event_id', eventIds),
       ]);
 
       // Build transport minutes per event
@@ -150,15 +154,26 @@ export default function Financial() {
       const staffCostMap = new Map<string, any>();
       (staffCosts || []).forEach((sc: any) => { staffCostMap.set(`${sc.event_id}_${sc.profile_id}`, sc); });
 
+      // Horas pagas reais por pessoa (soma de todas as datas) via event_assignments.
+      // Evita contar o intervalo inteiro entre a 1ª e a última data em eventos com várias datas.
+      const assignMinutes = new Map<string, number>();
+      (assignments || []).forEach((a: any) => {
+        const m = Number(a.paid_duration_minutes) || 0;
+        if (m <= 0) return;
+        const k = `${a.event_id}_${a.profile_id}`;
+        assignMinutes.set(k, (assignMinutes.get(k) || 0) + m);
+      });
+
       // Calculate total staff costs using hours × rate
       let totalStaffCosts = 0;
       (participants || []).forEach((p: any) => {
-        const minutes = transportByEvent.get(p.event_id) || 0;
-        const sc = staffCostMap.get(`${p.event_id}_${p.profile_id}`);
+        const key = `${p.event_id}_${p.profile_id}`;
+        const minutes = assignMinutes.has(key) ? assignMinutes.get(key)! : (transportByEvent.get(p.event_id) || 0);
+        const sc = staffCostMap.get(key);
         const rate = sc && Number(sc.base_value) > 0 ? Number(sc.base_value) : DEFAULT_RATE;
         const extras = sc ? Number(sc.extras) || 0 : 0;
         const discounts = sc ? Number(sc.discounts) || 0 : 0;
-        totalStaffCosts += (minutes / 60) * rate + extras - discounts;
+        totalStaffCosts += Math.max(0, (minutes / 60) * rate + extras - discounts);
       });
 
       // Insumo costs from checklist_items
@@ -249,14 +264,14 @@ export default function Financial() {
       const totalOtherCosts = (otherCosts || []).reduce((sum: number, o: any) => sum + Number(o.amount), 0);
 
       // Calculate paid: from payment records + auto-paid events (status='pago' without records)
-      let totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+      // Recebido por evento: se marcado como pago conta o valor final inteiro;
+      // senão soma os pagamentos registrados, limitado ao valor final (sem passar do devido).
+      let totalPaid = 0;
       (finances || []).forEach((f: any) => {
-        if (f.status === 'pago') {
-          const finPayments = payments.filter((p: any) => p.event_finance_id === f.id);
-          if (finPayments.length === 0) {
-            totalPaid += Number(f.contract_value) - Number(f.discounts) + Number(f.additions);
-          }
-        }
+        const due = Number(f.contract_value) - Number(f.discounts) + Number(f.additions)
+          + (eventChargeMap.get(f.event_id) ? (insumosByEvent.get(f.event_id) || 0) : 0);
+        const received = payments.filter((p: any) => p.event_finance_id === f.id).reduce((s: number, p: any) => s + Number(p.amount), 0);
+        totalPaid += f.status === 'pago' ? Math.max(due, received) : Math.min(received, Math.max(0, due));
       });
 
       const totalCosts = totalStaffCosts + medCosts + matCosts + totalOtherCosts + totalFuelCosts;
