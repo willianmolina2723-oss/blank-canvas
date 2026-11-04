@@ -91,7 +91,7 @@ describe('Patients search', () => {
 
     await waitFor(() => expect(searchBox(view).value).toBe(''));
     await waitFor(() => expect(view.getByText('3 pacientes cadastrados')).toBeTruthy());
-    expect(view.getByText('Ana Souza')).toBeTruthy();
+    await waitFor(() => expect(view.getByText('Ana Souza')).toBeTruthy());
     expect(view.getByText('Bruno Lima')).toBeTruthy();
     expect(view.getByText('Carla Dias')).toBeTruthy();
   });
