@@ -103,7 +103,7 @@ describe('Patients search', () => {
     expect(view.getByText('Ana Souza')).toBeTruthy();
 
     fireEvent.change(searchBox(view), { target: { value: 'Ana' } });
-    expect(view.getByText('3 pacientes cadastrados')).toBeTruthy();
+    expect(view.getByText('3 de 3 pacientes encontrados')).toBeTruthy();
 
     await vi.advanceTimersByTimeAsync(300);
     expect(view.getByText('1 de 3 pacientes encontrados')).toBeTruthy();

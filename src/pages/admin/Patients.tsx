@@ -517,7 +517,7 @@ export default function PatientsPage() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Limpar busca"
+                aria-label="Limpar campo de busca"
                 onClick={() => setSearchTerm('')}
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
               >
@@ -527,7 +527,7 @@ export default function PatientsPage() {
           </div>
           <p className="text-xs text-muted-foreground" aria-live="polite">
             {searchTerm.trim()
-              ? `${filteredPatients.length} de ${patients.length} paciente${patients.length !== 1 ? 's' : ''} encontrado${filteredPatients.length !== 1 ? 's' : ''}`
+              ? `${filteredPatients.length} de ${patients.length} paciente${patients.length !== 1 ? 's' : ''} encontrado${patients.length !== 1 ? 's' : ''}`
               : `${patients.length} paciente${patients.length !== 1 ? 's' : ''} cadastrado${patients.length !== 1 ? 's' : ''}`}
           </p>
         </div>
