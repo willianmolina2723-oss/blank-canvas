@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -65,7 +65,10 @@ export default function Financial() {
     setContractors(data || []);
   };
 
+  const loadSeq = useRef(0);
   const loadFinancialData = async () => {
+    const seq = ++loadSeq.current;
+    const isStale = () => seq !== loadSeq.current;
     setIsLoading(true);
     try {
       const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
@@ -87,6 +90,7 @@ export default function Financial() {
         return d >= new Date(start) && d <= new Date(end);
       });
 
+      if (isStale()) return;
       const eventIds = (eventsData || []).map(e => e.id);
       setEvents(eventsData || []);
 
@@ -114,10 +118,11 @@ export default function Financial() {
         db.from('cost_items').select('*').eq('is_active', true),
         supabase.from('transport_records').select('event_id, departure_time, arrival_time').in('event_id', eventIds),
         supabase.from('event_participants').select('event_id, profile_id').in('event_id', eventIds),
-        supabase.from('checklist_items').select('item_name, item_type, notes, cost_item_id, event_id').in('event_id', eventIds).in('item_type', ['consumo_medicamentos', 'materiais', 'km_combustivel_inicio', 'km_combustivel_fim']),
+        supabase.from('checklist_items').select('item_name, item_type, notes, cost_item_id, event_id, event_date_id').in('event_id', eventIds).in('item_type', ['consumo_medicamentos', 'materiais', 'km_combustivel_inicio', 'km_combustivel_fim']),
         supabase.from('ambulances').select('id, km_per_liter'),
         db.from('event_assignments').select('event_id, profile_id, paid_duration_minutes').in('event_id', eventIds),
       ]);
+      if (isStale()) return;
 
       // Build transport minutes per event
       // Regra: só usar arrival_time real (transport_records) se evento finalizado.
@@ -203,16 +208,23 @@ export default function Financial() {
       // Fuel costs: km driven from checklist × diesel price / km_per_liter
       const ambulanceMap = new Map((ambulancesData || []).map((a: any) => [a.id, Number(a.km_per_liter) || 0]));
       // Build KM map per event from checklist items
-      const kmByEvent = new Map<string, { initial: number; final: number }>();
+      // KM por data (eventos com várias datas têm um checklist por data); soma depois por evento
+      const kmByDate = new Map<string, { eventId: string; initial: number; final: number }>();
       (checklistItems || []).forEach((ci: any) => {
         if (ci.item_type !== 'km_combustivel_inicio' && ci.item_type !== 'km_combustivel_fim') return;
         try {
           const parsed = JSON.parse(ci.notes || '{}');
-          const entry = kmByEvent.get(ci.event_id) || { initial: 0, final: 0 };
+          const k = `${ci.event_id}_${ci.event_date_id || 'legacy'}`;
+          const entry = kmByDate.get(k) || { eventId: ci.event_id, initial: 0, final: 0 };
           if (ci.item_type === 'km_combustivel_inicio') entry.initial = Number(parsed.km_inicial) || 0;
           if (ci.item_type === 'km_combustivel_fim') entry.final = Number(parsed.km_final) || 0;
-          kmByEvent.set(ci.event_id, entry);
+          kmByDate.set(k, entry);
         } catch {}
+      });
+      const kmDrivenByEvent = new Map<string, number>();
+      kmByDate.forEach((e) => {
+        if (!e.initial || !e.final || e.final <= e.initial) return;
+        kmDrivenByEvent.set(e.eventId, (kmDrivenByEvent.get(e.eventId) || 0) + (e.final - e.initial));
       });
 
       let totalFuelCosts = 0;
@@ -220,9 +232,7 @@ export default function Financial() {
         if (!ev.ambulance_id) return;
         const kmPerLiter = ambulanceMap.get(ev.ambulance_id);
         if (!kmPerLiter || Number(kmPerLiter) <= 0) return;
-        const km = kmByEvent.get(ev.id);
-        if (!km || !km.initial || !km.final) return;
-        const kmDriven = km.final - km.initial;
+        const kmDriven = kmDrivenByEvent.get(ev.id) || 0;
         if (kmDriven > 0) {
           totalFuelCosts += (kmDriven / Number(kmPerLiter)) * DIESEL_PRICE;
         }
@@ -278,6 +288,7 @@ export default function Financial() {
 
       // Pending freelancers - those not yet paid for this month
       const { data: paidFP } = await db.from('freelancer_payments').select('total_amount').eq('reference_month', `${selectedMonth}-01`).eq('status', 'pago').eq('cancelled', false);
+      if (isStale()) return;
       const paidFreelancerTotal = (paidFP || []).reduce((s: number, p: any) => s + Number(p.total_amount), 0);
       const pendingFreelancers = totalStaffCosts - paidFreelancerTotal;
 
@@ -295,7 +306,7 @@ export default function Financial() {
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
   };
 
