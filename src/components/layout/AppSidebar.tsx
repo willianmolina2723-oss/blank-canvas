@@ -38,15 +38,17 @@ export function AppSidebar() {
     { label: 'Configurações', icon: Settings, path: '/admin/settings', adminOnly: true, module: null },
   ];
 
+  const visibleItems = allNavItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    if ('hideForAdmin' in item && item.hideForAdmin && isAdmin) return false;
+    if (item.module && !canAccess(item.module)) return false;
+    if ('hideOnPlan' in item && item.hideOnPlan && empresa?.plano === item.hideOnPlan) return false;
+    return true;
+  });
+
   const navItems = isSuperAdmin
-    ? [{ label: 'Empresas', icon: Crown, path: '/super-admin', adminOnly: false, module: null }]
-    : allNavItems.filter(item => {
-        if (item.adminOnly && !isAdmin) return false;
-        if ('hideForAdmin' in item && item.hideForAdmin && isAdmin) return false;
-        if (item.module && !canAccess(item.module)) return false;
-        if ('hideOnPlan' in item && item.hideOnPlan && empresa?.plano === item.hideOnPlan) return false;
-        return true;
-      });
+    ? [{ label: 'Empresas', icon: Crown, path: '/super-admin', adminOnly: false, module: null }, ...visibleItems]
+    : visibleItems;
 
   const NavButton = ({ item }: { item: typeof navItems[0] }) => {
     const active = item.path === '/' ? location.pathname === '/' : isActive(item.path);

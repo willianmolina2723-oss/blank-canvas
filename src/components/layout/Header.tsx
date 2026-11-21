@@ -16,6 +16,7 @@ import {
   Briefcase,
   Crown,
   Settings,
+  Video,
 } from 'lucide-react';
 import { Shield } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export function Header() {
     { label: 'Prontuários', icon: FileText, path: '/admin/patients', adminOnly: true, module: null },
     { label: 'Usuários', icon: Users, path: '/admin/users', adminOnly: true, module: null },
     { label: 'Viaturas', icon: Truck, path: '/admin/ambulances', adminOnly: true, module: null },
+    { label: 'Vídeos Checklist', icon: Video, path: '/admin/checklist-videos', adminOnly: true, module: null },
     { label: 'Eventos', icon: Calendar, path: '/admin/events', adminOnly: true, module: null },
     { label: 'Relatórios', icon: Archive, path: '/admin/reports', adminOnly: true, module: null },
     { label: 'Pagamentos', icon: DollarSign, path: '/admin/payroll', adminOnly: true, module: 'pagamentos_freelancers' as const, hideOnPlan: 'GESTAO_COMPLETA' as const },
@@ -42,14 +44,16 @@ export function Header() {
   ];
 
   // Filter nav items based on role and plan
+  const visibleItems = allNavItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.module && !canAccess(item.module)) return false;
+    if ('hideOnPlan' in item && item.hideOnPlan && empresa?.plano === item.hideOnPlan) return false;
+    return true;
+  });
+
   const navItems = isSuperAdmin
-    ? [{ label: 'Empresas', icon: Crown, path: '/super-admin', adminOnly: false, module: null }]
-    : allNavItems.filter(item => {
-        if (item.adminOnly && !isAdmin) return false;
-        if (item.module && !canAccess(item.module)) return false;
-        if ('hideOnPlan' in item && item.hideOnPlan && empresa?.plano === item.hideOnPlan) return false;
-        return true;
-      });
+    ? [{ label: 'Empresas', icon: Crown, path: '/super-admin', adminOnly: false, module: null }, ...visibleItems]
+    : visibleItems;
 
   const handleNavigate = (path: string) => {
     navigate(path);
